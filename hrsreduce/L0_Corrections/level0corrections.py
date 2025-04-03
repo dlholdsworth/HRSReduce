@@ -495,11 +495,11 @@ class L0Corrections():
     def run(self):
     
         #First check to see if this has been run by checking for intermediate files
-        for type in self.files.keys():
+        for type in self.files.keys(): 
             for i,file in enumerate(self.files[type]):
                 processed_file = glob.glob(str(self.out_dir+"go"+file.removeprefix(self.in_dir)))
                 if len(processed_file) == 1:
-                    self.files[type][i]=processed_file
+                    self.files[type][i]=processed_file[0]
                     continue
                 else:
                     file_o = self.oscan(file,self.nights[type])
