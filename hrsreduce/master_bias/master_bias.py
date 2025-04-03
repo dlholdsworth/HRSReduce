@@ -40,16 +40,17 @@ class MasterBias():
         #Test if Master Bias exists
         master_file = glob.glob(self.out_dir+"Master_Bias_"+self.sarm+self.night+".fits")
 
+        
         if len(master_file) == 0:
 
             #Open files to check if they are the correct EXPTIME (0) and PROPID (CAL_BIAS)
             Bias_files = []
             Bias_files_short = []
             for file in self.files:
-                with fits.open(file[0]) as hdu:
+                with fits.open(file) as hdu:
                     if (hdu[0].header["EXPTIME"] == self.EXPTIME and hdu[0].header["PROPID"] == self.propid):
-                        Bias_files.append(file[0])
-                        Bias_files_short.append(file[0].removeprefix(self.out_dir))
+                        Bias_files.append(file)
+                        Bias_files_short.append(file.removeprefix(self.out_dir))
                         gain = hdu[0].header["AVG_GAIN"]
 
 
@@ -102,7 +103,6 @@ class MasterBias():
                 plt.imshow(avg, vmin=bot, vmax=top, origin="lower")
                 plt.title("Master Bias Frame")
                 plt.savefig(self.out_dir+"Master_Bias_Frame.png",bbox_inches='tight',dpi=600)
-                plt.show()
                 plt.close()
             
             #Fit a gaussian to the data to find the read noise (2*sigma)
@@ -234,6 +234,7 @@ class MasterBias():
 
             #Write the master bias to file with approraite header info
             new_hdu = fits.PrimaryHDU(data=avg.astype(np.float32))
+            
             new_hdu.header.insert(6,('COMMENT',"  FITS (Flexible Image Transport System) format is defined in 'Astronomy"))
             new_hdu.header.insert(7,('COMMENT',"  and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H"))
             new_hdu.header['ADCROT'] = (str(hdu[0].header['ADCROT']), "ADC rotation")

@@ -1,0 +1,827 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "hrsreduce.schema",
+    "title": "HRSReduce Settings",
+    "description": "Available settings for the HRSReduce reduction pipeline",
+    "type": "object",
+    "properties": {
+        "__instrument__": {
+            "description": "The name of the instrument these settings are designed for",
+            "type": "string"
+        },
+        "reduce": {
+            "type": "object",
+            "properties": {
+                "base_dir": {
+                    "description": "Base directory of all reduce operations, to keep input and output seperate",
+                    "type": "string"
+                },
+                "input_dir": {
+                    "description": "Directory containing the input data, relative to the base directory. May contain {instrument}, {night}, {mode}, {target} tags.",
+                    "type": "string"
+                },
+                "output_dir": {
+                    "description": "Directory to place the output (and temporary) files in, relative to the base directory. May contain {instrument}, {night}, {mode}, {target} tags.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "base_dir",
+                "input_dir",
+                "output_dir"
+            ]
+        },
+        "instrument": {
+            "type": "object"
+        },
+        "mask": {
+            "type": "object"
+        },
+        "bias": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "degree": {
+                            "description": "Polynomial degree of the fit between exposure time and pixel values",
+                            "type": "number",
+                            "minimum": 0
+                        }
+                    },
+                    "required": [
+                        "degree"
+                    ]
+                }
+            ]
+        },
+        "flat": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "$ref": "#/definitions/bias_scaling"
+                }
+            ]
+        },
+        "orders": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "$ref": "#/definitions/bias_scaling"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "degree": {
+                            "description": "Polynomial degree of the fit to the orders on the detector",
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "degree_before_merge": {
+                            "description": "Polynomial degree of the first fit to the orders, before merging clusters",
+                            "type": [
+                                "integer",
+                                "string"
+                            ],
+                            "minimum": 0
+                        },
+                        "regularization": {
+                            "description": "Regularization parameter for the order fitting (before merging)",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "closing_shape": {
+                            "description": "Shape for the binary closing",
+                            "type": "array",
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "items": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "auto_merge_threshold": {
+                            "description": "Fractional threshold, for automatic merging",
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "merge_min_threshold": {
+                            "description": "Minimum merge probabilty to consider",
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "split_sigma": {
+                            "description": "Number of standard deviations around the best fit polyonomial of all orders, to split data points of of. Set to 0 to disable splitting.",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "filter_size": {
+                            "description": "Size of the gaussian filter that smoothes the columns for the detection of pixels with signal. Estimated automatically if null.",
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 0
+                        },
+                        "min_cluster": {
+                            "description": "Smallest allowed size of clusters before merging. Estimated automatically if null.",
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 0
+                        },
+                        "min_width": {
+                            "description": "Minimum width of a cluster to be considered after merging. If between 0 and 1, use that fraction of the detector width. Estimated automatically if null",
+                            "type": [
+                                "number",
+                                "null"
+                            ],
+                            "minimum": 0
+                        },
+                        "noise": {
+                            "description": "Background noise level cutoff. Estimated automatically if null.",
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 0
+                        },
+                        "border_width": {
+                            "description": "Number of pixels to disregard at the border of the image. Estimated automatically if null.",
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 0
+                        },
+                        "manual": {
+                            "description": "Ask for manual confirmation before merging any clusters. Otherwise only ask when overlap below 90%.",
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "degree",
+                        "filter_size",
+                        "min_cluster",
+                        "noise",
+                        "border_width",
+                        "manual"
+                    ]
+                }
+            ]
+        },
+        "scatter": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "$ref": "#/definitions/bias_scaling"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "scatter_degree": {
+                            "description": "Polynomial degree of the background scatter, in both pixel dimensions",
+                            "type": [
+                                "integer",
+                                "array"
+                            ],
+                            "minimum": 0,
+                            "items": {
+                                "type": "integer",
+                                "minimum": 0
+                            }
+                        },
+                        "extraction_width": {
+                            "description": "Number of pixels below and above the order to use in the extraction. If a value under 1.5 is given it will be understood as the fractional difference to the next order. If only a single value is given it will be applied to all orders, otherwise values need to be provided for all orders",
+                            "type": [
+                                "integer",
+                                "number",
+                                "array"
+                            ],
+                            "items": {
+                                "type": [
+                                    "integer",
+                                    "number"
+                                ]
+                            }
+                        },
+                        "scatter_cutoff": {
+                            "description": "Number of sigmas around the mean to include in the background scatter fit",
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                        },
+                        "border_width": {
+                            "description": "Border Width to ignore for background fit.",
+                            "type": [
+                                "number",
+                                "null"
+                            ],
+                            "minimum": 0
+                        }
+                    },
+                    "required": [
+                        "scatter_degree",
+                        "scatter_cutoff",
+                        "border_width"
+                    ]
+                }
+            ]
+        },
+        "norm_flat": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "$ref": "#/definitions/extraction"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "threshold": {
+                            "description": "Background level threshold, if lower than 0, it is understood as a fraction of the maximum",
+                            "type": [
+                                "number",
+                                "integer"
+                            ],
+                            "exclusiveMinimum": 0
+                        },
+                        "threshold_lower":{
+                            "description": "Lower background level threshold, after the extraction. Always absolute, by default 0.",
+                            "type": "number",
+                            "minimum": 0
+                        }
+                    },
+                    "required": [
+                        "threshold",
+                        "threshold_lower"
+                    ]
+                }
+            ]
+        },
+        "wavecal_master": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "$ref": "#/definitions/extraction"
+                },
+                {
+                    "$ref": "#/definitions/bias_scaling"
+                }
+            ]
+        },
+        "wavecal_init": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "degree": {
+                            "description": "Degree of the polynomial fit for the initial guess",
+                            "type": "number",
+                            "minimum": 2
+                        },
+                        "element": {
+                            "description": "Element(s) of the Gas Lamp used for calibration",
+                            "type": "string"
+                        },
+                        "medium": {
+                            "description": "Medium of the detector, either air or vaccum. This affects the wavelength scale",
+                            "type": "string",
+                            "enum": [
+                                "vac",
+                                "air"
+                            ]
+                        },
+                        "wave_delta": {
+                            "description": "Wavelength uncertainty on the initial guess in Angstrom",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "nwalkers": {
+                            "description": "Number of MCMC walkers",
+                            "type": "number",
+                            "minimum": 1
+                        },
+                        "steps": {
+                            "description": "Number of MCMC steps per walker",
+                            "type": "number",
+                            "minimum": 1
+                        },
+                        "resid_delta": {
+                            "description": "Residual Uncertainty allowed to match a peak to its known wavelength in m/s",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "smoothing": {
+                            "description": "Gaussian smoothing parameter applied to the observed spectrum in pixel scale, set to 0 to disable smoothing",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "cutoff": {
+                            "description": "Minimum height of spectral lines in the normalized spectrum, values of 1 and above are interpreted as percentiles of the spectrum, set to 0 to disable the cutoff",
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                        }
+                    },
+                    "required": [
+                        "degree",
+                        "element",
+                        "medium",
+                        "wave_delta",
+                        "nwalkers",
+                        "steps",
+                        "resid_delta",
+                        "smoothing",
+                        "cutoff"
+                    ]
+                }
+            ]
+        },
+        "wavecal": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "$ref": "#/definitions/polynomialfit"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "manual": {
+                            "description": "Use only manual order alignment if true. When false still allow manual alignment after automatic alignment if plot is true",
+                            "type": "boolean"
+                        },
+                        "correlate_cols": {
+                            "description": "The number of columns used for 2D cross correlation alignment. 0 means all pixels (slow).",
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "shift_window": {
+                            "description": "The fraction of the columns that each order can be shifted individually to align with the reference",
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "threshold": {
+                            "description": "Residual threshold in m/s above which lines will be removed from the fit",
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                        },
+                        "iterations": {
+                            "description": "Number of iterations in the Remove Lines, Identify Lines loop",
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "element": {
+                            "description": "Element(s) of the Gas Lamp used for calibration",
+                            "type": ["string", "null"]
+                        },
+                        "medium": {
+                            "description": "Medium of the detector, either air or vaccum. This affects the wavelength scale",
+                            "type": "string",
+                            "enum": [
+                                "vac",
+                                "air"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "manual",
+                        "shift_window",
+                        "threshold",
+                        "iterations",
+                        "element",
+                        "medium"
+                    ]
+                }
+            ]
+        },
+        "freq_comb_master": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "$ref": "#/definitions/extraction"
+                },
+                {
+                    "$ref": "#/definitions/bias_scaling"
+                }
+            ]
+        },
+        "freq_comb": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "$ref": "#/definitions/polynomialfit"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "lfc_peak_width": {
+                            "description": "Required width of the frequency comb peaks, in the peak detection algorithm",
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 1
+                        },
+                        "threshold": {
+                            "description": "Residual threshold in m/s above which lines will be removed from the fit",
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                        }
+                    },
+                    "required": [
+                        "lfc_peak_width",
+                        "degree",
+                        "dimensionality",
+                        "threshold"
+                    ]
+                }
+            ]
+        },
+        "curvature": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "$ref": "#/definitions/polynomialfit"
+                },
+                {
+                    "$ref": "#/definitions/bias_scaling"
+                },
+                {
+                    "$ref": "#/definitions/extraction"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "curv_degree": {
+                            "description": "Number of orders of the curvature to fit. I.e. 1: only linear curvature, 2: second order curvature",
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2
+                        },
+                        "peak_threshold": {
+                            "description": "Peak detection noise threshold. This much times * 10% noise must be the prominence of the peaks",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "peak_width": {
+                            "description": "Minimum width of the peaks in the curvature detection. Usually 1 for sharp peaks as in the wavecal, or 3 for broader peaks of the freq comb",
+                            "type": [
+                                "null",
+                                "number",
+                                "array"
+                            ],
+                            "minimum": 1,
+                            "items": {
+                                "type": "number"
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
+                        },
+                        "window_width": {
+                            "description": "Width of the window to look for the peak of each row, within each line. The value here speciefies only on direction the window size is actually twice this +1.",
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "peak_function": {
+                            "description": "Function that is used to fit individual line peaks",
+                            "type": "string",
+                            "enum": [
+                                "gaussian",
+                                "lorentzian"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "dimensionality",
+                        "degree",
+                        "peak_function",
+                        "window_width",
+                        "peak_width",
+                        "peak_threshold",
+                        "curv_degree"
+                    ]
+                }
+            ]
+        },
+        "rectify": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "extraction_width": {
+                            "description": "Number of pixels below and above the order to use in the extraction. If a value under 1.5 is given it will be understood as the fractional difference to the next order. If only a single value is given it will be applied to all orders, otherwise values need to be provided for all orders",
+                            "type": [
+                                "integer",
+                                "number",
+                                "array"
+                            ],
+                            "items": {
+                                "type": [
+                                    "integer",
+                                    "number"
+                                ]
+                            }
+                        },
+                        "input_files": {
+                            "description": "Which input files to rectify. Usually 'science' for the science files, but could be any other step with input files",
+                            "type": "string",
+                            "enum": [
+                                "science",
+                                "flat",
+                                "bias",
+                                "scatter",
+                                "orders",
+                                "curvature",
+                                "wavecal",
+                                "freq_comb"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "extraction_width"
+                    ]
+                }
+            ]
+        },
+        "science": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "$ref": "#/definitions/extraction"
+                }
+            ]
+        },
+        "continuum": {
+            "$ref": "#/definitions/step"
+        },
+        "finalize": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/step"
+                },
+                {
+                    "properties": {
+                        "filename": {
+                            "description": "Name of the output file. Can include placeholders for instrument, mode, night and observation this night",
+                            "type": "string"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "required": [
+        "reduce",
+        "instrument",
+        "mask",
+        "bias",
+        "flat",
+        "orders",
+        "scatter",
+        "norm_flat",
+        "wavecal_master",
+        "wavecal_init",
+        "wavecal",
+        "freq_comb_master",
+        "freq_comb",
+        "curvature",
+        "continuum",
+        "finalize"
+    ],
+    "definitions": {
+        "step": {
+            "type": "object",
+            "properties": {
+                "plot": {
+                    "description": "Plot results and progress if true",
+                    "type": [
+                        "boolean",
+                        "integer"
+                    ],
+                    "minimum": 0
+                },
+                "plot_title": {
+                    "description": "Title used in the plots, if any",
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                }
+            },
+            "required": [
+                "plot",
+                "plot_title"
+            ]
+        },
+        "extraction": {
+            "description": "Common settings for an extraction",
+            "type": "object",
+            "$comment": "There are two options for the extraction. Each has its own set of parameters that need to be present",
+            "oneOf": [
+                {
+                    "title": "Optimal Extraction",
+                    "properties": {
+                        "extraction_method": {
+                            "description": "The method to use for extraction",
+                            "type": "string",
+                            "enum": [
+                                "normalize",
+                                "optimal"
+                            ]
+                        },
+                        "oversampling": {
+                            "description": "Ovsersampling factor",
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "smooth_slitfunction": {
+                            "description": "Smoothing parameter for the slitfunction",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "smooth_spectrum": {
+                            "description": "Smoothing parameter for the spectrum",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "swath_width": {
+                            "description": "Approximate width of each swath. Exact width might vary slightly",
+                            "type": "integer",
+                            "minimum": 3
+                        },
+                        "extraction_width": {
+                            "description": "Number of pixels below and above the order to use in the extraction. If a value under 1.5 is given it will be understood as the fractional difference to the next order. If only a single value is given it will be applied to all orders, otherwise values need to be provided for all orders",
+                            "type": [
+                                "integer",
+                                "number",
+                                "array"
+                            ],
+                            "items": {
+                                "type": [
+                                    "integer",
+                                    "number"
+                                ]
+                            }
+                        },
+                        "extraction_cutoff": {
+                            "description": "Number of sigma above the median of the sorounding pixels to curoff the pixel as a bad pixel. Before the main extraction!. Set to 0 to ignore.",
+                            "type": "number",
+                            "minimum": 0
+                        }
+                    },
+                    "required": [
+                        "extraction_method",
+                        "oversampling",
+                        "smooth_slitfunction",
+                        "smooth_spectrum",
+                        "swath_width",
+                        "extraction_width",
+                        "extraction_cutoff"
+                    ]
+                },
+                {
+                    "title": "Arc Extraction",
+                    "properties": {
+                        "extraction_method": {
+                            "description": "The method to use for extraction",
+                            "type": "string",
+                            "enum": [
+                                "arc"
+                            ]
+                        },
+                        "extraction_width": {
+                            "description": "Number of pixels below and above the order to use in the extraction. If a value under 1.5 is given it will be understood as the fractional difference to the next order. If only a single value is given it will be applied to all orders, otherwise values need to be provided for all orders",
+                            "type": [
+                                "integer",
+                                "number",
+                                "array"
+                            ],
+                            "items": {
+                                "type": [
+                                    "integer",
+                                    "number"
+                                ]
+                            }
+                        },
+                        "extraction_cutoff": {
+                            "description": "Number of sigma above the median of the sorounding pixels to curoff the pixel as a bad pixel. Before the main extraction!. Set to 0 to ignore.",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "collapse_function": {
+                            "description": "Function used to collapse the image into a spectrum",
+                            "type": "string",
+                            "enum": [
+                                "sum",
+                                "mean",
+                                "median"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "extraction_method",
+                        "extraction_width",
+                        "extraction_cutoff",
+                        "collapse_function"
+                    ]
+                }
+            ]
+        },
+        "polynomialfit": {
+            "type": "object",
+            "oneOf": [
+                {
+                    "properties": {
+                        "dimensionality": {
+                            "type": "string",
+                            "enum": [
+                                "1D"
+                            ]
+                        },
+                        "degree": {
+                            "description": "Polynomial degree in column direction",
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                },
+                {
+                    "properties": {
+                        "dimensionality": {
+                            "type": "string",
+                            "enum": [
+                                "2D"
+                            ]
+                        },
+                        "degree": {
+                            "description": "Polynomial degree in each direction. The first element is in column direction, the second in order direction",
+                            "type": "array",
+                            "items": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
+                        }
+                    }
+                }
+            ]
+        },
+        "bias_scaling": {
+            "type": "object",
+            "properties": {
+                "bias_scaling": {
+                    "description": "determines how the bias is applied",
+                    "type": "string",
+                    "enum": [
+                        "number_of_files",
+                        "exposure_time",
+                        "mean",
+                        "median",
+                        "none"
+                    ]
+                },
+                "norm_scaling":{
+                    "description": "determines how to apply the normalized flat",
+                    "type": "string",
+                    "enum": ["divide", "none"]
+                }
+            },
+            "required": [
+                "bias_scaling",
+                "norm_scaling"
+            ]
+        }
+    }
+}

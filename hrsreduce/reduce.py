@@ -26,14 +26,14 @@ import importlib
 import arrow
 
 from hrsreduce.hrs_info import Instrument
+from hrsreduce.utils.sort_files import SortFiles
+from hrsreduce.utils.find_nearest_files import FindNearestFiles
 from hrsreduce.L0_Corrections.level0corrections import L0Corrections
 from hrsreduce.master_bias.master_bias import MasterBias
 from hrsreduce.master_flat.master_flat import MasterFlat
 
 from .configuration import load_config
 
-#from . import instruments
-#from .instruments.instrument_info import load_instrument
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +174,7 @@ def main(
         files = {}
         nights = {}
         
-        files["bias"],files["flat"],files["arc"],files["lfc"],files["sci"] = instrument.sort_files_2(input_dir,n,mode=m,**config["instrument"])
+        files["bias"],files["flat"],files["arc"],files["lfc"],files["sci"] = SortFiles(input_dir,logger,mode=m)
         
         #List the nights where the data come from. Is updated below if files are not found in the suggested night.
         nights["bias"] = yyyymmdd
@@ -190,7 +190,7 @@ def main(
                 input_dir,
             )
             #Now search to find a night with the files
-            files["bias"], nights["bias"]= instrument.find_nearest_files("Bias",yyyymmdd,m,base_dir,arm_colour,**config["instrument"])
+            files["bias"], nights["bias"]= FindNearestFiles("Bias",yyyymmdd,m,base_dir,arm_colour,logger)
 
             
         if not files["flat"]:
@@ -201,7 +201,7 @@ def main(
             )
             
             #Now search to find a night with the files
-            files["flat"], nights["flat"] = instrument.find_nearest_files("Flat",yyyymmdd,m,base_dir,arm_colour,**config["instrument"])
+            files["flat"], nights["flat"] = FindNearestFiles("Flat",yyyymmdd,m,base_dir,arm_colour,logger)
  
         if not files["arc"]:
             logger.warning(
@@ -210,7 +210,7 @@ def main(
                 input_dir,
             )
             #Now search to find a night with the files
-            files["arc"], nights["arc"] = instrument.find_nearest_files("Arc",yyyymmdd,m,base_dir,arm_colour,**config["instrument"])
+            files["arc"], nights["arc"] = FindNearestFiles("Arc",yyyymmdd,m,base_dir,arm_colour,logger)
             
         if not files["sci"]:
             logger.warning(
@@ -231,7 +231,7 @@ def main(
         Run through the reduction steps in the following order
             --  Apply level 0 corrections to remove overscan region, flip the red frames and corrects for gain
             --  Calculate the master bias, or read it for the night if already created. This also calculates the read noise
-            --  Calculate the master flat, or read it for the night/mode if alreadt created.
+            --  Calculate the master flat, or read it for the night/mode if alreayt created.
             --  Define the orders, or read them from file
             --  Calculate the slit curvature, or read from file
             --  Calculate background scatter
@@ -247,12 +247,12 @@ def main(
         
         #Apply the level 0 corrections
         files = L0Corrections(files,nights,yyyymmdd,input_dir,output_dir,base_dir,arm).run()
-        
+
         #Calcualte the master bias
         master_bias = MasterBias(files["bias"],input_dir,output_dir,arm_colour,yyyymmdd,plot).create_masterbias()
         
         #Calcualte the master flat
-        master_flat = MasterFlat(files["flat"],nights,input_dir,output_dir,arm_colour,plot).create_masterflat()
+        master_flat = MasterFlat(files["flat"],nights,input_dir,output_dir,base_dir,arm_colour,yyyymmdd,m,plot).create_masterflat()
         
 
 #        files = instrument.sort_files(
