@@ -5,10 +5,7 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from datetime import datetime
 import pytz
-from scipy.ndimage import gaussian_filter
-import numpy.ma as ma
-#from scipy.stats import norm
-#import os
+import os
 
 
 from hrsreduce.utils.frame_stacker import FrameStacker
@@ -17,8 +14,6 @@ from hrsreduce.L0_Corrections.level0corrections import L0Corrections
 from hrsreduce.master_bias.master_bias import MasterBias
 
 logger = logging.getLogger(__name__)
-
-
 
 class MasterFlat():
 
@@ -76,6 +71,9 @@ class MasterFlat():
                 files = L0Corrections(files,self.nights,yyyymmdd, flat_bias_loc+"/raw/",flat_bias_loc+"/reduced/",self.base_dir,self.sarm).run()
 
                 flat_bias = MasterBias(files["bias"],flat_bias_loc+"/reduced/",flat_bias_loc+"/reduced/",self.arm,yyyymmdd,self.plot).create_masterbias()
+                
+                for ff in files["bias"]:
+                    os.remove(ff)
                 
             with fits.open(flat_bias) as hdul:
                 Master_bias = hdul[0].data

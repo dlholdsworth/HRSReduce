@@ -40,7 +40,6 @@ class MasterBias():
         #Test if Master Bias exists
         master_file = glob.glob(self.out_dir+"Master_Bias_"+self.sarm+self.night+".fits")
 
-        
         if len(master_file) == 0:
 
             #Open files to check if they are the correct EXPTIME (0) and PROPID (CAL_BIAS)
