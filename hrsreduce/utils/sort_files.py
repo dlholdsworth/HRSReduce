@@ -56,7 +56,6 @@ def SortFiles(input_dir, logger, mode):
 
     for file in files:
         with fits.open(file) as hdul:
-            print(file)
             hdr = hdul[0].header
             try:
                 if np.logical_and((hdr["OBSTYPE"] == "Bias" or hdr["CCDTYPE"] == "Bias") ,hdr["PROPID"] == "CAL_BIAS"):

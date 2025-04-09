@@ -8,7 +8,7 @@ Daniel Holdsworth (daniel.l.holdsworth@gmail.com)
 
 Version
 -------
-1.0 - Initial PyReduce
+1.0 - Initial HRSReduce
 
 License
 --------
@@ -31,6 +31,7 @@ from hrsreduce.utils.find_nearest_files import FindNearestFiles
 from hrsreduce.L0_Corrections.level0corrections import L0Corrections
 from hrsreduce.master_bias.master_bias import MasterBias
 from hrsreduce.master_flat.master_flat import MasterFlat
+from hrsreduce.order_trace.order_trace import OrderTrace
 
 from .configuration import load_config
 
@@ -251,8 +252,19 @@ def main(
         #Calcualte the master bias
         master_bias = MasterBias(files["bias"],input_dir,output_dir,arm_colour,yyyymmdd,plot).create_masterbias()
         
+        #Remove the intermediate files
+        for ff in files["bias"]:
+            os.remove(ff)
+        
         #Calcualte the master flat
         master_flat = MasterFlat(files["flat"],nights,input_dir,output_dir,base_dir,arm_colour,yyyymmdd,m,plot).create_masterflat()
+        
+        #Remove the intermediate files
+        for ff in files["flat"]:
+            os.remove(ff)
+            
+        #Create the Order file
+        order_file = OrderTrace(master_flat,nights,base_dir,arm_colour,m,plot).order_trace()
         
 
 #        files = instrument.sort_files(
