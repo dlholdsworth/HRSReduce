@@ -266,6 +266,8 @@ def main(
         #Create the Order file
         order_file = OrderTrace(master_flat,nights,base_dir,arm_colour,m,plot).order_trace()
         
+        #Extract the data
+        
 
 #        files = instrument.sort_files(
 #            input_dir,
