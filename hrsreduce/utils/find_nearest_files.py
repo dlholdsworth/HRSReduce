@@ -26,7 +26,7 @@ def FindNearestFiles(type,night,m,base_dir,arm_colour,logger):
         prev_data_location = os.path.join(base_dir, arm_colour+'/'+prev_year+'/'+prev_mmdd+'/raw/')
         result = SortFiles(prev_data_location,logger,mode=m)
         files = result[idx]
-        if m =="HS" and idx == 1 and len(files)<9:
+        if idx == 1 and len(files)<3:
             files = []
         else:
             logger.info(
@@ -42,7 +42,7 @@ def FindNearestFiles(type,night,m,base_dir,arm_colour,logger):
         next_data_location = os.path.join(base_dir, arm_colour+'/'+next_year+'/'+next_mmdd+'/raw/')
         result = SortFiles(next_data_location,logger,mode=m)
         files = result[idx]
-        if m =="HS" and idx == 1 and len(files)<9:
+        if idx == 1 and len(files)<3:
             files = []
         else:
             logger.info(

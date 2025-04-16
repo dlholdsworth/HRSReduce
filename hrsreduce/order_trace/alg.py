@@ -6,6 +6,9 @@ from scipy import signal
 from astropy.modeling import models, fitting
 import pandas as pd
 
+from astropy.stats import SigmaClip
+from photutils.background import Background2D, MedianBackground
+
 FIT_G = fitting.LevMarLSQFitter()
 
 def is_empty_ary(ary: np.ndarray):
@@ -17,41 +20,144 @@ class OrderTraceAlg():
     LOWER = 0
     name = 'OrderTrace'
 
-    def __init__(self, data, poly_degree=None, expected_traces=None, orders_ccd=-1, do_post=False,
+    def __init__(self, data, mode, arm, poly_degree=None, expected_traces=None, orders_ccd=-1, do_post=False,
                  config=None, logger=None):
                  
         if not isinstance(data, np.ndarray):
             raise TypeError('image data type error, cannot construct object from OrderTraceAlg')
             
-
+        self.mode = mode
+        self.sarm = arm
         ny, nx = np.shape(data)
-        self.data_range = [0, ny - 1, 0, nx - 1]
-        self.flat_data = data[0:ny-1,0:nx-91]
-        self.original_size = [ny, nx]
-
         self.poly_degree = poly_degree
-        self.trace_ratio = None
-        self.expected_traces = expected_traces    # this is useful for regression test
-        self.orders_ccd = orders_ccd
-        self.do_post = do_post
-        self.fit_error_th = 10.55#
-        self.trace_ratio = .50
-        self.filter_par = 5
-        self.noise = 0.0
-        self.mask = 1
-        self.sigma_for_width_fititng = 2.0
-        self.pix_ext = 2
         
-        self.trace_vertical_gap = 2
-        self.width_default = 15
-        self.max_order_distance = 5
-        self.total_orderlets = 1
+        if self.sarm == "H":
+            self.data_range = [0, ny - 1, 0, nx - 1]
+            self.flat_data = data#[0:ny-1,0:nx-41]
+            self.original_size = [ny, nx]
+            self.expected_traces = expected_traces    # this is useful for regression test
+            self.orders_ccd = orders_ccd
+            self.do_post = do_post
+            
+            self.fit_error_th = 10.55#
+            self.trace_ratio = .50
+            self.filter_par = 20
+            self.noise = 0.0
+            self.mask = 1
+            self.sigma_for_width_fititng = 2.0
+            
+            self.logger = logger
+                
+            self.rows_str = ''
+            self.cols_str = ''
+            
+            self.trace_vertical_gap = 2
+            self.width_default = 15
+            self.max_order_distance = 5
+            self.total_orderlets = 1
+            
         
+        if self.sarm == "R":
+            self.data_range = [0, ny - 1, 0, nx - 1]
+            self.flat_data = data#[0:ny-1,0:nx-91]
+            self.original_size = [ny, nx]
+            self.expected_traces = expected_traces    # this is useful for regression test
+            self.orders_ccd = orders_ccd
+            self.do_post = do_post
+            
+            self.fit_error_th = 10.55#
+            self.trace_ratio = .50
+            self.filter_par = 5
+            self.noise = 0.0
+            self.mask = 1
+            self.sigma_for_width_fititng = 2.0
+            
+            self.logger = logger
+                
+            self.rows_str = ''
+            self.cols_str = ''
+            self.trace_vertical_gap = 2
+            self.width_default = 15
+            self.max_order_distance = 5
+            self.total_orderlets = 1
+                
+        if self.mode == "LR":
+            if self.sarm == "R":
+                self.pix_ext = 4
+                self.img_sigma = 15
+                self.rejection_limit = 2
+                self.mn_cut = 0.05
+                self.smooth_sigma = 3
+                self.ord_pix_range = 3
+                self.ord_bot_adj = 1
+                
+            if self.sarm == "H":
+                self.pix_ext = 1
+                self.img_sigma = 2.5
+                self.rejection_limit = 2
+                self.mn_cut = 0.05
+                self.smooth_sigma = 3
+                self.ord_pix_range = 3
+                self.ord_bot_adj = 5
+
+        if self.mode == "MR":
+            if self.sarm == "R":
+                self.pix_ext = 4
+                self.img_sigma = 4
+                self.rejection_limit = 2
+                self.mn_cut = 0.05
+                self.smooth_sigma = 5
+                self.ord_pix_range = 4
+                self.ord_bot_adj = 2
+                
+            if self.sarm == "H":
+                self.pix_ext = 1
+                self.img_sigma = 2.5
+                self.rejection_limit = 2
+                self.mn_cut = 0.05
+                self.smooth_sigma = 5
+                self.ord_pix_range = 2
+                self.ord_bot_adj = 2
+                
+        if self.mode == "HR":
+            if self.sarm == "R":
+                self.pix_ext = 3
+                self.img_sigma = 4
+                self.rejection_limit = 2
+                self.mn_cut = 0.05
+                self.smooth_sigma = 5
+                self.ord_pix_range = 4
+                self.ord_bot_adj = 2
+                
+            if self.sarm == "H":
+                self.pix_ext = 1
+                self.img_sigma = 2.5
+                self.rejection_limit = 2
+                self.mn_cut = 0.05
+                self.smooth_sigma = 5
+                self.ord_pix_range = 3
+                self.ord_bot_adj = 2
+                
+        if self.mode == "HS":
+            if self.sarm == "R":
+                self.pix_ext = 2
+                self.img_sigma = 4
+                self.mn_cut = 0.05
+                self.rejection_limit = 1
+                self.smooth_sigma = 7
+                self.ord_pix_range = 3
+                self.ord_bot_adj = 2
+                
+            if self.sarm == "H":
+                self.pix_ext = 1
+                self.img_sigma = 2.5
+                self.rejection_limit = 2
+                self.mn_cut = 0.05
+                self.smooth_sigma = 4
+                self.ord_pix_range = 3
+                self.ord_bot_adj = 2
+                
         
-        self.logger = logger
-        
-        self.rows_str = ''
-        self.cols_str = ''
         
     def get_spectral_data(self):
         """Get spectral information including data and dimension.
@@ -653,12 +759,15 @@ class OrderTraceAlg():
         self.correct_nan_data()
         # flat data array and dimension
         image_data, n_col, n_row = self.get_spectral_data()
-
+        
+        if self.mode == "MR" and self.sarm == "H":
+            image_data[860:867,140:144] = image_data[860:867,135:139]
 
         # Parameters
         filter_par = self.filter_par
         noise = self.noise
         mask = self.mask
+        mask2 = self.mask
 
         # if rows_to_reset (or cols_to_reset) to define in config file ???
         rows_str = self.rows_str
@@ -693,35 +802,188 @@ class OrderTraceAlg():
 
         # binary array
         imm = np.zeros((n_row, n_col), dtype=np.uint8)
+        imm2 = np.zeros((n_row, n_col), dtype=np.uint8)
         trace_ratio = self.trace_ratio
 
+        img = image_data.copy()
+        img2 = image_data.copy()
+        
         #DLH MOD
-        for col in range(n_col):
-            tmp = image_data[:, col]
-            #mm = image_data[:, col] + noise - self.opt_filter(image_data[:, col], filter_par)
-            qq = np.where(tmp < np.mean(tmp))[0]
-            ss = np.where(tmp[qq] < np.mean(tmp[qq]))[0]
-            tmp[qq][ss] = 0
-            mm=tmp
-            mm_pos = np.where(mm > 0, mm, 0)
-            h = 0.5*np.sort(mm_pos)[int(mm_pos.size*trace_ratio)]
-            if (np.nanmax(image_data[:, col]) - np.nanmin(image_data[:, col])) <= 1.0:
-                imm[:, col][mm > (h)] = mask
-            else:
-                imm[:, col][mm > (h+1)] = mask
+        if self.sarm == "R":
+            from scipy.ndimage import gaussian_filter
+            from scipy.signal import find_peaks
+            data = self.flat_data.copy()#[0:-1,0:-41]
+            n_col = data.shape[1]
+            n_row = data.shape[0]
+            data2 = np.zeros((n_row,n_col))
+            mm = np.zeros((n_row, n_col), dtype=np.uint8)
+                
+            data_med=np.median(data)
 
-        y, x = np.where(imm > 0)  # ex: (array([4, 5, 6, 7]), array([2, 2, 2, 2]))
+            data3 = gaussian_filter(data, sigma=self.smooth_sigma)
 
-        # correction on filtered image (ex. for NEID flat, stacked_2fiber_flat.fits)
-        if rows_to_reset is not None:
-            self.logger.debug('OrderTraceAlg: pos size before row reset: ' + str(np.size(y)) + ' ' + str(np.size(x)))
-            imm, x, y = self.reset_row_or_column(imm, rows_to_reset)
-            self.logger.info('OrderTraceAlg: pos size after row reset: '+str(np.size(y)) + ' ' + str(np.size(x)))
+            x = []
+            y = []
 
-        if cols_to_reset is not None:
-            self.logger.debug('OrderTraceAlg: pos size before column reset: ' + str(np.size(y)) + ' ' + str(np.size(x)))
-            imm, x, y = self.reset_row_or_column(imm, cols_to_reset, row_or_column=1)
-            self.logger.debug('OrderTraceAlg: pos size after column reset: ' + str(np.size(y)) + ' ' + str(np.size(x)))
+            for col in range(n_col):
+                tmp1= data[:,col]
+                tmp3 = data3[:,col]
+                peak_idx,_ = find_peaks(tmp3)
+                order_edge_limit = 0.25
+                for pk in range(len(peak_idx)):
+                    peak_x = peak_idx[pk]
+                    peak_h = tmp1[peak_x]
+                    peak_h1 = tmp1[peak_x]
+
+                    if np.logical_and(pk > 3, pk < len(peak_idx)-3):
+                        mn = np.median(tmp1[peak_idx[pk-3:pk+3]])
+                        mn2=np.median(tmp1[peak_idx[pk-3:pk+3]])
+                        if peak_h > mn2*.1:
+                            for k in range(self.ord_pix_range):
+                                if peak_x+k+1 < n_row:
+                                    if tmp1[peak_x+k] > order_edge_limit * peak_h1:
+                                        x.append(col)
+                                        y.append(peak_x+k)
+                                    else:
+                                        continue
+                            for k in range(1,self.ord_pix_range):
+                                if peak_x-k > 0:
+                                    if tmp1[peak_x-k] > order_edge_limit * peak_h1:
+                                        y.append(peak_x-k)
+                                        x.append(col)
+                                    else:
+                                        continue
+                    else:
+                        for k in range(self.ord_pix_range):
+                            if peak_x+k < n_row:
+                                if (tmp1[peak_x+k] > order_edge_limit * peak_h1):
+                                    x.append(col)
+                                    y.append(peak_x+k)
+                                else:
+                                    continue
+                        for k in range(1,self.ord_pix_range):
+                            if peak_x-k > 0:
+                                if (tmp1[peak_x-k] > order_edge_limit * peak_h1):
+                                    y.append(peak_x-k)
+                                    x.append(col)
+                            else:
+                                continue
+
+            y = np.array(y)
+            x = np.array(x)
+            
+            ii = np.where(np.logical_and(y > 0,y< n_row))[0]
+        
+            x=x[ii]
+            y = y[ii]
+            imm[y,x] = 1
+  
+            y,x = np.where(imm >0)
+#            for col in range(n_col):
+#                tmp = image_data[:, col]
+#                tmp3 = tmp.copy()
+#
+#                qq = np.where(tmp < np.median(tmp)*self.rejection_limit)[0]
+#                tmp[qq] = 0
+#                mm=tmp
+#
+#                mm_pos = np.where(mm > 0, mm, 0)
+#                h = 0.5*np.sort(mm_pos)[int(mm_pos.size*trace_ratio)]
+#                if (np.nanmax(image_data[:, col]) - np.nanmin(image_data[:, col])) <= 1.0:
+#                    imm[:, col][mm > (h)] = mask
+#                else:
+#                    imm[:, col][mm > (h+1)] = mask
+#
+#            y, x = np.where(imm > 0)  # ex: (array([4, 5, 6, 7]), array([2, 2, 2, 2]))
+#
+#            # correction on filtered image (ex. for NEID flat, stacked_2fiber_flat.fits)
+#            if rows_to_reset is not None:
+#                self.logger.debug('OrderTraceAlg: pos size before row reset: ' + str(np.size(y)) + ' ' + str(np.size(x)))
+#                imm, x, y = self.reset_row_or_column(imm, rows_to_reset)
+#                self.logger.info('OrderTraceAlg: pos size after row reset: '+str(np.size(y)) + ' ' + str(np.size(x)))
+#
+#            if cols_to_reset is not None:
+#                self.logger.debug('OrderTraceAlg: pos size before column reset: ' + str(np.size(y)) + ' ' + str(np.size(x)))
+#                imm, x, y = self.reset_row_or_column(imm, cols_to_reset, row_or_column=1)
+#                self.logger.debug('OrderTraceAlg: pos size after column reset: ' + str(np.size(y)) + ' ' + str(np.size(x)))
+                
+        elif self.sarm == "H":
+            from scipy.ndimage import gaussian_filter
+            from scipy.signal import find_peaks
+            data = self.flat_data.copy()#[0:-1,0:-41]
+            n_col = data.shape[1]
+            n_row = data.shape[0]
+            data2 = np.zeros((n_row,n_col))
+            mm = np.zeros((n_row, n_col), dtype=np.uint8)
+            
+            badcols = [484,485,486,487,488,489,490,491,492,493,494,495,496]
+            for col in badcols:
+                data[:,col] = data[:,col-13]
+            badcols = [538,539,852,853]
+            for col in badcols:
+                data[:,col] = data[:,col-2]
+                
+            data_med=np.median(data)
+
+            data3 = gaussian_filter(data, sigma=self.smooth_sigma)
+
+            x = []
+            y = []
+
+            for col in range(n_col):
+                tmp1= data[:,col]
+                tmp3 = data3[:,col]
+                peak_idx,_ = find_peaks(tmp3)
+                order_edge_limit = 0.25
+                for pk in range(len(peak_idx)):
+                    peak_x = peak_idx[pk]
+                    peak_h = tmp1[peak_x]
+                    peak_h1 = tmp1[peak_x]
+
+                    if np.logical_and(pk > 3, pk < len(peak_idx)-3):
+                        mn = np.median(tmp1[peak_idx[pk-3:pk+3]])
+                        mn2=np.median(tmp1[peak_idx[pk-3:pk+3]])
+                        if peak_h > mn2*.1:
+                            for k in range(self.ord_pix_range):
+                                if peak_x+k+1 < n_row:
+                                    if tmp1[peak_x+k] > order_edge_limit * peak_h1:
+                                        x.append(col)
+                                        y.append(peak_x+k)
+                                    else:
+                                        continue
+                            for k in range(1,self.ord_pix_range):
+                                if peak_x-k > 0:
+                                    if tmp1[peak_x-k] > order_edge_limit * peak_h1:
+                                        y.append(peak_x-k)
+                                        x.append(col)
+                                    else:
+                                        continue
+                    else:
+                        for k in range(self.ord_pix_range):
+                            if peak_x+k < n_row:
+                                if (tmp1[peak_x+k] > order_edge_limit * peak_h1):
+                                    x.append(col)
+                                    y.append(peak_x+k)
+                                else:
+                                    continue
+                        for k in range(1,self.ord_pix_range):
+                            if peak_x-k > 0:
+                                if (tmp1[peak_x-k] > order_edge_limit * peak_h1):
+                                    y.append(peak_x-k)
+                                    x.append(col)
+                            else:
+                                continue
+
+            y = np.array(y)
+            x = np.array(x)
+            
+            ii = np.where(np.logical_and(y > 0,y< n_row))[0]
+        
+            x=x[ii]
+            y = y[ii]
+            imm[y,x] = 1
+  
+            y,x = np.where(imm >0)
 
         return {'x': x, 'y': y, 'cluster_image': imm}
 
@@ -1315,7 +1577,7 @@ class OrderTraceAlg():
                           'poly_fitting': {next_idx: {'errors': errors, 'coeffs': p_info, 'area': area}}}
             else:
                 index_p, status = self.handle_noisy_cluster(index_p, x_p, y_p, [next_idx])
-
+            
             all_status[next_idx] = status
             self.logger.debug('OrderTraceAlg: idx: {} , status: {}'.format(str(next_idx),str(status)))
 
@@ -1388,7 +1650,6 @@ class OrderTraceAlg():
 
         power = self.poly_degree
         p_info, error, area = self.curve_fitting_on_one_cluster(cluster_no, index, x, y, power)
-
         return p_info, error, area
 
     def collect_clusters(self, c_x: np.ndarray, c_y: np.ndarray):
@@ -1634,7 +1895,7 @@ class OrderTraceAlg():
 
         _, nx, ny = self.get_spectral_data()
         w_th = max(nx//100, 1)
-        h_th = max(ny//800, 1)
+        h_th = max(ny//100, 1)
         if th is None:
             th = h_th * w_th
 
@@ -1670,8 +1931,8 @@ class OrderTraceAlg():
 
         # remove narrow cluster
         max_idx = np.amax(index)
-        h_size_th = max(ny//100, 1)
-        w_size_th = max(nx//100, 1)
+        h_size_th = max(ny//500, 1)
+        w_size_th = max(nx//500, 1)
         for c_id in np.arange(1, max_idx+1):
             w, h, t_p, crt_cluster_idx = self.get_cluster_size(c_id, index, x_index, y_index)
 
@@ -2435,7 +2696,6 @@ class OrderTraceAlg():
                                                    bin_no=max(int(cluster_h//width_th), 1),
                                                    cut_at=width_default)
                                                    
-        print(avg_pwidth,avg_nwidth)
 
         # self.values_at_width(avg_pwidth, avg_nwidth, cluster_points[cluster_no, center_x], center_x)
 
@@ -2564,6 +2824,7 @@ class OrderTraceAlg():
             cluster_set = list(range(1, max_cluster_no+1))
 
         uniq = np.unique(index_t)
+        #plt.imshow(spec,origin='lower',vmin=0,vmax=10)
         
         for n in cluster_set:
             s_x = int(coeffs[n, power + 1])
@@ -2575,23 +2836,82 @@ class OrderTraceAlg():
             ord_x=new_x[ii]
             ord_y=new_y[ii]
 
-            pix_range= []
+            pix_range_top= []
+            pix_range_bottom = []
 
+            mn= np.mean(spec[ord_cen.astype(int),x])
+            '''
             for j in range(len(x)):
                 test_col = x[j]
                 kk=np.where(ord_x == test_col)
                 test_y = ord_y[kk]
-
+            #    plt.plot(ord_x[kk],test_y,'x')
+  
                 ll=np.where(x == test_col)[0]
+            #    plt.plot(test_col,ord_cen[ll],'o')
                 if len(test_y)>0:
-                    pix_range.append(np.max(test_y-ord_cen[ll]))
-                    pix_range.append(np.min(test_y-ord_cen[ll]))
+                    pix_range_top.append(np.max(test_y-ord_cen[ll]))
+                    pix_range_bottom.append(np.min(test_y-ord_cen[ll]))
+#            if n > 60:
+#                plt.plot(x,pix_range_top)
+#                plt.plot(x,pix_range_bottom)
+#                plt.show()
+            max_range=np.median(np.array(pix_range_top))*3
+            min_range = np.abs(np.median(np.array(pix_range_bottom)))*3
+            '''
+            means_up = []
+            means_bt = []
+            steps_up = []
+            steps_bt = []
             
-            max_range=np.max(np.array(pix_range))
-            min_range = np.min(np.array(pix_range))
-            
-            cluster_widths.append({'top_edge': np.abs(max_range)+self.pix_ext, 'bottom_edge': np.abs(min_range)+self.pix_ext})
+            up_flag = True
+            down_flag = True
+            for step in range(0,25):
+                if np.max(ord_cen.astype(int)+step)<ny:
+                    steps_up.append(step)
+                    cen_2=ord_cen.astype(int)+step
+                    mn_line= np.mean(spec[cen_2,x])
+                    means_up.append(mn_line)
+                    if(mn_line > mn*self.mn_cut):
+                        #plt.plot(x,cen_2,'bo')
+                        top_edge=step
+                    else:
+                        up_flag = False
+                        break
+                else:
+                    top_edge = cluster_widths[n-2]['top_edge']-1
+                    up_flag = False
+                
+            for step2 in range(1,25):
+                if np.min(ord_cen.astype(int)-step2) > 0:
+                    steps_bt.append(step2)
+                    cen_2=ord_cen.astype(int)-step2
+                    mn_line= np.mean(spec[cen_2,x])
+                    means_bt.append(mn_line)
+                    if(mn_line > mn*self.mn_cut):
+                        #plt.plot(x,cen_2,'go')
+                        bottom_edge = step2
+                    else:
+                        down_flag = False
+                        break
+                    
+            if up_flag:
+                means_up= np.array(means_up)
+                steps_up = np.array(steps_up)
+                sort_idx = np.argsort(means_up)
+                steps_s = steps_up[sort_idx]
+                means_s = means_up[sort_idx]
+                top_edge = steps_s[0]-2
 
+            if down_flag:
+                means_bt= np.array(means_bt)
+                steps_bt = np.array(steps_bt)
+                sort_idx = np.argsort(means_bt)
+                steps_s = steps_bt[sort_idx]
+                means_s = means_bt[sort_idx]
+                bottom_edge = steps_s[0]-self.ord_bot_adj
+
+            cluster_widths.append({'top_edge': top_edge+1, 'bottom_edge': bottom_edge+1})
 
 #        for n in cluster_set:
 #            self.logger.debug('OrderTraceAlg: cluster: {}'.format(str(n)))
@@ -2609,30 +2929,30 @@ class OrderTraceAlg():
 #            #DLH RETURN self.logger.debug('OrderTraceAlg: after estimation: \n', '\n'.join([str(index+1)+': '+str(w) for index, w in enumerate(cluster_widths)]))
 
 
-        # fix the widths to make sure no overlap between the traces
-        pre_top_edge = np.zeros(nx)
-        bottom_edge = np.zeros(nx)
-        for n in cluster_set:
-            s_x = int(coeffs[n, power + 1])
-            e_x = int(coeffs[n, power + 2] + 1)
-            x_list = np.arange(s_x, e_x)
-            if n == 1:
-                pre_top_edge[x_list] = cluster_points[n, x_list] + cluster_widths[n-1]['top_edge']
-            else:
-                bottom_edge[x_list] = cluster_points[n, x_list] - cluster_widths[n-1]['bottom_edge']
-                edge_diff = bottom_edge[x_list] - pre_top_edge[x_list]
-                overlapping = np.amin(edge_diff)
-                if overlapping <= 0.0:
-                    reduce_width = -overlapping/2.0
-                    crt_reduce = min(reduce_width, cluster_widths[n-1]['bottom_edge']-1.0)
-                    pre_reduce = min((-overlapping - crt_reduce), cluster_widths[n-2]['top_edge']-1.0)
-                    self.logger.debug('overlapping at {} {} {} {}'.format(n, -overlapping, crt_reduce, pre_reduce))
-                    cluster_widths[n - 1]['bottom_edge'] -= crt_reduce
-                    cluster_widths[n - 2]['top_edge'] -= pre_reduce
-
-                pre_top_edge.fill(0.0)
-                pre_top_edge[x_list] = cluster_points[n, x_list] + cluster_widths[n-1]['top_edge']
-                bottom_edge.fill(0.0)
+#        # fix the widths to make sure no overlap between the traces
+#        pre_top_edge = np.zeros(nx)
+#        bottom_edge = np.zeros(nx)
+#        for n in cluster_set:
+#            s_x = int(coeffs[n, power + 1])
+#            e_x = int(coeffs[n, power + 2] + 1)
+#            x_list = np.arange(s_x, e_x)
+#            if n == 1:
+#                pre_top_edge[x_list] = cluster_points[n, x_list] + cluster_widths[n-1]['top_edge']
+#            else:
+#                bottom_edge[x_list] = cluster_points[n, x_list] - cluster_widths[n-1]['bottom_edge']
+#                edge_diff = bottom_edge[x_list] - pre_top_edge[x_list]
+#                overlapping = np.amin(edge_diff)
+#                if overlapping <= 0.0:
+#                    reduce_width = -overlapping/2.0
+#                    crt_reduce = min(reduce_width, cluster_widths[n-1]['bottom_edge']-1.0)
+#                    pre_reduce = min((-overlapping - crt_reduce), cluster_widths[n-2]['top_edge']-1.0)
+#                    self.logger.debug('overlapping at {} {} {} {}'.format(n, -overlapping, crt_reduce, pre_reduce))
+#                    cluster_widths[n - 1]['bottom_edge'] -= crt_reduce
+#                    cluster_widths[n - 2]['top_edge'] -= pre_reduce
+#
+#                pre_top_edge.fill(0.0)
+#                pre_top_edge[x_list] = cluster_points[n, x_list] + cluster_widths[n-1]['top_edge']
+#                bottom_edge.fill(0.0)
 
         return cluster_widths, coeffs
         
@@ -2903,3 +3223,63 @@ class OrderTraceAlg():
         df.attrs['ENDCOL'] = self.data_range[3]
         df.attrs['POLY_DEG'] = self.poly_degree
         return df
+
+
+    def HRS_clean(self, x,y,index):
+    
+        if self.sarm == "H":
+            expected_ords = 84
+        if self.sarm == "R":
+            expected_ords = 66
+            
+        index2 = []
+        x2 = []
+        y2 = []
+        new_index = np.min(index)
+        n_orders = len(np.unique(index))
+
+        for ord in np.unique(index):
+            #Fit the order with polynomial
+            ii=np.where(index == ord)[0]
+            x_ord = x[ii]
+            y_ord = y[ii]
+            xrange=np.arange(np.min(x_ord),np.max(x_ord))
+            fit_coeffs = np.polyfit(x_ord,y_ord,self.poly_degree)
+            fit = np.polyval(fit_coeffs,xrange)
+            
+            if self.sarm == "R":
+                if np.min(fit) > 30 and len(ii) > 8000:
+                    for i in ii:
+                        index2.append(new_index)
+                        x2.append(x[i])
+                        y2.append(y[i])
+                    new_index +=1
+                    
+            if self.sarm == "H" and self.mode == "HS":
+                if np.min(fit) > 20 and len(ii) > 6000:
+                    for i in ii:
+                        index2.append(new_index)
+                        x2.append(x[i])
+                        y2.append(y[i])
+                    new_index +=1
+            if self.sarm == "H" and (self.mode == "HR" or self.mode =="MR" or self.mode =="LR"):
+                if np.min(fit) > 20 and len(xrange) > 1200:
+                    if np.polyval(fit_coeffs,600)< 4050:
+                        if np.min(x_ord) < 700 and np.min(y_ord)<4000:
+                            for i in ii:
+                                index2.append(new_index)
+                                x2.append(x[i])
+                                y2.append(y[i])
+                            new_index +=1
+
+        index3 = np.asarray(index2,dtype=np.int32)
+        x3 = np.asarray(x2,dtype=np.int32)
+        y3 = np.asarray(y2,dtype=np.int32)
+        
+        uniq = len(np.unique(index3))
+        if uniq != expected_ords:
+            self.logger.warning("Not the right number of orders found. Found {}, expected {}. Exiting.".format(uniq,expected_ords))
+            exit()
+        
+        return x3,y3,index3
+        
