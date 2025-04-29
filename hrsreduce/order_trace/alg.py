@@ -3257,11 +3257,12 @@ class OrderTraceAlg():
                     
             if self.sarm == "H" and self.mode == "HS":
                 if np.min(fit) > 20 and len(ii) > 6000:
-                    for i in ii:
-                        index2.append(new_index)
-                        x2.append(x[i])
-                        y2.append(y[i])
-                    new_index +=1
+                    if np.min(x_ord) < 700 and np.min(y_ord)<4000:
+                        for i in ii:
+                            index2.append(new_index)
+                            x2.append(x[i])
+                            y2.append(y[i])
+                        new_index +=1
             if self.sarm == "H" and (self.mode == "HR" or self.mode =="MR" or self.mode =="LR"):
                 if np.min(fit) > 20 and len(xrange) > 1200:
                     if np.polyval(fit_coeffs,600)< 4050:

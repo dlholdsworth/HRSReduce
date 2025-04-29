@@ -107,130 +107,6 @@ class MasterBias():
             #Fit a gaussian to the data to find the read noise (2*sigma)
             (mu, sigma) = norm.fit(avg)
 
-#            nbins=(np.max(avg2)-np.min(avg2)).astype(np.int32)
-            
-#            # the histogram of the data
-#            n, bins, patches = plt.hist(avg2, nbins)
-#
-#            # add a 'best fit' line
-#            y = norm.pdf( bins, mu, sigma)
-#            l = plt.plot(bins, y*2000, 'r--', linewidth=2)
-#
-#            #plot
-#            plt.xlabel('Smarts')
-#            plt.ylabel('Probability')
-#            plt.title(r'$\mathrm{Histogram\ of\ IQ:}\ \mu=%.3f,\ \sigma=%.3f$' %(mu, sigma))
-#            plt.grid(True)
-#
-#            plt.show()
-#
-#            avg2=avg.astype(np.int32)
-#            plt.hist(avg2)
-#            plt.show()
-            
-            
-#            if n == 1:
-#                #if there is just one element compare it with itself, not really useful, but it works
-#                logger.warning("Only 1 suitable bias frame found for night %s and arm %s",(self.night,self.arm))
-#                list1 = list2 = Bias_files
-#                n = 2
-#            else:
-#                list1, list2 = Bias_files[: n // 2], Bias_files[n // 2 :]
-
-#            # Lists of images.
-#            n1 = len(list1)
-#            n2 = len(list2)
-#
-#            bias_concat1 = []
-#            bias_concat2 = []
-#            Bias_files_short = []
-#            # Separate images in two groups.
-#            for file in list1:
-#                Bias_files_short.append(file.lstrip(self.in_dir))
-#                with fits.open(file) as hdu:
-#                    bias_concat1.append(hdu[0].data.astype(float))
-#            bias1 = np.median(bias_concat1, axis=0)
-#
-#            for file in list2:
-#                Bias_files_short.append(file.lstrip(self.in_dir))
-#                with fits.open(file) as hdu:
-#                    bias_concat2.append(hdu[0].data.astype(float))
-#            bias2 = np.median(bias_concat2, axis=0)
-#
-#            #Plot images side by side
-#            if self.plot:
-#                f, axarr = plt.subplots(1,2)
-#                axarr[0].imshow(bias1, vmin=np.min(bias1), vmax=np.max(bias1), origin="lower")
-#                axarr[1].imshow(bias2, vmin=np.min(bias1), vmax=np.max(bias1), origin="lower")
-#                plt.show()
-#
-#        #    # Make sure we know the gain. Since we can have multiple amplifies, take the mean of the possible values
-#            hdu = fits.open(list1[0])
-#            gain = hdu[0].header["GAIN"]
-#            if self.arm =="Blu":
-#                gain1 = float(gain.split()[0])
-#                gain2 = float(gain.split()[1])
-#                gain = gain1
-#            if self.arm == "Red":
-#                gain1 = float(gain.split()[0])
-#                gain2 = float(gain.split()[1])
-#                gain3 = float(gain.split()[2])
-#                gain4 = float(gain.split()[3])
-#                gain = gain1 #np.mean([gain1,gain2,gain3,gain4])
-#
-#            # Construct normalized sum.
-#    #        bias1 *= gain
-#    #        bias2 *= gain
-#            bias = (((bias1 * n1 + bias2 * n2) / n))
-#
-#            # Compute noise in difference image by fitting Gaussian to distribution.
-#            diff = 0.5 * (bias1 - bias2)
-#            if np.min(diff) != np.max(diff):
-#                crude = np.ma.median(np.abs(diff))  # estimate of noise
-#                hmin = -5.0 * crude
-#                hmax = +5.0 * crude
-#                bin_size = np.clip(2 / n, 0.5, None)
-#                nbins = int((hmax - hmin) / bin_size)
-#
-#                h, _ = np.histogram(diff, range=(hmin, hmax), bins=nbins)
-#                xh = hmin + bin_size * (np.arange(0.0, nbins) + 0.5)
-#
-#                hfit, par = gaussfit(xh, h)
-#                noise = abs(par[2])  # noise in diff, bias
-#
-#                # Determine where wings of distribution become significantly non-Gaussian.
-#                contam = (h - hfit) / np.sqrt(np.clip(hfit, 1, None))
-#                imid = np.where(abs(xh) < 2 * noise)
-#                consig = np.std(contam[imid])
-#
-#                smcontam = gaussbroad(xh, contam, 0.1 * noise)
-#                igood = np.where(smcontam < 3 * consig)
-#                gmin = np.min(xh[igood])
-#                gmax = np.max(xh[igood])
-#
-#                # Find and fix bad pixels.
-#                ibad = np.where((diff <= gmin) | (diff >= gmax))
-#                nbad = len(ibad[0])
-#
-#                bias[ibad] = np.clip(bias1[ibad], None, bias2[ibad])
-#                bias = np.int16(bias)
-#
-#                # Compute read noise.
-#                biasnoise = noise
-#                bgnoise = biasnoise * np.sqrt(n)
-#
-#                # Print diagnostics.
-#                if Plot =="True":
-#                    print("change in bias between image sets= ",  np.abs(par[1])," electons")
-#                    print("measured background noise per image=", bgnoise)
-#                    print("background noise in combined image=", biasnoise)
-#                    print("Number of bad pixels fixed %i", nbad)
-#
-#            else:
-#                diff = 0
-#                biasnoise = 1.0
-#                nbad = 0
-
             #Write the master bias to file with approraite header info
             new_hdu = fits.PrimaryHDU(data=avg.astype(np.float32))
             
@@ -370,8 +246,42 @@ class MasterBias():
             hdu.close
         
         else:
-            logger.info("Reading Master Bias frame "+master_file[0]+"\n")
+            logger.info("Reading Master Bias frame "+master_file[0])
             master_file = master_file[0]
         
         return master_file
+
+class SubtractBias():
+
+    def __init__(self,master_file,files,base_dir,arm, date):
+        self.master_bias = master_file
+        self.files = files
+        self.base_dir = base_dir
+        self.arm = arm
+        self.date = date
+        
+        logger.info('Started {}'.format(self.__class__.__name__))
+        
+        
+    def subtract(self):
+    
+        #Subtract the bias from Sci, Arc, Flat and LFC frames
+        f_types = ['sci', 'arc', 'lfc']
+        
+        with fits.open(self.master_bias) as mb_hdu:
+            master_bias = mb_hdu[0].data
+            mb_hdr = mb_hdu[0].header
+        out_dir = str(self.base_dir+self.arm+"/"+self.date[0:4]+"/"+self.date[4:8]+"/reduced/")
+        for type in f_types:
+            files = self.files[type]
+            for i,file in enumerate(files):
+                with fits.open(file) as hdu:
+                    hdu[0].header['MstrBias'] = (str(os.path.basename(self.master_bias)), "Master Bias File")
+                    hdu[0].header['RONOISE'] = (mb_hdr['RONOISE'],"Readout Noise calculated from Master Bais")
+                    hdu[0].data = hdu[0].data - master_bias
+                    out_file = str(out_dir+"b"+file.removeprefix(out_dir))
+                    hdu.writeto(out_file,overwrite=True)
+                    self.files[type][i] = out_file
+                    os.remove(file)
+        return self.files
 

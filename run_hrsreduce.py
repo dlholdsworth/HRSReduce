@@ -14,8 +14,8 @@ from hrsreduce import configuration,reduce
 if __name__ == '__main__':
 
     # define parameters
-    night = "2024-01-17"
-    mode = "LR"
+    night = "2024-11-16"
+    mode = "MR"
     arm = "R"
     steps = (
          "bias",
