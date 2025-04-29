@@ -135,10 +135,6 @@ class SpectralExtraction():
                 Ext_ords.header["ORDFILE"] = (str(os.path.basename(self.order_trace_file)),"Order trace file")
                 hdul.append(Ext_ords)
                 hdul.writeto(self.input_spectrum,overwrite='True')
-                
-                
-        plt.plot(data_df.loc[0])
-        plt.show()
 
         #return Arguments(self.output_level1) if good_result else Arguments(None)
         return data_df
