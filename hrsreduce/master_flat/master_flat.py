@@ -115,7 +115,7 @@ class MasterFlat():
                 Flat_files_short.append(file.removeprefix(self.out_dir))
                 with fits.open(file) as hdu:
                     #Perform a test to reject bad files
-                    if np.std(hdu[0].data) > 200:
+                    if np.nanstd(hdu[0].data) > 200:
                         #Subtract master bias
                         flat_data = (hdu[0].data - Master_bias).astype(np.float32)
                         #Overwrite the data in the file with the corrected information and write to a new file prefixed with b (for bais corrected)
@@ -232,8 +232,8 @@ class MasterFlat():
             new_hdu.header['ENVHUM'] = (str(hdu[0].header['ENVHUM']), "Relative humidity")
             new_hdu.header['ENVMJD'] = (str(hdu[0].header['ENVMJD']), "Environmental Measurement Time")
             new_hdu.header['ENVWIN'] = (str(hdu[0].header['ENVWIN']),"Wind speed")
-            new_hdu.header['EPOCH'] = (str(hdu[0].header['EPOCH']+' '), "Epoch of object RA, Dec")
-            new_hdu.header['EQUINOX'] = (str(hdu[0].header['EQUINOX']+' '), "Equinox of object RA, Dec")
+            new_hdu.header['EPOCH'] = ((str(hdu[0].header['EPOCH'])+' '), "Epoch of object RA, Dec")
+            new_hdu.header['EQUINOX'] = ((str(hdu[0].header['EQUINOX'])+' '), "Equinox of object RA, Dec")
             new_hdu.header['FIFCEN'] = (str(hdu[0].header['FIFCEN']),  "FIF centering location")
             new_hdu.header['FIFCOFF'] = (str(hdu[0].header['FIFCOFF']), "FIF centering offset")
             new_hdu.header['FIFPOFF'] = (str(hdu[0].header['FIFPOFF']), "FIF port offset")
@@ -312,7 +312,7 @@ class MasterFlat():
             new_hdu.header['OBSMODE'] = (str(hdu[0].header['OBSMODE']),"Observation mode")
             new_hdu.header['OBSTYPE'] = (str('Flat'), "Observation type")
             new_hdu.header['ROSPEED'] = (str(hdu[0].header['ROSPEED']),"CCD readout speed (Hz)")
-            new_hdu.header['RONOISE'] = (str(RONOISE), "Read out noise calculated from the Bias (e-)")
+            new_hdu.header['RONOISE'] = (RONOISE, "Read out noise calculated from the Bias (e-)")
 
             new_hdu.header['TEM-AIR'] = (str(np.mean(TEM_AIR)),"HRS environment air temperature (K)")
             new_hdu.header['TEM-BCAM'] = (str(np.mean(TEM_BCAM)),"Blue camera temperature (K)")

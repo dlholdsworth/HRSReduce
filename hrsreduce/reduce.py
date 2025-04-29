@@ -27,11 +27,13 @@ import arrow
 
 from hrsreduce.hrs_info import Instrument
 from hrsreduce.utils.sort_files import SortFiles
+from hrsreduce.utils.cr_masking import CosmicRayMasking
 from hrsreduce.utils.find_nearest_files import FindNearestFiles
 from hrsreduce.L0_Corrections.level0corrections import L0Corrections
-from hrsreduce.master_bias.master_bias import MasterBias
+from hrsreduce.master_bias.master_bias import MasterBias, SubtractBias
 from hrsreduce.master_flat.master_flat import MasterFlat
 from hrsreduce.order_trace.order_trace import OrderTrace
+from hrsreduce.extraction.extraction import SpectralExtraction
 
 from .configuration import load_config
 
@@ -252,6 +254,12 @@ def main(
         #Calcualte the master bias
         master_bias = MasterBias(files["bias"],input_dir,output_dir,arm_colour,yyyymmdd,plot).create_masterbias()
         
+        #Subtract the bias from all other frames
+        files = SubtractBias(master_bias,files,base_dir,arm_colour,yyyymmdd).subtract()
+        
+        #Clean the files of CRs
+        _ = CosmicRayMasking(files,arm)
+        
         #Remove the intermediate files
         for ff in files["bias"]:
             os.remove(ff)
@@ -265,50 +273,14 @@ def main(
             
         #Create the Order file
         order_file = OrderTrace(master_flat,nights,base_dir,arm_colour,m,plot).order_trace()
-        
+
         #Extract the data
+        for sci_file in files['sci']:
+            extracted = SpectralExtraction(sci_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
+
+        
         
 
-#        files = instrument.sort_files(
-#            input_dir,
-#            n,
-#            mode=m,
-#            **config["instrument"],
-#            allow_calibration_only=allow_calibration_only,
-#        )
-
-#        if len(flat_files) == 0:
-#            logger.warning(
-#                f"No files found for instrument: %s, night: %s, mode: %s in folder: %s",
-#                instrument,
-#                n,
-#                m,
-#                input_dir,
-#            )
-#            continue
-            
-#        for k, f in files:
-#            logger.info("Settings:")
-#            for key, value in k.items():
-#                logger.info("%s: %s", key, value)
-#            logger.debug("Files:\n%s", f)
-#
-#            reducer = Reducer(
-#                f,
-#                output_dir,
-#                instrument,
-#                m,
-#                k.get("night"),
-#                config,
-#                order_range=order_range,
-#                skip_existing=skip_existing,
-#            )
-#            # try:
-#            data = reducer.run_steps(steps=steps)
-#            output.append(data)
-#            # except Exception as e:
-#            #     logger.error("Reduction failed with error message: %s", str(e))
-#            #     logger.info("------------")
     return output
 
 #class Step:

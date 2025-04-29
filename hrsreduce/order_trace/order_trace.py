@@ -45,7 +45,7 @@ class OrderTrace():
     
     def order_trace(self):
     
-        #Set the night for the master order data bsed on the flat location
+        #Set the night for the master order data based on the flat location
         yyyymmdd = str(self.nights['flat'][0:4])+str(self.nights['flat'][4:8])
         self.out_dir = self.base_dir+self.arm+"/"+yyyymmdd[0:4]+"/"+yyyymmdd[4:]+"/reduced/"
     
@@ -180,11 +180,16 @@ class OrderTrace():
             assert(isinstance(df, pd.DataFrame))
             
             #Save to file
-            df.to_csv(self.out_dir+self.mode+"_Orders_"+self.arm+yyyymmdd+".csv")
+            df.to_csv(self.out_dir+self.mode+"_Orders_"+self.sarm+yyyymmdd+".csv")
             self.logger.info("OrderTrace: Receipt written")
             self.logger.info("OrderTrace: Done!\n")
             
             #Save the pixel locations of the orders too, for background subtraction
-            np.savez(self.out_dir+self.mode+"_Orders_"+self.arm+yyyymmdd+".npz", orders=c_index,x_pix=c_x,y_pix=c_y)
+            np.savez(self.out_dir+self.mode+"_Orders_"+self.sarm+yyyymmdd+".npz", orders=c_index,x_pix=c_x,y_pix=c_y)
 
-            return str(self.out_dir+self.mode+"_Orders_"+self.arm+yyyymmdd+".csv")
+            return str(self.out_dir+self.mode+"_Orders_"+self.sarm+yyyymmdd+".csv")
+            
+        else:
+            logger.info('OrderTrace: Reading predetermined orders')
+            
+            return order_file[0]
