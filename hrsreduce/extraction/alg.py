@@ -2163,12 +2163,14 @@ class SpectralExtractionAlg():
         return var_ext
 
     def extract_spectrum(self,
-                         order_set=None,
+                         order_set,
+                         proc_no,
+                         return_dict,
                          order_name=None,
                          show_time=False,
                          print_debug=None,
                          bleeding_file=None,
-                         first_index=None):
+                         first_index=0):
         """ Spectral extraction from 2D flux to 1D. Rectification step is optional.
 
         Args:
@@ -2293,7 +2295,9 @@ class SpectralExtractionAlg():
             data_df = self.write_rectified_data_to_dataframe(out_data, order_rectification_result)
         else:
             data_df = self.write_data_to_dataframe(out_data, first_row=start_row_at)
-        return {'spectral_extraction_result': data_df, 'rectification_on': rectification_on,
-                'outlier_rejection_result':self.outlier_flux}
+            
+        return_dict[proc_no] = {'spectral_extraction_result': data_df}
+        #return {'spectral_extraction_result': data_df, 'rectification_on': rectification_on,
+        #        'outlier_rejection_result':self.outlier_flux}
                 
 

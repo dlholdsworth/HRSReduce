@@ -1,6 +1,7 @@
 import logging
 import matplotlib.pyplot as plt
 
+import multiprocessing as mp
 import pandas as pd
 import numpy as np
 import os.path
@@ -97,20 +98,34 @@ class SpectralExtraction():
         s_order = 0
 
         self.o_set = np.arange(self.order_trace_data.shape[0])
+        n_ord = int(self.order_trace_data.shape[0] / 2)
         for order_name in self.o_set:
             o_set, f_idx = self.get_order_set(s_order)
             all_o_sets.append(o_set)
             first_trace_at.append(f_idx)
 
         good_result = True
-        
-        opt_ext_result = self.alg.extract_spectrum(order_set = o_set,first_index=0)
 
-        assert('spectral_extraction_result' in opt_ext_result and
-                       isinstance(opt_ext_result['spectral_extraction_result'], pd.DataFrame))
+        #Run orders (pairs of fibres) in parallel.
+        manager = mp.Manager()
+        return_dict = manager.dict()
+        processes = [mp.Process(target=self.alg.extract_spectrum, args=(o_set[(2*i):(2*i)+2],i,return_dict)) for i in range(n_ord)]
+        for process in processes:
+            process.start()
+        for process in processes:
+            process.join()
 
-        data_df = opt_ext_result['spectral_extraction_result']
-        
+        #opt_ext_result = self.alg.extract_spectrum(order_set = o_set[0:1])
+        #        assert('spectral_extraction_result' in opt_ext_result and
+#                       isinstance(opt_ext_result['spectral_extraction_result'], pd.DataFrame))
+
+#        data_df = opt_ext_result['spectral_extraction_result']
+
+
+        data_df = pd.DataFrame.from_dict(return_dict[0]['spectral_extraction_result'])
+        for i in range(1,n_ord):
+            data_df = pd.concat([data_df,pd.DataFrame.from_dict(return_dict[i]['spectral_extraction_result'])],ignore_index=True)
+
         good_result = good_result and data_df is not None
 
         if not good_result and self.logger:
@@ -123,8 +138,6 @@ class SpectralExtraction():
  
             data_df.to_csv(out_file)
             data_np=data_df.to_numpy()
-            print(data_np.shape)
-                
                
             with fits.open(self.input_spectrum) as hdul:
                 Ext_ords = fits.ImageHDU(data=data_np, name="SCI1D")
