@@ -98,7 +98,7 @@ class SpectralExtraction():
         s_order = 0
 
         self.o_set = np.arange(self.order_trace_data.shape[0])
-        n_ord = int(self.order_trace_data.shape[0] / 2)
+        n_ord = int(3) # int(self.order_trace_data.shape[0] / 2)
         for order_name in self.o_set:
             o_set, f_idx = self.get_order_set(s_order)
             all_o_sets.append(o_set)
@@ -123,8 +123,15 @@ class SpectralExtraction():
 
 
         data_df = pd.DataFrame.from_dict(return_dict[0]['spectral_extraction_result'])
-        for i in range(1,n_ord):
+        data_P = pd.DataFrame(columns=data_df.columns)
+        data_O = pd.DataFrame(columns=data_df.columns)
+        for i in range(0,n_ord):
             data_df = pd.concat([data_df,pd.DataFrame.from_dict(return_dict[i]['spectral_extraction_result'])],ignore_index=True)
+            tmp = pd.DataFrame.from_dict(return_dict[i]['spectral_extraction_result'])
+            data_P = pd.concat([data_P, tmp.iloc[[1]]],axis=0,ignore_index=True)
+            data_O = pd.concat([data_O, tmp.iloc[[0]]],axis=0,ignore_index=True)
+
+
 
         good_result = good_result and data_df is not None
 
@@ -137,16 +144,25 @@ class SpectralExtraction():
             out_file=os.path.splitext(str(os.path.dirname(self.input_spectrum))+"/HRS_E_"+str(os.path.basename(self.input_spectrum)))[0]+'.csv'
  
             data_df.to_csv(out_file)
-            data_np=data_df.to_numpy()
+            data_P_np=data_P.to_numpy()
+            data_O_np=data_O.to_numpy()
                
             with fits.open(self.input_spectrum) as hdul:
-                Ext_ords = fits.ImageHDU(data=data_np, name="SCI1D")
-                Ext_ords.header["NORDS"] =  ((data_np.shape[0]),"Number of extracted orders")
-                Ext_ords.header["E_MTHD"] = ((self.extraction_method),"Extraction Method. 0: optimal, 1: sum")
-                Ext_ords.header["R_MTHD"] = ((self.rectification_method), "Rectification Method. 0: Norm, 1: Vert, 2: None")
-                Ext_ords.header["FLATFILE"] = (str(os.path.basename(self.input_flat)),"Input flat for extraction")
-                Ext_ords.header["ORDFILE"] = (str(os.path.basename(self.order_trace_file)),"Order trace file")
-                hdul.append(Ext_ords)
+                Ext_ords_P = fits.ImageHDU(data=data_P, name="FIBRE_P")
+                Ext_ords_P.header["NORDS"] =  ((data_P.shape[0]),"Number of extracted orders")
+                Ext_ords_P.header["E_MTHD"] = ((self.extraction_method),"Extraction Method. 0: optimal, 1: sum")
+                Ext_ords_P.header["R_MTHD"] = ((self.rectification_method), "Rectification Method. 0: Norm, 1: Vert, 2: None")
+                Ext_ords_P.header["FLATFILE"] = (str(os.path.basename(self.input_flat)),"Input flat for extraction")
+                Ext_ords_P.header["ORDFILE"] = (str(os.path.basename(self.order_trace_file)),"Order trace file")
+                hdul.append(Ext_ords_P)
+                Ext_ords_O = fits.ImageHDU(data=data_O, name="FIBRE_O")
+                Ext_ords_O.header["NORDS"] =  ((data_O.shape[0]),"Number of extracted orders")
+                Ext_ords_O.header["E_MTHD"] = ((self.extraction_method),"Extraction Method. 0: optimal, 1: sum")
+                Ext_ords_O.header["R_MTHD"] = ((self.rectification_method), "Rectification Method. 0: Norm, 1: Vert, 2: None")
+                Ext_ords_O.header["FLATFILE"] = (str(os.path.basename(self.input_flat)),"Input flat for extraction")
+                Ext_ords_O.header["ORDFILE"] = (str(os.path.basename(self.order_trace_file)),"Order trace file")
+                hdul.append(Ext_ords_O)
+                
                 hdul.writeto(self.input_spectrum,overwrite='True')
 
         #return Arguments(self.output_level1) if good_result else Arguments(None)
