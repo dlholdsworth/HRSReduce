@@ -258,7 +258,7 @@ def main(
         files = SubtractBias(master_bias,files,base_dir,arm_colour,yyyymmdd).subtract()
         
         #Clean the files of CRs
-        #_ = CosmicRayMasking(files,arm)
+        _ = CosmicRayMasking(files,arm)
         
         #Remove the intermediate files
         for ff in files["bias"]:
@@ -276,7 +276,11 @@ def main(
 
         #Extract the data
         for sci_file in files['sci']:
-            extracted = SpectralExtraction(sci_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
+            SpectralExtraction(sci_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
+        
+        #Extract the data
+        for arc_file in files['arc']:
+            SpectralExtraction(sci_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
 
         
         
