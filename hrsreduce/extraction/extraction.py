@@ -101,6 +101,8 @@ class SpectralExtraction():
         
         
         n_ord = int(3) # int(self.order_trace_data.shape[0] / 2)
+
+        # n_ord = int(self.order_trace_data.shape[0] / 2)
         for order_name in self.o_set:
             o_set, f_idx = self.get_order_set(s_order)
             all_o_sets.append(o_set)
@@ -168,7 +170,7 @@ class SpectralExtraction():
                 hdul.writeto(self.input_spectrum,overwrite='True')
 
         #return Arguments(self.output_level1) if good_result else Arguments(None)
-        return data_df
+#        return data_df
         
     def get_order_set(self, s_order):
         if self.o_set.size > 0:
