@@ -59,7 +59,6 @@ class MasterBias():
                 
             n = len(Bias_files)
             
-            #TEST KPF IMPLIMENTATION
             bias_data = []
             jds = []
             TEM_AIR = []
@@ -95,14 +94,6 @@ class MasterBias():
             bias_data = np.array(bias_data)
             fs=FrameStacker(bias_data,2.1,logger)
             avg,var,cnt,unc = fs.compute()
-            if self.plot:
-                plt.xlabel("x [pixel]")
-                plt.ylabel("y [pixel]")
-                bot, top = np.percentile(avg, (1, 99))
-                plt.imshow(avg, vmin=bot, vmax=top, origin="lower")
-                plt.title("Master Bias Frame")
-                plt.savefig(self.out_dir+"Master_Bias_Frame.png",bbox_inches='tight',dpi=600)
-                plt.close()
             
             #Fit a gaussian to the data to find the read noise (2*sigma)
             (mu, sigma) = norm.fit(avg)
@@ -248,17 +239,29 @@ class MasterBias():
         else:
             logger.info("Reading Master Bias frame "+master_file[0])
             master_file = master_file[0]
+            
+        if self.plot:
+            with fits.open(master_file) as hdu:
+                master_bias = hdu[0].data
+            plt.xlabel("x [pixel]")
+            plt.ylabel("y [pixel]")
+            bot, top = np.percentile(master_bias, (1, 99))
+            plt.imshow(master_bias, vmin=bot, vmax=top, origin="lower")
+            plt.title("Master Bias Frame")
+            plt.savefig(self.out_dir+"Master_Bias_Frame.png",bbox_inches='tight',dpi=600)
+            plt.close()
         
         return master_file
 
 class SubtractBias():
 
-    def __init__(self,master_file,files,base_dir,arm, date):
+    def __init__(self,master_file,files,base_dir,arm, date,type):
         self.master_bias = master_file
         self.files = files
         self.base_dir = base_dir
         self.arm = arm
         self.date = date
+        self.type = type
         
         logger.info('Started {}'.format(self.__class__.__name__))
         
@@ -266,22 +269,23 @@ class SubtractBias():
     def subtract(self):
     
         #Subtract the bias from Sci, Arc, Flat and LFC frames
-        f_types = ['sci', 'arc', 'lfc']
+        f_types = ['sci', 'arc', 'lfc','flat']
         
         with fits.open(self.master_bias) as mb_hdu:
             master_bias = mb_hdu[0].data
             mb_hdr = mb_hdu[0].header
         out_dir = str(self.base_dir+self.arm+"/"+self.date[0:4]+"/"+self.date[4:8]+"/reduced/")
-        for type in f_types:
-            files = self.files[type]
-            for i,file in enumerate(files):
-                with fits.open(file) as hdu:
-                    hdu[0].header['MstrBias'] = (str(os.path.basename(self.master_bias)), "Master Bias File")
-                    hdu[0].header['RONOISE'] = (mb_hdr['RONOISE'],"Readout Noise calculated from Master Bais")
-                    hdu[0].data = hdu[0].data - master_bias
-                    out_file = str(out_dir+"b"+file.removeprefix(out_dir))
-                    hdu.writeto(out_file,overwrite=True)
-                    self.files[type][i] = out_file
-                    os.remove(file)
-        return self.files
+
+        files = self.files[self.type]
+        files_out = []
+        for i,file in enumerate(files):
+            with fits.open(file) as hdu:
+                hdu[0].header['MstrBias'] = (str(os.path.basename(self.master_bias)), "Master Bias File")
+                hdu[0].header['RONOISE'] = (mb_hdr['RONOISE'],"Readout Noise calculated from Master Bais")
+                hdu[0].data = hdu[0].data - master_bias
+                out_file = str(out_dir+"b"+file.removeprefix(out_dir))
+                hdu.writeto(out_file,overwrite=True)
+                files_out.append(out_file)
+                os.remove(file)
+        return files_out
 

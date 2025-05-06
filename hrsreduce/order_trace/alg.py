@@ -30,7 +30,7 @@ class OrderTraceAlg():
         self.sarm = arm
         ny, nx = np.shape(data)
         self.poly_degree = poly_degree
-        
+                
         if self.sarm == "H":
             self.data_range = [0, ny - 1, 0, nx - 1]
             self.flat_data = data#[0:ny-1,0:nx-41]
@@ -92,12 +92,9 @@ class OrderTraceAlg():
                 self.ord_bot_adj = 1
                 
             if self.sarm == "H":
-                self.pix_ext = 1
-                self.img_sigma = 2.5
-                self.rejection_limit = 2
-                self.mn_cut = 0.05
-                self.smooth_sigma = 3
-                self.ord_pix_range = 3
+                self.mn_cut = 0.03
+                self.smooth_sigma = [6,3]
+                self.ord_pix_range = 4
                 self.ord_bot_adj = 5
 
         if self.mode == "MR":
@@ -931,7 +928,7 @@ class OrderTraceAlg():
             y = []
 
             for col in range(n_col):
-                tmp1= data[:,col]
+                tmp1= data3[:,col]
                 tmp3 = data3[:,col]
                 peak_idx,_ = find_peaks(tmp3)
                 order_edge_limit = 0.25
@@ -2863,55 +2860,86 @@ class OrderTraceAlg():
             means_bt = []
             steps_up = []
             steps_bt = []
+            tmp_sum_up = []
+            tmp_sum_bt = []
+            sum_up_cnt = 0
+            sum_bt_cnt = 0
             
             up_flag = True
             down_flag = True
-            for step in range(0,25):
+            for step in range(0,20):
                 if np.max(ord_cen.astype(int)+step)<ny:
                     steps_up.append(step)
                     cen_2=ord_cen.astype(int)+step
                     mn_line= np.mean(spec[cen_2,x])
+                    sum_up_cnt += np.sum(spec[cen_2,x])
+                    tmp_sum_up.append(sum_up_cnt)
                     means_up.append(mn_line)
                     if(mn_line > mn*self.mn_cut):
                         #plt.plot(x,cen_2,'bo')
                         top_edge=step
-                    else:
-                        up_flag = False
-                        break
+#                    else:
+#                        up_flag = False
+#                        break
                 else:
                     top_edge = cluster_widths[n-2]['top_edge']-1
                     up_flag = False
+            steps_up2 = np.asarray(steps_up)
+#            plt.title(str(n))
+#            plt.plot(steps_up2,tmp_sum_up,'x')
+            fit = np.polyfit(steps_up2,tmp_sum_up,3)
+#            plt.plot(steps_up2,np.polyval(fit,steps_up2))
+            der =np.gradient(np.polyval(fit,steps_up2),steps_up2)
+            der_min = np.where(der == np.min(der))[0]
+#            plt.vlines(der_min,0,np.max(tmp_sum_up),'r')
+#            plt.plot(der)
+#            plt.show()
+            top_edge = der_min[0]
                 
-            for step2 in range(1,25):
+            for step2 in range(1,20):
                 if np.min(ord_cen.astype(int)-step2) > 0:
                     steps_bt.append(step2)
                     cen_2=ord_cen.astype(int)-step2
                     mn_line= np.mean(spec[cen_2,x])
+                    sum_bt_cnt += np.sum(spec[cen_2,x])
+                    tmp_sum_bt.append(sum_bt_cnt)
                     means_bt.append(mn_line)
                     if(mn_line > mn*self.mn_cut):
                         #plt.plot(x,cen_2,'go')
                         bottom_edge = step2
-                    else:
-                        down_flag = False
-                        break
+#                    else:
+#                        down_flag = False
+#                        break
+            
+            steps_bt2 = np.asarray(steps_bt)
+#            plt.title(str(n))
+#            plt.plot(steps_bt2,tmp_sum_bt,'o')
+            fit = np.polyfit(steps_bt2,tmp_sum_bt,3)
+#            plt.plot(steps_bt2,np.polyval(fit,steps_bt2))
+            der =np.gradient(np.polyval(fit,steps_bt2),steps_bt2)
+            der_min = np.where(der == np.min(der))[0]
+#            plt.vlines(der_min,0,np.max(tmp_sum_bt),'r')
+#            plt.plot(der)
+#            plt.show()
+            bottom_edge = der_min[0]
                     
-            if up_flag:
-                means_up= np.array(means_up)
-                steps_up = np.array(steps_up)
-                sort_idx = np.argsort(means_up)
-                steps_s = steps_up[sort_idx]
-                means_s = means_up[sort_idx]
-                top_edge = steps_s[0]-2
+#            if up_flag:
+#                means_up= np.array(means_up)
+#                steps_up = np.array(steps_up)
+#                sort_idx = np.argsort(means_up)
+#                steps_s = steps_up[sort_idx]
+#                means_s = means_up[sort_idx]
+#                top_edge = steps_s[0]-2
+#
+#            if down_flag:
+#                means_bt= np.array(means_bt)
+#                steps_bt = np.array(steps_bt)
+#                sort_idx = np.argsort(means_bt)
+#                steps_s = steps_bt[sort_idx]
+#                means_s = means_bt[sort_idx]
+#                bottom_edge = steps_s[0]-self.ord_bot_adj
 
-            if down_flag:
-                means_bt= np.array(means_bt)
-                steps_bt = np.array(steps_bt)
-                sort_idx = np.argsort(means_bt)
-                steps_s = steps_bt[sort_idx]
-                means_s = means_bt[sort_idx]
-                bottom_edge = steps_s[0]-self.ord_bot_adj
-
-            cluster_widths.append({'top_edge': top_edge+1, 'bottom_edge': bottom_edge+1})
+            cluster_widths.append({'top_edge': top_edge, 'bottom_edge': bottom_edge})
 
 #        for n in cluster_set:
 #            self.logger.debug('OrderTraceAlg: cluster: {}'.format(str(n)))
@@ -3266,7 +3294,7 @@ class OrderTraceAlg():
             if self.sarm == "H" and (self.mode == "HR" or self.mode =="MR" or self.mode =="LR"):
                 if np.min(fit) > 20 and len(xrange) > 1200:
                     if np.polyval(fit_coeffs,600)< 4050:
-                        if np.min(x_ord) < 700 and np.min(y_ord)<4000:
+                        if np.min(x_ord) < 650 and np.min(y_ord)<4000:
                             for i in ii:
                                 index2.append(new_index)
                                 x2.append(x[i])

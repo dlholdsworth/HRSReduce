@@ -48,38 +48,8 @@ class MasterFlat():
         master_file = glob.glob(self.out_dir+self.mode+"_Master_Flat_"+self.sarm+str(yyyymmdd)+".fits")
 
         if len(master_file) == 0:
-            #If there is no MASTER FLAT file we need to create one. But we need to make sure there is a
-            #MASTER BIAS frame. If not, the flats were not taken on the same night as the science so need
-            #to make a MASTER BIAS that can be subtracted from the FLAT frames.
+            #If there is no MASTER FLAT file we need to create one.
             
-
-            #Test if Master Bias exists
-            flat_bias_loc = self.base_dir+self.arm+"/"+str(self.nights['flat'][0:4])+"/"+str(self.nights['flat'][4:8])
-            flat_bias = glob.glob(flat_bias_loc+"/reduced/Master_Bias_"+self.sarm+self.nights['flat']+".fits")
-
-            if len(flat_bias) == 1:
-                #Master Bias file has been created
-                flat_bias = flat_bias[0]
-                pass
-            else:
-                #Create Master Bias
-                logger.info('Need to create MASTER BIAS for night of flats ({})'.format(self.nights['flat']))
-                files = {}
-                files["bias"],_,_,_,_ = SortFiles(flat_bias_loc+"/raw/",logger,mode=self.mode)
-                nts = self.nights
-                nts["bias"] = yyyymmdd
-                files = L0Corrections(files,self.nights,yyyymmdd, flat_bias_loc+"/raw/",flat_bias_loc+"/reduced/",self.base_dir,self.sarm).run()
-
-                flat_bias = MasterBias(files["bias"],flat_bias_loc+"/reduced/",flat_bias_loc+"/reduced/",self.arm,yyyymmdd,self.plot).create_masterbias()
-                
-                for ff in files["bias"]:
-                    os.remove(ff)
-                
-            with fits.open(flat_bias) as hdul:
-                Master_bias = hdul[0].data
-                RONOISE = hdul[0].header["RONOISE"]
-            
-                
             #Open files to check if they are the PROPID (CAL_FLAT)
             Flat_files = []
             Flat_files_short = []
@@ -117,11 +87,7 @@ class MasterFlat():
                     #Perform a test to reject bad files
                     if np.nanstd(hdu[0].data) > 200:
                         #Subtract master bias
-                        flat_data = (hdu[0].data - Master_bias).astype(np.float32)
-                        #Overwrite the data in the file with the corrected information and write to a new file prefixed with b (for bais corrected)
-                        hdu[0].data = flat_data
-                        file_out=str(self.out_dir+"b"+file.removeprefix(self.out_dir))
-                        hdu.writeto(file_out,overwrite=True)
+                        flat_data = (hdu[0].data).astype(np.float32)
                         Flat_concat.append(flat_data)#/flat_mean)
                         jd_mean.append(float(hdu[0].header['JD']))
                         PRE_DEW.append(float(hdu[0].header['PRE-DEW']))
@@ -312,7 +278,7 @@ class MasterFlat():
             new_hdu.header['OBSMODE'] = (str(hdu[0].header['OBSMODE']),"Observation mode")
             new_hdu.header['OBSTYPE'] = (str('Flat'), "Observation type")
             new_hdu.header['ROSPEED'] = (str(hdu[0].header['ROSPEED']),"CCD readout speed (Hz)")
-            new_hdu.header['RONOISE'] = (RONOISE, "Read out noise calculated from the Bias (e-)")
+            new_hdu.header['RONOISE'] = (str(hdu[0].header['RONOISE']), "Read out noise calculated from the Bias (e-)")
 
             new_hdu.header['TEM-AIR'] = (str(np.mean(TEM_AIR)),"HRS environment air temperature (K)")
             new_hdu.header['TEM-BCAM'] = (str(np.mean(TEM_BCAM)),"Blue camera temperature (K)")
@@ -344,15 +310,18 @@ class MasterFlat():
             hdul.writeto(master_file,overwrite=True)
         
         else:
-            logger.info("Reading Master Bias frame "+master_file[0]+"\n")
+            logger.info("Reading Master Flat frame "+master_file[0]+"\n")
             master_file = master_file[0]
             
         if self.plot:  # pragma: no cover
+            with fits.open(master_file) as hdu:
+                master_flat = hdu[0].data
             title = "Master Flat Frame"
             plt.title(title)
             plt.xlabel("x [pixel]")
             plt.ylabel("y [pixel]")
             bot, top = np.percentile(master_flat, (1, 99))
+            plt.imshow(master_flat, vmin=bot, vmax=top, origin="lower")
             plt.savefig(self.out_dir+self.mode+"_Master_Flat_Frame.png",bbox_inches='tight',dpi=600)
             plt.close()
             

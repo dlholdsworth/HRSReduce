@@ -98,6 +98,8 @@ class SpectralExtraction():
         s_order = 0
 
         self.o_set = np.arange(self.order_trace_data.shape[0])
+        
+        
         n_ord = int(3) # int(self.order_trace_data.shape[0] / 2)
         for order_name in self.o_set:
             o_set, f_idx = self.get_order_set(s_order)

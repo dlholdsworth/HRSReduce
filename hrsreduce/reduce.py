@@ -176,8 +176,9 @@ def main(
         # find input files and sort them by type
         files = {}
         nights = {}
+        types = ["sci", "arc", "lfc", "flat","bias"]
         
-        files["bias"],files["flat"],files["arc"],files["lfc"],files["sci"] = SortFiles(input_dir,logger,mode=m)
+        files["bias"],files["flat"],files["arc"],files["lfc"],files["sci"] = SortFiles(input_dir,logger,arm,mode=m)
         
         #List the nights where the data come from. Is updated below if files are not found in the suggested night.
         nights["bias"] = yyyymmdd
@@ -194,6 +195,13 @@ def main(
             )
             #Now search to find a night with the files
             files["bias"], nights["bias"]= FindNearestFiles("Bias",yyyymmdd,m,base_dir,arm_colour,logger)
+            print(nights["bias"])
+            #Create the output directory if it does not exist
+            output_dir_bias = arm_colour+"/"+nights["bias"][0:4]+"/"+nights["bias"][4:8]+"/reduced/"
+            try:
+                os.mkdir(str(base_dir+output_dir_bias))
+            except Exception:
+                pass
 
             
         if not files["flat"]:
@@ -205,7 +213,13 @@ def main(
             
             #Now search to find a night with the files
             files["flat"], nights["flat"] = FindNearestFiles("Flat",yyyymmdd,m,base_dir,arm_colour,logger)
- 
+            #Create the output directory if it does not exist
+            output_dir_flat = arm_colour+"/"+nights["flat"][0:4]+"/"+nights["flat"][4:8]+"/reduced/"
+            try:
+                os.mkdir(str(base_dir+output_dir_flat))
+            except Exception:
+                pass
+       
         if not files["arc"]:
             logger.warning(
                 f"No ARC files found for instrument: night: %s in folder: %s \n    Looking elsewhere...\n",
@@ -214,6 +228,12 @@ def main(
             )
             #Now search to find a night with the files
             files["arc"], nights["arc"] = FindNearestFiles("Arc",yyyymmdd,m,base_dir,arm_colour,logger)
+            #Create the output directory if it does not exist
+            output_dir_arc = arm_colour+"/"+nights["arc"][0:4]+"/"+nights["arc"][4:8]+"/reduced/"
+            try:
+                os.mkdir(str(base_dir+output_dir_arc))
+            except Exception:
+                pass
             
         if not files["sci"]:
             logger.warning(
@@ -222,6 +242,7 @@ def main(
                 input_dir,
             )
             pass
+            
         if not files["lfc"]:
             logger.warning(
                 f"No LFC files found for instrument: night: %s in folder: %s SKIPPING STEP FOR NOW\n",
@@ -234,7 +255,7 @@ def main(
         Run through the reduction steps in the following order
             --  Apply level 0 corrections to remove overscan region, flip the red frames and corrects for gain
             --  Calculate the master bias, or read it for the night if already created. This also calculates the read noise
-            --  Calculate the master flat, or read it for the night/mode if alreayt created.
+            --  Calculate the master flat, or read it for the night/mode if already created.
             --  Define the orders, or read them from file
             --  Calculate the slit curvature, or read from file
             --  Calculate background scatter
@@ -248,14 +269,36 @@ def main(
             --  Continuum normalisation
         '''
         
-        #Apply the level 0 corrections
+        #Apply the level 0 corrections (gain and overscan)
         files = L0Corrections(files,nights,yyyymmdd,input_dir,output_dir,base_dir,arm).run()
 
         #Calcualte the master bias
         master_bias = MasterBias(files["bias"],input_dir,output_dir,arm_colour,yyyymmdd,plot).create_masterbias()
         
         #Subtract the bias from all other frames
-        files = SubtractBias(master_bias,files,base_dir,arm_colour,yyyymmdd).subtract()
+        #Loop over the files dict for the different types to make sure the correct bias file is subtracted (e.g., if the Flats are from a different night)
+        files_out = {}
+        for type in types:
+            files_type = {}
+            files_tmp = {}
+            files_tmp2 = {}
+            tmp_nights = {}
+            files_type[str(type)] = files[type]
+            tmp_nights['bias'] = nights[type]
+            if nights[type] == nights["bias"]:
+                files_out[type] = SubtractBias(master_bias,files_type,base_dir,arm_colour,yyyymmdd,type).subtract()
+            else:
+                #Create a new master bias for the night of the observations to be reduced
+                input_dir_tmp =str(base_dir+arm_colour+"/"+nights[type][0:4]+"/"+nights[type][4:8]+"/raw/")
+                output_dir_tmp = str(base_dir+arm_colour+"/"+nights[type][0:4]+"/"+nights[type][4:8]+"/reduced/")
+                
+                files_tmp["bias"],_,_,_,_= SortFiles(input_dir_tmp,logger,arm,mode=m)
+                files_tmp2 = L0Corrections(files_tmp,tmp_nights,nights[type],input_dir_tmp,output_dir_tmp,base_dir,arm).run()
+                
+                master_bias_tmp = MasterBias(files_tmp2["bias"],input_dir_tmp,output_dir_tmp,arm_colour,nights[type],plot).create_masterbias()
+                files_out[type] = SubtractBias(master_bias_tmp,files_type,base_dir,arm_colour,nights[type],type).subtract()
+        del files
+        files = files_out
         
         #Clean the files of CRs
         #_ = CosmicRayMasking(files,arm)
@@ -273,6 +316,8 @@ def main(
             
         #Create the Order file
         order_file = OrderTrace(master_flat,nights,base_dir,arm_colour,m,plot).order_trace()
+        
+        
 
         #Extract the data
         for sci_file in files['sci']:
