@@ -10,6 +10,9 @@ from astropy.io import fits
 # Local dependencies
 from hrsreduce.extraction.alg import SpectralExtractionAlg
 
+#TODO: Run a test to see if the file has been processed (check FITS extension) to avoid running many times. (Not normally an issue, but testing/development will be slow otherwise)
+#TODO: Add in VAR details to get a realistic error
+
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +144,7 @@ class SpectralExtraction():
             self.logger.info("SpectralExtraction: no spectrum extracted")
         elif good_result and self.logger:
             self.logger.info("SpectralExtraction: Receipt written")
-            self.logger.info("SpectralExtraction: Done for {} orders!".format(len(self.o_set)))
+            self.logger.info("SpectralExtraction: Done for {} orders!".format(int(n_ord*2)))
             
             out_file=os.path.splitext(str(os.path.dirname(self.input_spectrum))+"/HRS_E_"+str(os.path.basename(self.input_spectrum)))[0]+'.csv'
  
