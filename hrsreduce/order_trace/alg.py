@@ -83,76 +83,108 @@ class OrderTraceAlg():
                 
         if self.mode == "LR":
             if self.sarm == "R":
+                self.fit_degree = 3
+                self.top_edge = 12
+                self.bottom_edge = 12
+                self.pixel_range = 20
                 self.pix_ext = 4
                 self.img_sigma = 15
                 self.rejection_limit = 2
                 self.mn_cut = 0.05
                 self.smooth_sigma = 3
                 self.ord_pix_range = 3
-                self.ord_bot_adj = 1
+                self.ord_adj = -1
                 
             if self.sarm == "H":
+                self.top_edge = 12
+                self.bottom_edge = 12
+                self.fit_degree = 3
+                self.pixel_range = 20
                 self.mn_cut = 0.03
                 self.smooth_sigma = [6,3]
                 self.ord_pix_range = 4
-                self.ord_bot_adj = 5
+                self.ord_adj = -2
 
         if self.mode == "MR":
             if self.sarm == "R":
+                self.pixel_range = 30
+                self.top_edge = 18
+                self.bottom_edge = 18
+                self.fit_degree = 7
                 self.pix_ext = 4
                 self.img_sigma = 4
                 self.rejection_limit = 2
                 self.mn_cut = 0.05
                 self.smooth_sigma = 5
                 self.ord_pix_range = 4
-                self.ord_bot_adj = 2
+                self.ord_adj = 0
                 
             if self.sarm == "H":
+                self.pixel_range = 30
+                self.top_edge = 15
+                self.bottom_edge = 15
+                self.fit_degree = 7
                 self.pix_ext = 1
                 self.img_sigma = 2.5
                 self.rejection_limit = 2
                 self.mn_cut = 0.05
                 self.smooth_sigma = 5
                 self.ord_pix_range = 2
-                self.ord_bot_adj = 2
+                self.ord_adj = 0
                 
         if self.mode == "HR":
             if self.sarm == "R":
+                self.pixel_range = 35
+                self.top_edge = 20
+                self.bottom_edge = 20
+                self.fit_degree = 7
                 self.pix_ext = 3
                 self.img_sigma = 4
                 self.rejection_limit = 2
                 self.mn_cut = 0.05
                 self.smooth_sigma = 5
                 self.ord_pix_range = 4
-                self.ord_bot_adj = 2
+                self.ord_adj = 0
                 
             if self.sarm == "H":
+                self.pixel_range = 30
+                self.top_edge = 15
+                self.bottom_edge = 15
+                self.fit_degree = 7
                 self.pix_ext = 1
                 self.img_sigma = 2.5
                 self.rejection_limit = 2
                 self.mn_cut = 0.05
                 self.smooth_sigma = 5
                 self.ord_pix_range = 3
-                self.ord_bot_adj = 2
+                self.ord_adj = 0
                 
         if self.mode == "HS":
             if self.sarm == "R":
+                self.pixel_range = 35
+                self.top_edge = 20
+                self.bottom_edge = 20
+                self.fit_degree = 7
                 self.pix_ext = 2
                 self.img_sigma = 4
                 self.mn_cut = 0.05
                 self.rejection_limit = 1
                 self.smooth_sigma = 7
                 self.ord_pix_range = 3
-                self.ord_bot_adj = 2
+                self.ord_adj = 0
                 
             if self.sarm == "H":
+                self.pixel_range = 30
+                self.top_edge = 15
+                self.bottom_edge = 15
+                self.fit_degree = 7
                 self.pix_ext = 1
                 self.img_sigma = 2.5
                 self.rejection_limit = 2
                 self.mn_cut = 0.05
                 self.smooth_sigma = 4
                 self.ord_pix_range = 3
-                self.ord_bot_adj = 2
+                self.ord_adj = 0
                 
         
         
@@ -180,6 +212,12 @@ class OrderTraceAlg():
     def correct_nan_data(self):
         self.flat_data = np.nan_to_num(self.flat_data)
         return self.flat_data
+     
+    @staticmethod
+    def find_nearest(array, value):
+        array = np.asarray(array)
+        idx = (np.abs(array - value)).argmin()
+        return array[idx]
 
     @staticmethod
     def float_to_string(afloat):
@@ -2867,61 +2905,68 @@ class OrderTraceAlg():
             
             up_flag = True
             down_flag = True
-            for step in range(0,20):
+            for step in range(0,self.pixel_range):
                 if np.max(ord_cen.astype(int)+step)<ny:
                     steps_up.append(step)
                     cen_2=ord_cen.astype(int)+step
-                    mn_line= np.mean(spec[cen_2,x])
                     sum_up_cnt += np.sum(spec[cen_2,x])
                     tmp_sum_up.append(sum_up_cnt)
-                    means_up.append(mn_line)
-                    if(mn_line > mn*self.mn_cut):
-                        #plt.plot(x,cen_2,'bo')
-                        top_edge=step
-#                    else:
-#                        up_flag = False
-#                        break
                 else:
-                    top_edge = cluster_widths[n-2]['top_edge']-1
+                    top_edge = cluster_widths[n-3]['top_edge']
                     up_flag = False
+                    
             steps_up2 = np.asarray(steps_up)
-#            plt.title(str(n))
-#            plt.plot(steps_up2,tmp_sum_up,'x')
-            fit = np.polyfit(steps_up2,tmp_sum_up,3)
-#            plt.plot(steps_up2,np.polyval(fit,steps_up2))
-            der =np.gradient(np.polyval(fit,steps_up2),steps_up2)
-            der_min = np.where(der == np.min(der))[0]
-#            plt.vlines(der_min,0,np.max(tmp_sum_up),'r')
-#            plt.plot(der)
-#            plt.show()
-            top_edge = der_min[0]
+            fit = np.polyfit(steps_up2,tmp_sum_up,self.fit_degree)
+            der = (-1)*np.gradient(np.polyval(fit,steps_up2),steps_up2)
+            der-= np.min(der)
+            pk_idx,_ = signal.find_peaks(der)
+            
+            if up_flag:
+                if len(pk_idx) > 0 and len(steps_up2) > int(self.pixel_range*0.8):
+                    nearest = self.find_nearest(steps_up2[pk_idx],self.top_edge)
+                    if self.sarm == 'H' and (self.mode == 'HR' or self.mode == 'HS'):
+                        if n % 2 == 0:
+                            top_edge = nearest + self.ord_adj - 2
+                        else:
+                            top_edge = nearest + self.ord_adj
+                    else:
+                        top_edge = nearest + self.ord_adj
+                else:
+                    top_edge = self.top_edge + self.ord_adj
+            
+            plt.title(str(n))
+            plt.plot(steps_up2,tmp_sum_up,'x')
+            plt.plot(steps_up2,np.polyval(fit,steps_up2))
+            plt.plot(steps_up2[pk_idx],der[pk_idx],'rx')
+            plt.plot(steps_up2,(der),'r')
+            plt.show()
                 
-            for step2 in range(1,20):
+            for step2 in range(1,self.pixel_range):
                 if np.min(ord_cen.astype(int)-step2) > 0:
                     steps_bt.append(step2)
                     cen_2=ord_cen.astype(int)-step2
-                    mn_line= np.mean(spec[cen_2,x])
                     sum_bt_cnt += np.sum(spec[cen_2,x])
                     tmp_sum_bt.append(sum_bt_cnt)
-                    means_bt.append(mn_line)
-                    if(mn_line > mn*self.mn_cut):
-                        #plt.plot(x,cen_2,'go')
-                        bottom_edge = step2
-#                    else:
-#                        down_flag = False
-#                        break
             
             steps_bt2 = np.asarray(steps_bt)
+            fit = np.polyfit(steps_bt2,tmp_sum_bt,self.fit_degree)
+            der = (-1)*np.gradient(np.polyval(fit,steps_bt2),steps_bt2)
+            der-= np.min(der)
+            pk_idx,_ = signal.find_peaks(der)
+
+            if len(pk_idx) > 0 and len(steps_up2) > int(self.pixel_range*0.8):
+                nearest = self.find_nearest(steps_up2[pk_idx],self.bottom_edge)
+                bottom_edge = nearest + self.ord_adj
+            else:
+                bottom_edge = self.bottom_edge + self.ord_adj
+            
+#            plt.plot(steps_bt2,np.polyval(fit,steps_bt2))
 #            plt.title(str(n))
 #            plt.plot(steps_bt2,tmp_sum_bt,'o')
-            fit = np.polyfit(steps_bt2,tmp_sum_bt,3)
-#            plt.plot(steps_bt2,np.polyval(fit,steps_bt2))
-            der =np.gradient(np.polyval(fit,steps_bt2),steps_bt2)
-            der_min = np.where(der == np.min(der))[0]
-#            plt.vlines(der_min,0,np.max(tmp_sum_bt),'r')
 #            plt.plot(der)
 #            plt.show()
-            bottom_edge = der_min[0]
+
+
                     
 #            if up_flag:
 #                means_up= np.array(means_up)

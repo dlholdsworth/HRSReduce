@@ -125,10 +125,12 @@ class OrderTrace():
                 #self.logger.warning("OrderTrace: finding width...")
             all_widths, cluster_coeffs = self.alg.find_all_cluster_widths(HRS_index, HRS_x, HRS_y, power_for_width_estimation=3)
 
+            self.plot = True
+            
             if self.plot:
                 uniq = np.unique(HRS_index)
                 plt.title("OrderTrace: Widths\nNumber ords="+str(len(uniq)))
-                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
+                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=500)
 
                 count=0
                 for i in uniq:
