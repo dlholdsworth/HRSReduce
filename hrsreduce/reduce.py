@@ -319,15 +319,15 @@ def main(
         
         
 
-#        #Extract the data
-#        for sci_file in files['sci']:
-#            SpectralExtraction(sci_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
-#        
-#        #Extract the data
-#        for arc_file in files['arc']:
-#            SpectralExtraction(sci_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
-#
-#        
+        #Extract the data
+        for sci_file in files['sci']:
+            SpectralExtraction(sci_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
+        
+        #Extract the data
+        for arc_file in files['arc']:
+            SpectralExtraction(sci_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
+
+        
         
 
     return output

@@ -15,8 +15,8 @@ if __name__ == '__main__':
 
     # define parameters
     night = "2024-11-09"
-    mode = "HS"
-    arm = "R"
+    mode = "MR"
+    arm = "H"
     steps = (
          "bias",
          "flat",
@@ -41,5 +41,5 @@ if __name__ == '__main__':
         steps,
         configuration=config,
         instrument="HRS",
-        plot=False
+        plot=True
     )
