@@ -2934,12 +2934,12 @@ class OrderTraceAlg():
                 else:
                     top_edge = self.top_edge + self.ord_adj
             
-            plt.title(str(n))
-            plt.plot(steps_up2,tmp_sum_up,'x')
-            plt.plot(steps_up2,np.polyval(fit,steps_up2))
-            plt.plot(steps_up2[pk_idx],der[pk_idx],'rx')
-            plt.plot(steps_up2,(der),'r')
-            plt.show()
+#            plt.title(str(n))
+#            plt.plot(steps_up2,tmp_sum_up,'x')
+#            plt.plot(steps_up2,np.polyval(fit,steps_up2))
+#            plt.plot(steps_up2[pk_idx],der[pk_idx],'rx')
+#            plt.plot(steps_up2,(der),'r')
+#            plt.show()
                 
             for step2 in range(1,self.pixel_range):
                 if np.min(ord_cen.astype(int)-step2) > 0:

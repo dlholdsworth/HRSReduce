@@ -61,11 +61,11 @@ class OrderTrace():
                 #self.logger.warning("OrderTrace: locating cluster...")
             cluster_xy = self.alg.locate_clusters(self.rows_to_reset, self.cols_to_reset)
             
-            if self.plot:
-                plt.title("OrderTrace: locating cluster result")
-                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
-                plt.plot(cluster_xy['x'],cluster_xy['y'],'.')
-                plt.show()
+#            if self.plot:
+#                plt.title("OrderTrace: locating cluster result")
+#                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
+#                plt.plot(cluster_xy['x'],cluster_xy['y'],'.')
+#                plt.show()
             
             # 2) assign cluster id and do basic cleaning
             if self.logger:
@@ -73,14 +73,14 @@ class OrderTrace():
                 #self.logger.warning("OrderTrace: assigning cluster id and cleaning...")
             x, y, index = self.alg.form_clusters(cluster_xy['x'], cluster_xy['y'])
 
-            if self.plot:
-                plt.title("OrderTrace: cluster id and cleaning")
-                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
-                uniq =np.unique(index)
-                for i in uniq:
-                    ii = np.where(index == i)[0]
-                    plt.plot(x[ii],y[ii],'.')
-                plt.show()
+#            if self.plot:
+#                plt.title("OrderTrace: cluster id and cleaning")
+#                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
+#                uniq =np.unique(index)
+#                for i in uniq:
+#                    ii = np.where(index == i)[0]
+#                    plt.plot(x[ii],y[ii],'.')
+#                plt.show()
 
             # 3) advanced cleaning and border cleaning
             if self.logger:
@@ -90,14 +90,14 @@ class OrderTrace():
             new_x, new_y, new_index, all_status = self.alg.advanced_cluster_cleaning_handler(index, x, y)
             new_x, new_y, new_index = self.alg.clean_clusters_on_borders(new_x, new_y, new_index)
             
-            if self.plot:
-                plt.title("OrderTrace: advanced and boarder and cleaning")
-                uniq = np.unique(new_index)
-                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
-                for i in uniq:
-                    ii = np.where(new_index == i)[0]
-                    plt.plot(new_x[ii],new_y[ii],'.')
-                plt.show()
+#            if self.plot:
+#                plt.title("OrderTrace: advanced and boarder and cleaning")
+#                uniq = np.unique(new_index)
+#                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
+#                for i in uniq:
+#                    ii = np.where(new_index == i)[0]
+#                    plt.plot(new_x[ii],new_y[ii],'.')
+#                plt.show()
 
 
             # 5) Merge cluster
@@ -106,14 +106,14 @@ class OrderTrace():
                 #self.logger.warning("OrderTrace: merging cluster...")
             c_x, c_y, c_index = self.alg.merge_clusters_and_clean(new_index, new_x, new_y)
             
-            if self.plot:
-                plt.title("OrderTrace: merged clusters")
-                uniq = np.unique(c_index)
-                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
-                for i in uniq:
-                    ii = np.where(c_index == i)[0]
-                    plt.plot(c_x[ii],c_y[ii],'.')
-                plt.show()
+#            if self.plot:
+#                plt.title("OrderTrace: merged clusters")
+#                uniq = np.unique(c_index)
+#                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
+#                for i in uniq:
+#                    ii = np.where(c_index == i)[0]
+#                    plt.plot(c_x[ii],c_y[ii],'.')
+#                plt.show()
             
             # Clean the merged clusters to the expected number for arm / mode
             self.logger.info("OrderTrace: cleaning spurious orders...")
@@ -124,8 +124,6 @@ class OrderTrace():
                 self.logger.info("OrderTrace: finding widths...")
                 #self.logger.warning("OrderTrace: finding width...")
             all_widths, cluster_coeffs = self.alg.find_all_cluster_widths(HRS_index, HRS_x, HRS_y, power_for_width_estimation=3)
-
-            self.plot = True
             
             if self.plot:
                 uniq = np.unique(HRS_index)
@@ -143,7 +141,10 @@ class OrderTrace():
                     plt.plot(x,ord_cen-all_widths[i-1]['bottom_edge'],'r')
                     plt.plot(x,ord_cen+all_widths[i-1]['top_edge'],'b')
                     count=count+1
-                plt.show()
+                    
+                plt.savefig(self.out_dir+self.mode+"_Order_Trace.png",bbox_inches='tight',dpi=600)
+                plt.close()
+
             
             # 7) post processing
             if self.do_post:
