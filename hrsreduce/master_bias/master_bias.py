@@ -223,12 +223,16 @@ class MasterBias():
             new_hdu.header['N_FILE'] = (str(n),"Number of files combined")
             new_hdu.header['HISTORY'] = ("Files used for Master: "+str(Bias_files_short))
             
+            var_hdu = fits.ImageHDU(data=var.astype(np.int32),name="VAR")
+            var_hdu.header.insert(8,('COMMENT',"Variance of MasterBias"))
+            
             cnt_hdu = fits.ImageHDU(data=cnt.astype(np.int32),name="CNT")
             cnt_hdu.header.insert(8,('COMMENT',"Count of Bias frames used per pixel to calculate MasterBias"))
+            
             unc_hdu = fits.ImageHDU(data=unc.astype(np.float32),name="UNC")
             unc_hdu.header.insert(8,('COMMENT',"Uncertainty of MasterBias"))
             
-            hdul = fits.HDUList([new_hdu, cnt_hdu, unc_hdu])
+            hdul = fits.HDUList([new_hdu, var_hdu, cnt_hdu, unc_hdu])
                     
             hdul.writeto(str(self.out_dir)+"Master_Bias_"+str(self.sarm)+str(self.night)+".fits",overwrite=True)
             

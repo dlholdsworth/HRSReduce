@@ -32,6 +32,7 @@ from hrsreduce.utils.find_nearest_files import FindNearestFiles
 from hrsreduce.L0_Corrections.level0corrections import L0Corrections
 from hrsreduce.master_bias.master_bias import MasterBias, SubtractBias
 from hrsreduce.master_flat.master_flat import MasterFlat
+from hrsreduce.var_ext.var_ext import VarExts
 from hrsreduce.order_trace.order_trace import OrderTrace
 from hrsreduce.extraction.extraction import SpectralExtraction
 
@@ -316,6 +317,10 @@ def main(
             
         #Create the Order file
         order_file = OrderTrace(master_flat,nights,base_dir,arm_colour,m,plot).order_trace()
+
+        #Calculate the Varience image
+        for sci_file in files['sci']:
+            VarExts(sci_file,master_bias,master_flat).run()
 
         #Extract the data
         for sci_file in files['sci']:
