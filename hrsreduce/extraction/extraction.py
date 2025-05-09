@@ -9,6 +9,7 @@ from astropy.io import fits
 
 # Local dependencies
 from hrsreduce.extraction.alg import SpectralExtractionAlg
+import hrsreduce.utils.background_subtraction as BkgAlg
 
 #TODO: Run a test to see if the file has been processed (check FITS extension) to avoid running many times. (Not normally an issue, but testing/development will be slow otherwise)
 #TODO: Add in VAR details to get a realistic error
@@ -30,7 +31,8 @@ class SpectralExtraction():
         self.base_dir = base_dir
         self.logger = logger
         self.outlier_rejection = False
-        spec_no_bk = None
+        spec_no_bk = sci_frame
+        var_ext = 'VAR'
         
         # start a logger
         self.logger.info('Started SpectralExtraction')
@@ -45,15 +47,16 @@ class SpectralExtraction():
         # Open the data files
         with fits.open(self.input_spectrum) as hdl:
             self.spec_header = hdl[0].header
-            self.spec_flux = hdl[0].data
+            spec_flux = hdl[0].data
+            var_data = hdl['VAR'].data
+            
+        # Calculate and subtract the background
+        order_trace_npz = self.order_trace_file.replace(".csv",".npz")
+        self.spec_flux,bkg = BkgAlg.BkgAlg(spec_flux,order_trace_npz,self.logger)
+
         with fits.open(self.input_flat) as hdl:
             self.flat_data = hdl[0].data
             self.flat_header = hdl[0].header
-
-        if spec_no_bk is not None and hasattr(spec_no_bk, var_ext) and spec_no_bk[var_ext].size > 0:
-            var_data = spec_no_bk[var_ext]
-        else:
-            var_data = None
 
         try:
             self.alg = SpectralExtractionAlg(self.flat_data,
@@ -137,7 +140,6 @@ class SpectralExtraction():
             data_O = pd.concat([data_O, tmp.iloc[[0]]],axis=0,ignore_index=True)
 
 
-
         good_result = good_result and data_df is not None
 
         if not good_result and self.logger:
@@ -151,6 +153,11 @@ class SpectralExtraction():
             data_df.to_csv(out_file)
             data_P_np=data_P.to_numpy()
             data_O_np=data_O.to_numpy()
+            P_VAR = np.array(data_P_np)
+            P_VAR = np.absolute(P_VAR)
+            O_VAR = np.array(data_O_np)
+            O_VAR = np.absolute(O_VAR)
+
                
             with fits.open(self.input_spectrum) as hdul:
                 Ext_ords_P = fits.ImageHDU(data=data_P, name="FIBRE_P")
@@ -160,6 +167,8 @@ class SpectralExtraction():
                 Ext_ords_P.header["FLATFILE"] = (str(os.path.basename(self.input_flat)),"Input flat for extraction")
                 Ext_ords_P.header["ORDFILE"] = (str(os.path.basename(self.order_trace_file)),"Order trace file")
                 hdul.append(Ext_ords_P)
+                Ext_ords_P_VAR = fits.ImageHDU(data=P_VAR, name="FIBRE_P_VAR")
+                hdul.append(Ext_ords_P_VAR)
                 Ext_ords_O = fits.ImageHDU(data=data_O, name="FIBRE_O")
                 Ext_ords_O.header["NORDS"] =  ((data_O.shape[0]),"Number of extracted orders")
                 Ext_ords_O.header["E_MTHD"] = ((self.extraction_method),"Extraction Method. 0: optimal, 1: sum")
@@ -167,6 +176,8 @@ class SpectralExtraction():
                 Ext_ords_O.header["FLATFILE"] = (str(os.path.basename(self.input_flat)),"Input flat for extraction")
                 Ext_ords_O.header["ORDFILE"] = (str(os.path.basename(self.order_trace_file)),"Order trace file")
                 hdul.append(Ext_ords_O)
+                Ext_ords_O_VAR = fits.ImageHDU(data=O_VAR, name="FIBRE_O_VAR")
+                hdul.append(Ext_ords_O_VAR)
                 
                 hdul.writeto(self.input_spectrum,overwrite='True')
 

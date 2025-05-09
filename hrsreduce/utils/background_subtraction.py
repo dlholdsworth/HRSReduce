@@ -6,7 +6,7 @@ from photutils.background import Background2D, MedianBackground
 
 import matplotlib.pyplot as plt
 
-def background_subtraction(raw, order_mask,logger):
+def BkgAlg(raw, order_mask,logger):
     """ Background subtraction
     Args:
         raw: raw image to have background calcualted for
