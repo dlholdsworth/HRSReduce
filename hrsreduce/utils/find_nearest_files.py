@@ -45,7 +45,7 @@ def FindNearestFiles(type,night,m,base_dir,arm_colour,logger):
         next_year=next_night[0:4]
         next_mmdd=next_night[4:8]
         next_data_location = os.path.join(base_dir, arm_colour+'/'+next_year+'/'+next_mmdd+'/raw/')
-        result = SortFiles(next_data_location,logger,mode=m)
+        result = SortFiles(next_data_location,logger,arm,mode=m)
         files = result[idx]
         if idx == 1 and len(files)<3:
             files = []
