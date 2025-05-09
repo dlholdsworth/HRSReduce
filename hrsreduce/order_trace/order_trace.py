@@ -155,10 +155,51 @@ class OrderTrace():
                 _, all_widths = self.alg.post_process(post_coeffs, post_widths, orderlet_gap=self.orderlet_gap_pixels)
                 
                 
-            # 7.5 HRS Specific
+            # 8) Fixing order properties based on the ensamble. This is for the bluest 5 orders and 3 reddest orders
+            # Fit 3rd order polynomials to the 'good' orders and use the parameters to fix the other 7 orders
+            # Re-order the orders based on the intercpt value (coeff5)
+            
+            for i in range(5):
+                coeffs = cluster_coeffs[:,i]
+                x=np.arange(len(coeffs))
+                pars = np.polyfit(x[5:-3],coeffs[5:-3],3)
+
+                for j in range(5):
+                    fit = np.polyval(pars,j)
+                    cluster_coeffs[j,i] = fit
+                for j in range(3):
+                    fit = np.polyval(pars,len(coeffs)-j-1)
+                    cluster_coeffs[len(coeffs)-j-1,i] = fit
+                coeffs = cluster_coeffs[:,i]
+                
+            if self.plot:
+                uniq = np.unique(HRS_index)
+                plt.title("OrderTrace: Widths\nNumber ords="+str(len(uniq)))
+                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=500)
+
+                count=0
+                for i in uniq:
+                    s_x = int(cluster_coeffs[i, self.poly_degree + 1])
+                    e_x = int(cluster_coeffs[i, self.poly_degree + 2] + 1)
+                    x=np.arange(s_x,e_x)
+                    ord_cen=np.polyval(cluster_coeffs[i,0:self.poly_degree+1],x)
+
+                    plt.plot(x,ord_cen,'g')
+                    plt.plot(x,ord_cen-all_widths[i-1]['bottom_edge'],'r')
+                    plt.plot(x,ord_cen+all_widths[i-1]['top_edge'],'b')
+                    count=count+1
+                plt.show()
+            
+            starts = cluster_coeffs[:,5]
+            srt_idx = sorted(range(len(starts)),key=starts.__getitem__)
+            sorted_cls = cluster_coeffs[srt_idx]
+            all_widths = [all_widths[i-1] for i in srt_idx[1:]]
+            del cluster_coeffs
+            cluster_coeffs = sorted_cls
+
+            # 9) HRS orders are in pairs, so correct the order lenghts to be the same for the fibre pairs
             if self.logger:
                 self.logger.info("OrderTrace: correcting order lengths...")
-            #HRS orders are in pairs, so correct the order lenghts to be the same for the fibre pairs
             max_cluster_no = np.amax(HRS_index)
             cluster_set = list(range(1, max_cluster_no+1))
             img_edge= self.flat_data.shape[1]-1
@@ -181,7 +222,7 @@ class OrderTrace():
                     
                     
 
-            # 8) convert result to dataframe
+            # 10) convert result to dataframe
             if self.logger:
                 self.logger.info("OrderTrace: writing cluster into dataframe...")
 
