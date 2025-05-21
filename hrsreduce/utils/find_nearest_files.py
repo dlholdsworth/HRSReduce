@@ -34,12 +34,15 @@ def FindNearestFiles(type,night,m,base_dir,arm_colour,logger):
         if idx == 1 and len(files)<3:
             files = []
         else:
-            logger.info(
-            f"Using %s files found in folder: %s\n", type,
-            prev_data_location,
-            )
-            files_night = str(prev_year+prev_mmdd)
-            break
+            if len(files)>0:
+                logger.info(
+                f"Using %s files found in folder: %s\n", type,
+                prev_data_location,
+                )
+                files_night = str(prev_year+prev_mmdd)
+                break
+            else:
+                continue
             
         next_night = arrow.get(next_night).shift(days=+1).format('YYYYMMDD')
         next_year=next_night[0:4]
@@ -50,10 +53,13 @@ def FindNearestFiles(type,night,m,base_dir,arm_colour,logger):
         if idx == 1 and len(files)<3:
             files = []
         else:
-            logger.info(
-            f"Using %s files found in folder: %s\n", type,
-            next_data_location,
-            )
-            files_night = str(next_year+next_mmdd)
-            break
+            if len(files)>0:
+                logger.info(
+                f"Using %s files found in folder: %s\n", type,
+                next_data_location,
+                )
+                files_night = str(next_year+next_mmdd)
+                break
+            else:
+                continue
     return files,files_night
