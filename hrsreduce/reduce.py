@@ -35,6 +35,7 @@ from hrsreduce.master_flat.master_flat import MasterFlat
 from hrsreduce.var_ext.var_ext import VarExts
 from hrsreduce.order_trace.order_trace import OrderTrace
 from hrsreduce.extraction.extraction import SpectralExtraction
+from hrsreduce.wave_cal.wave_cal import WavelengthCalibration
 
 from .configuration import load_config
 
@@ -69,7 +70,6 @@ def main(
     night=None,
     modes=None,
     arm=None,
-    steps="all",
     base_dir=None,
     input_dir=None,
     output_dir=None,
@@ -93,11 +93,6 @@ def main(
         the instrument modes to use, if None will use all known modes for the current instrument. See instruments for possible options
     arm : str, list[str]
         the spectrograph arm to reduce, if None will use all known modes for the current instrument
-    steps : tuple(str), "all", optional
-        which steps of the reduction process to perform
-        the possible steps are: "bias", "flat", "orders", "norm_flat", "wavecal", "science"
-        alternatively set steps to "all", which is equivalent to setting all steps
-        Note that the later steps require the previous intermediary products to exist and raise an exception otherwise
     base_dir : str, optional
         base data directory that HRSReduce should work in, is prefixxed on input_dir and output_dir (default: use settings_pyreduce.json)
     input_dir : str, optional
@@ -302,7 +297,7 @@ def main(
         files = files_out
         
         #Clean the files of CRs
-        #_ = CosmicRayMasking(files,arm)
+        _ = CosmicRayMasking(files,arm)
         
         #Remove the intermediate files
         for ff in files["bias"]:
@@ -318,121 +313,23 @@ def main(
         #Create the Order file
         order_file = OrderTrace(master_flat,nights,base_dir,arm_colour,m,plot).order_trace()
 
-        #Calculate the Varience image
+        #Calculate the Varience image and extract the frames
         for sci_file in files['sci']:
             VarExts(sci_file,master_bias,master_flat).run()
-
-        #Extract the data
-        for sci_file in files['sci']:
             SpectralExtraction(sci_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
-        
-        #Extract the data
+            
+        #Calculate the Varience image, extract the frames and calculate the wave solution
         for arc_file in files['arc']:
-            SpectralExtraction(sci_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
+            cal_type = 'ThAr'
+            VarExts(arc_file,master_bias,master_flat).run()
+            SpectralExtraction(arc_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
+            print(arc_file)
+            WavelengthCalibration(arc_file, arm, m, base_dir,cal_type,plot).execute()
+            
+            
 
         
         
 
     return output
 
-#class Step:
-#    """Parent class for all steps"""
-#
-#    def __init__(
-#        self, instrument, mode night, output_dir, order_range, **config
-#    ):
-#        self._dependsOn = []
-#        self._loadDependsOn = []
-#        #:str: Name of the instrument
-#        self.instrument = instrument
-#        #:str: Name of the instrument mode
-#        self.mode = mode
-#        #:str: Name of the observation target
-#        self.target = target
-#        #:str: Date of the observation (as a string)
-#        self.night = night
-#        #:tuple(int, int): First and Last(+1) order to process
-#        self.order_range = order_range
-#        #:bool: Whether to plot the results or the progress of this step
-#        self.plot = config.get("plot", False)
-#        #:str: Title used in the plots, if any
-#        self.plot_title = config.get("plot_title", None)
-#        self._output_dir = output_dir
-#
-#    def run(self, files, *args):  # pragma: no cover
-#        """Execute the current step
-#
-#        This should fail if files are missing or anything else goes wrong.
-#        If the user does not want to run this step, they should not specify it in steps.
-#
-#        Parameters
-#        ----------
-#        files : list(str)
-#            data files required for this step
-#
-#        Raises
-#        ------
-#        NotImplementedError
-#            needs to be implemented for each step
-#        """
-#        raise NotImplementedError
-#
-#    def save(self, *args):  # pragma: no cover
-#        """Save the results of this step
-#
-#        Parameters
-#        ----------
-#        *args : obj
-#            things to save
-#
-#        Raises
-#        ------
-#        NotImplementedError
-#            Needs to be implemented for each step
-#        """
-#        raise NotImplementedError
-#
-#    def load(self):  # pragma: no cover
-#        """Load results from a previous execution
-#
-#        If this raises a FileNotFoundError, run() will be used instead
-#        For calibration steps it is preferred however to print a warning
-#        and return None. Other modules can then use a default value instead.
-#
-#        Raises
-#        ------
-#        NotImplementedError
-#            Needs to be implemented for each step
-#        """
-#        raise NotImplementedError
-#
-#    @property
-#    def dependsOn(self):
-#        """list(str): Steps that are required before running this step"""
-#        return list(set(self._dependsOn))
-#
-#    @property
-#    def loadDependsOn(self):
-#        """list(str): Steps that are required before loading data from this step"""
-#        return list(set(self._loadDependsOn))
-#
-#    @property
-#    def output_dir(self):
-#        """str: output directory, may contain tags {instrument}, {night}, {target}, {mode}"""
-#        return self._output_dir.format(
-#            instrument=self.instrument.name.upper(),
-#            target=self.target,
-#            night=self.night,
-#            mode=self.mode,
-#        )
-#
-#    @property
-#    def prefix(self):
-#        """str: temporary file prefix"""
-#        i = self.instrument.name.lower()
-#        if self.mode is not None and self.mode != "":
-#            m = self.mode.lower()
-#            return f"{i}_{m}"
-#        else:
-#            return i
-#

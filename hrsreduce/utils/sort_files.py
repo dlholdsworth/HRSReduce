@@ -52,6 +52,7 @@ def SortFiles(input_dir, logger, arm, mode):
     arc_files = []
     lfc_files = []
     sci_files = []
+    hs_arc_files = []
 
     if arm[0] == "H":
         ax1 = 2074
@@ -81,6 +82,13 @@ def SortFiles(input_dir, logger, arm, mode):
                     elif hdr["OBSTYPE"] == "Comb":
                         lfc_files.append(file)
                     else:
-                        logger.debug("File %s does not match an expected value in %s, %s, %s or %s", file,"Flat field","Arc","Science","Comb" )
-                    
-    return bias_files,flat_files,arc_files,lfc_files,sci_files
+                        logger.debug("File %s does not match an expected value in %s, %s, %s or %s", file,"Flat field","Arc","Science","Comb")
+                if mode == 'HS':
+                    if np.logical_and(hdr["OBSTYPE"] == "Arc", hdr["PROPID"] == "CAL_STABLE"):
+                        if hdr["I2STAGE"] == "Reference Fibre":
+                            hs_arc_files.append(file)
+
+    if mode == "HS":
+        return bias_files,flat_files,hs_arc_files,lfc_files,sci_files
+    else:
+        return bias_files,flat_files,arc_files,lfc_files,sci_files
