@@ -797,6 +797,8 @@ class OrderTraceAlg():
         
         if self.mode == "MR" and self.sarm == "H":
             image_data[860:867,140:144] = image_data[860:867,135:139]
+        if self.mode == "HS" and self.sarm == "H":
+            image_data[0:20,:] = 0.
 
         # Parameters
         filter_par = self.filter_par
@@ -3329,21 +3331,21 @@ class OrderTraceAlg():
                     new_index +=1
                     
             if self.sarm == "H" and self.mode == "HS":
-                if np.min(fit) > 20 and len(ii) > 6000:
+                if np.polyval(fit_coeffs,750) > 20 and len(ii) > 6000:
                     if np.min(x_ord) < 700 and np.min(y_ord)<4000:
-                        for i in ii:
+                        for i in range(len(x_ord)):
                             index2.append(new_index)
-                            x2.append(x[i])
-                            y2.append(y[i])
+                            x2.append(x_ord[i])
+                            y2.append(y_ord[i])
                         new_index +=1
             if self.sarm == "H" and (self.mode == "HR" or self.mode =="MR" or self.mode =="LR"):
-                if np.min(fit) > 20 and len(xrange) > 1200:
+                if np.polyval(fit_coeffs,750) > 20 and len(xrange) > 1200:
                     if np.polyval(fit_coeffs,600)< 4050:
                         if np.min(x_ord) < 650 and np.min(y_ord)<4000:
-                            for i in ii:
+                            for i in range(len(x_ord)):
                                 index2.append(new_index)
-                                x2.append(x[i])
-                                y2.append(y[i])
+                                x2.append(x_ord[i])
+                                y2.append(y_ord[i])
                             new_index +=1
 
         index3 = np.asarray(index2,dtype=np.int32)

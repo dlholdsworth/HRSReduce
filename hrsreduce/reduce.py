@@ -323,13 +323,7 @@ def main(
             cal_type = 'ThAr'
             VarExts(arc_file,master_bias,master_flat).run()
             SpectralExtraction(arc_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
-            print(arc_file)
             WavelengthCalibration(arc_file, arm, m, base_dir,cal_type,plot).execute()
             
-            
-
-        
-        
-
     return output
 
