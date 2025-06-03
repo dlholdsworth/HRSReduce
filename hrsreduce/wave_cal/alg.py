@@ -162,6 +162,7 @@ class WaveCalAlg:
                     '{}/all_wls_{}.png'.format(self.save_diagnostics_dir,self.fibre),
                     dpi=500
                 )
+                plt.close()
 
 
         return poly_soln, wls_and_pixels, orderlet_dict, absolute_precision, order_precisions
@@ -783,7 +784,7 @@ class WaveCalAlg:
 #            plt.xlabel('Pixel')
 #            plt.ylabel('Fit residuals [$\AA$]')
 #            plt.tight_layout()
-#            #plt.savefig('{}/polyfit.png'.format(plot_path))
+#            plt.savefig('{}/polyfit.png'.format(plot_path))
 #            plt.close()
             
             if plot_path is not None and self.cal_type =='ThAr':

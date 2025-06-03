@@ -34,8 +34,10 @@ from hrsreduce.master_bias.master_bias import MasterBias, SubtractBias
 from hrsreduce.master_flat.master_flat import MasterFlat
 from hrsreduce.var_ext.var_ext import VarExts
 from hrsreduce.order_trace.order_trace import OrderTrace
+#from hrsreduce.extraction.order_rectification import OrderRectification
 from hrsreduce.extraction.extraction import SpectralExtraction
 from hrsreduce.wave_cal.wave_cal import WavelengthCalibration
+from hrsreduce.norm.norm import ContNorm
 
 from .configuration import load_config
 
@@ -312,10 +314,15 @@ def main(
             
         #Create the Order file
         order_file = OrderTrace(master_flat,nights,base_dir,arm_colour,m,plot).order_trace()
+        
+        #Calcualte a blaze using the Spectral Extracton module
+        VarExts(master_flat,master_bias,master_flat).run()
+        SpectralExtraction(master_flat, master_flat,order_file,arm_colour,m,base_dir).extraction()
 
         #Calculate the Varience image and extract the frames
         for sci_file in files['sci']:
             VarExts(sci_file,master_bias,master_flat).run()
+            #OrderRectification(sci_file,master_flat,order_file,arm_colour,m,base_dir).rectify()
             SpectralExtraction(sci_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
             
         #Calculate the Varience image, extract the frames and calculate the wave solution
@@ -324,6 +331,10 @@ def main(
             VarExts(arc_file,master_bias,master_flat).run()
             SpectralExtraction(arc_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
             WavelengthCalibration(arc_file, arm, m, base_dir,cal_type,plot).execute()
-            
+
+        for sci_file in files['sci']:
+            ContNorm(sci_file,files['arc'][0],master_flat).execute()
+        
+
     return output
 

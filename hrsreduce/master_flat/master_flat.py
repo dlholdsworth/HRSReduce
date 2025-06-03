@@ -7,24 +7,18 @@ from datetime import datetime
 import pytz
 import os
 
-
 from hrsreduce.utils.frame_stacker import FrameStacker
-from hrsreduce.utils.sort_files import SortFiles
-from hrsreduce.L0_Corrections.level0corrections import L0Corrections
-from hrsreduce.master_bias.master_bias import MasterBias
 
 logger = logging.getLogger(__name__)
 
 class MasterFlat():
 
-    def __init__(self,files,nights,in_dir,out_dir,base_dir,arm,night,mode,plot):
+    def __init__(self,files,nights,in_dir,out_dir,base_dir,arm,night,mode,plot,super=False):
     
         self.propid = "CAL_FLAT"
         self.files = files
         self.nights = nights
         self.tn = night
-        self.out_dir = out_dir
-        self.in_dir = in_dir
         self.base_dir = base_dir
         self.plot = plot
         self.arm = arm
@@ -33,6 +27,7 @@ class MasterFlat():
             self.sarm = "H"
         else:
             self.sarm = "R"
+        self.super=super
         self.low_light_limit = 0.1
         logger.info('Started {}'.format(self.__class__.__name__))
         
@@ -45,7 +40,10 @@ class MasterFlat():
         self.out_dir = self.base_dir+self.arm+"/"+yyyymmdd[0:4]+"/"+yyyymmdd[4:]+"/reduced/"
     
         #Test if Master Flat exists
-        master_file = glob.glob(self.out_dir+self.mode+"_Master_Flat_"+self.sarm+str(yyyymmdd)+".fits")
+        if not self.super:
+            master_file = glob.glob(self.out_dir+self.mode+"_Master_Flat_"+self.sarm+str(yyyymmdd)+".fits")
+        else:
+            master_file = glob.glob(self.out_dir+self.mode+"_"+self.sarm+str(yyyymmdd)+".fits")
 
         if len(master_file) == 0:
             #If there is no MASTER FLAT file we need to create one.
@@ -82,7 +80,7 @@ class MasterFlat():
             TEM_VAC =[]
             
             for file in Flat_files:
-                Flat_files_short.append(file.removeprefix(self.out_dir))
+                Flat_files_short.append(os.path.basename(file))
                 with fits.open(file) as hdu:
                     #Perform a test to reject bad files
                     if np.nanstd(hdu[0].data) > 200:
@@ -105,7 +103,11 @@ class MasterFlat():
                     else:
                         logger.warning("Flat file {} found not to have enough range. Rejecting it.".format(file))
                         #Change the file name to show it is bad
-                        os.rename(file, str(self.out_dir+"Bad_Flat_"+file.removeprefix(out_dir)))
+                        ngt = os.path.basename(file)
+                        yr = ngt[-17:-13]
+                        ngt = ngt[-13:-9]
+                        bad_dir = (self.base_dir+self.arm+"/"+yr+"/"+ngt+"/reduced/")
+                        os.rename(file, str(bad_dir+"Bad_Flat_"+os.path.basename(file)))
  
             jd_mean = np.array(jd_mean)
             jd_mean = np.mean(jd_mean)
@@ -175,7 +177,7 @@ class MasterFlat():
             plt.imshow(flat,origin='lower',vmin=0,vmax=5)
             plt.show()
             '''
-            
+ 
             #Create the master flat and write to new FITS file.
             master_flat = flat_avg.astype(np.float32)
             new_hdu = fits.PrimaryHDU(data=master_flat)
@@ -305,8 +307,16 @@ class MasterFlat():
             unc_hdu.header.insert(8,('COMMENT',"Uncertainty of MasterFlat"))
             
             hdul = fits.HDUList([new_hdu, cnt_hdu, unc_hdu])
-                    
-            master_file = str(self.out_dir)+self.mode+"_Master_Flat_"+str(self.sarm)+str(yyyymmdd)+".fits"
+            
+            if self.super:
+                try:
+                    super_dir = self.base_dir+self.arm+"/"+str(yyyymmdd[0:4]+"/Super_Flats/")
+                    os.mkdir(super_dir)
+                except Exception:
+                    pass
+                master_file = str(super_dir)+self.mode+"_Super_Flat_"+str(self.sarm)+str(yyyymmdd)+".fits"
+            else:
+                master_file = str(self.out_dir)+self.mode+"_Master_Flat_"+str(self.sarm)+str(yyyymmdd)+".fits"
             hdul.writeto(master_file,overwrite=True)
         
         else:

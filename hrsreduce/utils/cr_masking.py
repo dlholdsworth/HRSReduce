@@ -12,7 +12,7 @@ def CosmicRayMasking(all_files, arm, verbose=True):
     """
     sigclip = 6.
     sigfrac = 0.3
-    f_types = ['sci', 'arc', 'lfc','flat']
+    f_types = ['sci', 'lfc','flat']
 
     for type in f_types:
         files = all_files[type]

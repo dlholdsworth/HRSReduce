@@ -56,7 +56,7 @@ class SpectralExtractionAlg():
         config (configparser.ConfigParser, optional): config context. Defaults to None.
         logger (logging.Logger, optional): Instance of logging.Logger. Defaults to None.
         rectification_method (int, optional): There are three methods used to collect pixels from orders of spectrum
-                data and flat dta for spectral extraction. Defaults to NoRECT.
+                data and flat data for spectral extraction. Defaults to NoRECT.
 
                 - SpectralExtractionAlg.NoRECT: Pixels at the north-up direction along the order are collected.
                   No rectification. (the fastest computation).
@@ -173,7 +173,7 @@ class SpectralExtractionAlg():
         self.flat_header = flat_header
         self.spectrum_flux = spectrum_data   # None is allowed
         self.spectrum_header = spectrum_header
-
+        self.logger = logger
         self.extraction_method = extraction_method
         self.rectification_method = rectification_method
 
@@ -1002,7 +1002,7 @@ class SpectralExtractionAlg():
                 out_data[dt['idx']][0:y_size, 0] = dt['data'][y_output_widths + y_output_mid, o_x]
             extracted_result = self.extraction_handler(out_data, y_size, data_group)
             extracted_data[:, o_x:o_x + 1] = extracted_result['extraction']
- 
+
 
         if self.output_clip_area:
             self.poly_clip_update = True
@@ -2170,6 +2170,7 @@ class SpectralExtractionAlg():
                          show_time=False,
                          print_debug=None,
                          bleeding_file=None,
+                         spectrum_file = None,
                          first_index=0):
         """ Spectral extraction from 2D flux to 1D. Rectification step is optional.
 
@@ -2204,12 +2205,12 @@ class SpectralExtractionAlg():
 
         if order_set is None:
             order_set = self.get_order_set(order_name)
-        """"
+        '''
         print('SpectralExtractionAlg: do ', self.rectifying_method[self.rectification_method],
                      'rectification and ',
                      self.extracting_method[self.extraction_method], 'extraction on ',
                      order_set.size, ' orders')
-        """
+        '''
 
 #        t_start = self.start_time()
         noop = False
@@ -2290,9 +2291,35 @@ class SpectralExtractionAlg():
             if self.extraction_method == self.NOEXTRACT:
                 order_rectification_result.append({"order": c_order, "rectification": order_result[c_order]})
             #t_start = self.time_check(t_start, '**** time ['+str(c_order)+']: ')
-
+ 
+ 
+        #Write the rectified image to the input file
         if self.extraction_method == self.NOEXTRACT:
-            data_df = self.write_rectified_data_to_dataframe(out_data, order_rectification_result)
+            print("DLH NO EXTRACTION")
+            with fits.open(spectrum_file) as hdul:
+                rect_img = fits.ImageHDU(data=out_data, name="RECT")
+                hdul.append(rect_img)
+                hdul.writeto(spectrum_file,overwrite='True')
+                
+            df_result_out = []
+            for i in range(len(order_rectification_result)):
+                order_rect = order_rectification_result[i].get("rectification")
+                order_idx=(order_rectification_result[i].get("order"))
+                edge_low,edge_top=(order_rect.get("edges"))
+                y_center=(order_rect.get("out_y_center"))
+                df_result={}
+                df_result['order']= order_idx
+                df_result['y'] = y_center
+                df_result['lower_edge'] = edge_low
+                df_result['upper_edge'] = edge_top
+                
+                df_result_out.append(df_result)
+
+            df_result = pd.DataFrame(df_result_out)
+            return df_result
+                
+            
+
         else:
             data_df = self.write_data_to_dataframe(out_data, first_row=start_row_at)
             
