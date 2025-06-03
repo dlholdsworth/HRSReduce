@@ -32,9 +32,12 @@ class L0Corrections():
         self.arm = arm[0]
         if self.arm == "H":
             self.arm_col = "Blu"
+            self.naxis1 = 2074
+            self.naxis2 = 4102
         elif self.arm == "R":
             self.arm_col = "Red"
-        
+            self.naxis1 = 4122
+            self.naxis2 = 4112
         logger.info('Started {}'.format(self.__class__.__name__))
     
     def oscan(self,file,night):

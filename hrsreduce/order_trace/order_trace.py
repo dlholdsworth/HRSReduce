@@ -175,7 +175,7 @@ class OrderTrace():
             if self.plot:
                 uniq = np.unique(HRS_index)
                 plt.title("OrderTrace: Widths\nNumber ords="+str(len(uniq)))
-                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=500)
+                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
 
                 count=0
                 for i in uniq:
@@ -189,6 +189,7 @@ class OrderTrace():
                     plt.plot(x,ord_cen+all_widths[i-1]['top_edge'],'b')
                     count=count+1
                 plt.savefig(self.out_dir+self.mode+"_Order_Trace.png",bbox_inches='tight',dpi=600)
+                plt.show()
                 plt.close()
             
             starts = cluster_coeffs[:,5]

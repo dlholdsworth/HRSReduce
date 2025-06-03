@@ -20,6 +20,7 @@ class MasterBias():
     
         self.EXPTIME = 0.
         self.propid = "CAL_BIAS"
+        self.propid2 = "ENG_HRS"
         self.files = files
         self.out_dir = out_dir
         self.in_dir = in_dir
@@ -47,7 +48,7 @@ class MasterBias():
             Bias_files_short = []
             for file in self.files:
                 with fits.open(file) as hdu:
-                    if (hdu[0].header["EXPTIME"] == self.EXPTIME and hdu[0].header["PROPID"] == self.propid):
+                    if (hdu[0].header["EXPTIME"] == self.EXPTIME and (hdu[0].header["PROPID"] == self.propid or hdu[0].header["CCDTYPE"] == "Bias")):
                         Bias_files.append(file)
                         Bias_files_short.append(file.removeprefix(self.out_dir))
                         gain = hdu[0].header["AVG_GAIN"]
