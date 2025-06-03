@@ -100,21 +100,25 @@ class WavelengthCalibration():
                         raise ValueError('ThAr run requires linelist_path')
 
 
-                    wl_soln_P, wls_and_pixels_P, orderlet_dict_P,absolute_precision_P = self.alg.run_wavelength_cal(
+                    wl_soln_P, wls_and_pixels_P, orderlet_dict_P,absolute_precision_P, order_precisions_P = self.alg.run_wavelength_cal(
                         P_fluxs,peak_wavelengths_ang=peak_wavelengths_ang_P,
                         rough_wls=self.rough_wls_P,fibre='P')
                     #Save the wavelength solution to a new fits extension
                     Ext_wave_P = fits.ImageHDU(data=wl_soln_P, name="WAVE_P")
                     Ext_wave_P.header["RV_PREC"] = ((absolute_precision_P),"Overall absolute precision (all orders) cm/s")
                     hdul.append(Ext_wave_P)
+                    Ext_wave_P2 = fits.ImageHDU(name='WAVE_P_PRE', data=order_precisions_P)
+                    hdul.append(Ext_wave_P2)
                     
-                    wl_soln_O, wls_and_pixels_O, orderlet_dict_O, absolute_precision_O = self.alg.run_wavelength_cal(
+                    wl_soln_O, wls_and_pixels_O, orderlet_dict_O, absolute_precision_O, order_precisions_O = self.alg.run_wavelength_cal(
                         O_fluxs,peak_wavelengths_ang=peak_wavelengths_ang_O,
                         rough_wls=self.rough_wls_O,fibre='O')
                     #Save the wavelength solution to a new fits extension
                     Ext_wave_O = fits.ImageHDU(data=wl_soln_O, name="WAVE_O")
                     Ext_wave_O.header["RV_PREC"] = ((absolute_precision_O),"Overall absolute precision (all orders) cm/s")
                     hdul.append(Ext_wave_O)
+                    Ext_wave_O2 = fits.ImageHDU(name='WAVE_O_PRE', data=order_precisions_O)
+                    hdul.append(Ext_wave_O2)
                     
 #                    if self.save_wl_pixel_toggle == True:
 #                        wlpixelwavedir = self.output_dir + '/wlpixelfiles/'

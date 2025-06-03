@@ -331,7 +331,7 @@ def main(
             VarExts(arc_file,master_bias,master_flat).run()
             SpectralExtraction(arc_file, master_flat,order_file,arm_colour,m,base_dir).extraction()
             WavelengthCalibration(arc_file, arm, m, base_dir,cal_type,plot).execute()
-            
+
         for sci_file in files['sci']:
             ContNorm(sci_file,files['arc'][0],master_flat).execute()
         
