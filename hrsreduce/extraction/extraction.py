@@ -9,7 +9,6 @@ from astropy.io import fits
 
 # Local dependencies
 from hrsreduce.extraction.alg import SpectralExtractionAlg
-import hrsreduce.utils.background_subtraction as BkgAlg
 
 #TODO: Run a test to see if the file has been processed (check FITS extension) to avoid running many times. (Not normally an issue, but testing/development will be slow otherwise)
 #TODO: Add in VAR details to get a realistic error
@@ -19,12 +18,13 @@ logger = logging.getLogger(__name__)
 
 class SpectralExtraction():
 
-    def __init__(self, sci_frame, flat_frame,order_trace_file, sarm,mode,base_dir):
+    def __init__(self, sci_frame, flat_frame,arc_frame,order_trace_file, sarm,mode,base_dir):
 
         self.input_spectrum = sci_frame
         self.input_flat = flat_frame
+        self.arc_frame = arc_frame
         self.order_trace_file = order_trace_file
-        self.rectification_method = 0 # Normal to the order trace: 0, vertical:1, none: 2
+        self.rectification_method = 2 # Normal to the order trace: 0, vertical:1, none: 2
         self.extraction_method = 0 # Optimal extraction: 0, sum: 1, no: 2
         self.arm = sarm
         self.mode = mode
@@ -39,24 +39,34 @@ class SpectralExtraction():
 
         self.order_trace_data = None
         if self.order_trace_file:
-            self.order_trace_data = pd.read_csv(self.order_trace_file, header=0, index_col=0)
+            self.order_trace_data = pd.read_csv(self.order_trace_file, header=0, index_col=1)
+            df_result_out = []
+            for ord in range(self.order_trace_data.shape[0]):
+                df_result = {}
+                df_result['Coeff0'] = self.order_trace_data['Coeff0'][ord]
+                df_result['BottomEdge'] = self.order_trace_data['BottomEdge'][ord]
+                df_result['TopEdge'] = self.order_trace_data['TopEdge'][ord]
+                df_result['X1'] = self.order_trace_data['X1'][ord]
+                df_result['X2'] = self.order_trace_data['X2'][ord]
+                df_result_out.append(df_result)
+            
+            self.order_trace_data = pd.DataFrame(df_result_out)
             poly_degree = self.order_trace_data.shape[1]-5
             origin = [0,0]
             order_trace_header = {'STARTCOL': origin[0], 'STARTROW': origin[1], 'POLY_DEG': poly_degree}
 
         # Open the data files
         with fits.open(self.input_spectrum) as hdl:
+        
             self.spec_header = hdl[0].header
-            spec_flux = hdl[0].data
+            self.spec_flux = hdl['STRAIGHT'].data
             var_data = hdl['VAR'].data
             
-        # Calculate and subtract the background
-        order_trace_npz = self.order_trace_file.replace(".csv",".npz")
-        self.spec_flux,bkg = BkgAlg.BkgAlg(spec_flux,order_trace_npz,self.logger)
 
         with fits.open(self.input_flat) as hdl:
-            self.flat_data = hdl[0].data
+            self.flat_data = hdl['STRAIGHT'].data
             self.flat_header = hdl[0].header
+
 
         try:
             self.alg = SpectralExtractionAlg(self.flat_data,
@@ -65,6 +75,7 @@ class SpectralExtraction():
                                         self.spec_header,
                                         self.order_trace_data,
                                         order_trace_header,
+                                        self.input_spectrum,
                                         config=None, logger=self.logger,
                                         rectification_method=self.rectification_method,
                                         extraction_method=self.extraction_method,
@@ -76,6 +87,7 @@ class SpectralExtraction():
                                         outlier_flux=None,
                                         var_data=var_data)
         except Exception as e:
+            print(e)
             self.alg = None
 
 
@@ -88,11 +100,9 @@ class SpectralExtraction():
             File name containing extracted results.
 
         """
-        # rectification_method: SpectralExtractAlg.NoRECT(fastest) SpectralExtractAlg.VERTICAL, SpectralExtractAlg.NORMAL
-        # extraction_method: 'optimal' (default), 'sum'
 
         if self.logger:
-            self.logger.info("SpectralExtraction: rectifying and extracting order...")
+            self.logger.info("SpectralExtraction: extracting orders ...")
 
         if self.alg is None:
             if self.logger:
@@ -117,17 +127,11 @@ class SpectralExtraction():
         #Run orders (pairs of fibres) in parallel.
         manager = mp.Manager()
         return_dict = manager.dict()
-        processes = [mp.Process(target=self.alg.extract_spectrum, args=(o_set[(2*i):(2*i)+2],i,return_dict)) for i in range(n_ord)]
+        processes = [mp.Process(target=self.alg.extract_spectrum, args=(o_set[(2*i):(2*i)+2],i,return_dict, self.input_spectrum)) for i in range(n_ord)]
         for process in processes:
             process.start()
         for process in processes:
             process.join()
-
-        #opt_ext_result = self.alg.extract_spectrum(order_set = o_set[0:1])
-        #        assert('spectral_extraction_result' in opt_ext_result and
-#                       isinstance(opt_ext_result['spectral_extraction_result'], pd.DataFrame))
-
-#        data_df = opt_ext_result['spectral_extraction_result']
 
 
         data_df = pd.DataFrame.from_dict(return_dict[0]['spectral_extraction_result'])
@@ -148,41 +152,79 @@ class SpectralExtraction():
             self.logger.info("SpectralExtraction: Receipt written")
             self.logger.info("SpectralExtraction: Done for {} orders!".format(int(n_ord*2)))
             
-            out_file=os.path.splitext(str(os.path.dirname(self.input_spectrum))+"/HRS_E_"+str(os.path.basename(self.input_spectrum)))[0]+'.csv'
- 
-            data_df.to_csv(out_file)
+#            out_file=os.path.splitext(str(os.path.dirname(self.input_spectrum))+"/HRS_E_"+str(os.path.basename(self.input_spectrum)))[0]+'.csv'
+#            data_df.to_csv(out_file)
+            
             data_P_np=data_P.to_numpy()
             data_O_np=data_O.to_numpy()
             P_VAR = np.array(data_P_np)
             P_VAR = np.absolute(P_VAR)
             O_VAR = np.array(data_O_np)
             O_VAR = np.absolute(O_VAR)
+            
+            try:
+                with fits.open(self.arc_frame) as hdul:
+                    sciwave_P = hdul['WAVE_P'].data
+                    sciwave_O = hdul['WAVE_O'].data
+                wave = True
+            except:
+                wave = False
+
+            try:
+                with fits.open(self.input_flat) as hdul:
+                    Blaze_P = hdul['BLAZE_P'].data
+                    Blaze_O = hdul['BLAZE_O'].data
+                blaze = True
+            except:
+                blaze = False
+                
 
                
             with fits.open(self.input_spectrum) as hdul:
-                Ext_ords_P = fits.ImageHDU(data=data_P, name="FIBRE_P")
+                if hdul[0].header["OBJECT"] == "Master_Flat":
+                    Ext_ords_P = fits.ImageHDU(data=data_P, name="BLAZE_P")
+                else:
+                    Ext_ords_P = fits.ImageHDU(data=data_P, name="FIBRE_P")
                 Ext_ords_P.header["NORDS"] =  ((data_P.shape[0]),"Number of extracted orders")
                 Ext_ords_P.header["E_MTHD"] = ((self.extraction_method),"Extraction Method. 0: optimal, 1: sum")
                 Ext_ords_P.header["R_MTHD"] = ((self.rectification_method), "Rectification Method. 0: Norm, 1: Vert, 2: None")
                 Ext_ords_P.header["FLATFILE"] = (str(os.path.basename(self.input_flat)),"Input flat for extraction")
                 Ext_ords_P.header["ORDFILE"] = (str(os.path.basename(self.order_trace_file)),"Order trace file")
                 hdul.append(Ext_ords_P)
-                Ext_ords_P_VAR = fits.ImageHDU(data=P_VAR, name="FIBRE_P_VAR")
+                if hdul[0].header["OBJECT"] == "Master_Flat":
+                    Ext_ords_P_VAR = fits.ImageHDU(data=P_VAR, name="BLAZE_P_VAR")
+                else:
+                    Ext_ords_P_VAR = fits.ImageHDU(data=P_VAR, name="FIBRE_P_VAR")
                 hdul.append(Ext_ords_P_VAR)
-                Ext_ords_O = fits.ImageHDU(data=data_O, name="FIBRE_O")
+                if hdul[0].header["OBJECT"] == "Master_Flat":
+                    Ext_ords_O = fits.ImageHDU(data=data_O, name="BLAZE_O")
+                else:
+                    Ext_ords_O = fits.ImageHDU(data=data_O, name="FIBRE_O")
                 Ext_ords_O.header["NORDS"] =  ((data_O.shape[0]),"Number of extracted orders")
                 Ext_ords_O.header["E_MTHD"] = ((self.extraction_method),"Extraction Method. 0: optimal, 1: sum")
                 Ext_ords_O.header["R_MTHD"] = ((self.rectification_method), "Rectification Method. 0: Norm, 1: Vert, 2: None")
                 Ext_ords_O.header["FLATFILE"] = (str(os.path.basename(self.input_flat)),"Input flat for extraction")
                 Ext_ords_O.header["ORDFILE"] = (str(os.path.basename(self.order_trace_file)),"Order trace file")
                 hdul.append(Ext_ords_O)
-                Ext_ords_O_VAR = fits.ImageHDU(data=O_VAR, name="FIBRE_O_VAR")
+                if hdul[0].header["OBJECT"] == "Master_Flat":
+                    Ext_ords_O_VAR = fits.ImageHDU(data=O_VAR, name="BLAZE_O_VAR")
+                else:
+                    Ext_ords_O_VAR = fits.ImageHDU(data=O_VAR, name="FIBRE_O_VAR")
                 hdul.append(Ext_ords_O_VAR)
                 
+                if wave:
+                    Ext_wave_P = fits.ImageHDU(data=sciwave_P, name="WAVE_P")
+                    hdul.append(Ext_wave_P)
+                    Ext_wave_O = fits.ImageHDU(data=sciwave_O, name="WAVE_O")
+                    hdul.append(Ext_wave_O)
+                
+                if blaze:
+                    Ext_ords_P_BLZ = fits.ImageHDU(data=Blaze_P, name="BLAZE_P")
+                    hdul.append(Ext_ords_P_BLZ)
+                    Ext_ords_O_BLZ = fits.ImageHDU(data=Blaze_O, name="BLAZE_O")
+                    hdul.append(Ext_ords_O_BLZ)
+                    
                 hdul.writeto(self.input_spectrum,overwrite='True')
-
-        #return Arguments(self.output_level1) if good_result else Arguments(None)
-#        return data_df
         
     def get_order_set(self, s_order):
         if self.o_set.size > 0:

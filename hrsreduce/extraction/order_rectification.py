@@ -76,6 +76,9 @@ import logging
 from astropy.io import fits
 import multiprocessing as mp
 import os.path
+import matplotlib.pyplot as plt
+
+import hrsreduce.utils.background_subtraction as BkgAlg
 
 # Pipeline dependencies
 # from kpfpipe.logger import start_logger
@@ -115,30 +118,8 @@ class OrderRectification():
     VERTICAL = 1
     NoRECT = 2
 
-    def __init__(self,sci_frame, flat_frame,extraction_method,order_trace_file, sarm,mode,base_dir):
+    def __init__(self,sci_frame, flat_frame,order_trace_file,sarm,mode,base_dir,super_arc=None):
 
-#        # Initialize parent class
-#        KPF0_Primitive.__init__(self, action, context)
-#
-#        args_keys = [item for item in action.args.iter_kw() if item != "name"]
-#
-#        # input argument
-#        # action.args[0] is for level 0 fits
-#        # action.args[1] is for level 0 flat with order trace result extension
-#        self.input_spectrum = action.args[0]  # kpf0 instance
-#        self.input_flat = action.args[1]      # kpf0 instance with flat data
-#        self.orderlet_names = self.get_args_value('orderlet_names', action.args, args_keys)
-#        self.max_result_order = self.get_args_value("max_result_order", action.args, args_keys)
-#        self.start_order = self.get_args_value("start_order", action.args, args_keys)  # for the result of order trace
-#        self.rectification_method = self.get_args_value("rectification_method", action.args, args_keys)
-#        self.extraction_method = SpectralExtractionAlg.NOEXTRACT
-#        self.clip_file = self.get_args_value("clip_file", action.args, args_keys)
-#
-#        self.data_ext =  self.get_args_value('data_extension', action.args, args_keys)
-#        order_trace_ext = self.get_args_value('trace_extension', action.args, args_keys)
-#        order_trace_file = self.get_args_value('trace_file', action.args, args_keys)
-#
-#        self.flat_ext = self.get_args_value('flat_extension', action.args, args_keys)
         self.input_spectrum = sci_frame
         self.input_flat = flat_frame
         self.order_trace_file = order_trace_file
@@ -153,16 +134,8 @@ class OrderRectification():
         var_ext = 'VAR'
         self.data_ext = '0'
         self.flat_ext = '0'
+        self.super_arc=super_arc
 
-#        # input configuration
-#        self.config = configparser.ConfigParser()
-#        try:
-#            self.config_path = context.config_path['spectral_extraction']
-#        except:
-#            self.config_path = DEFAULT_CFG_PATH
-#        self.config.read(self.config_path)
-
-        # start a logger
         self.logger = logger
 
 
@@ -170,19 +143,17 @@ class OrderRectification():
         with fits.open(self.input_spectrum) as hdul:
             spec_data = hdul[0].data
             spec_header = hdul[0].header
-#        spec_data = self.input_spectrum[self.data_ext] \
-#            if self.input_spectrum is not None and hasattr(self.input_spectrum, self.data_ext) else None
-#        spec_header = self.input_spectrum.header[self.data_ext] \
-#            if (self.input_spectrum is not None and hasattr(self.input_spectrum, self.data_ext)) else None
+            
+        # Calculate and subtract the background
+        order_trace_npz = self.order_trace_file.replace(".csv",".npz")
+        spec_data,bkg = BkgAlg.BkgAlg(spec_data,order_trace_npz,self.logger)
 
         with fits.open(self.input_flat) as hdul:
             flat_data = hdul[0].data
             flat_header = hdul[0].header
-            
-#        flat_data = self.input_flat[self.flat_ext] \
-#            if self.input_flat is not None and hasattr(self.input_flat, self.flat_ext) else None
-#        flat_header = self.input_flat.header[self.flat_ext] \
-#            if (self.input_flat is not None and hasattr(self.input_flat, self.flat_ext)) else None
+        
+        # Calculate and subtract the background
+        flat_data,bkg = BkgAlg.BkgAlg(flat_data,order_trace_npz,self.logger)
 
         self.order_trace_data = None
         if order_trace_file:
@@ -200,25 +171,11 @@ class OrderRectification():
                                         spec_header,
                                         self.order_trace_data,
                                         order_trace_header,
+                                        self.input_spectrum,
                                         config=None, logger=self.logger,
                                         rectification_method=self.rectification_method,
                                         extraction_method=self.extraction_method,
                                         clip_file=None)
-
-#    def _pre_condition(self) -> bool:
-#        """
-#        Check for some necessary pre conditions
-#        """
-#        # input argument must be KPF0
-#
-#        if self.input_flat is None:          # no flat, rectify spectrum
-#            success = False
-#        else:
-#            success = (self.input_spectrum is None or isinstance(self.input_spectrum, KPF0)) and \
-#                      isinstance(self.input_flat, KPF0) and self.order_trace_data is not None
-#
-#        return success
-        
         
     def get_order_set(self, s_order):
         if self.o_set.size > 0:
@@ -233,97 +190,97 @@ class OrderRectification():
             return o_set
 
 
-#    def _post_condition(self) -> bool:
-#        """
-#        Check for some necessary post conditions
-#        """
-#        return True
 
     def perform(self):
         """
-        Primitive action -
-        perform spectral extraction by calling method `extract_spectrum` from SpectralExtractionAlg and create an instance
-        of level 1 data (KPF1) to contain the analysis result.
+        Perform rectification of the orders by calling method `extract_spectrum` from SpectralExtractionAlg.
 
         Returns:
-            Level 1 data containing spectral extraction result.
+            The order definition file name of the rectified orders, with a new extension of the rectified 2D orders
 
         """
-        # rectification_method: SpectralExtractAlg.NoRECT(fastest) SpectralExtractAlg.VERTICAL, SpectralExtractAlg.NORMAL
-        # extraction_method: 'optimal' (default), 'sum', or 'rectonly'
 
-        # either the input spectrum or flat is already rectified
+        try:
+            hdul=fits.open(self.input_spectrum)
+            rectified = hdul['RECT']
+            hdul.close
+            rect_done = True
+        except:
+            rect_done = False
+                
+        if rect_done:
+            if self.logger:
+                self.logger.info("OrderRectification: Already done...")
+            file_base = os.path.splitext(self.super_arc)[0]
+            
+        else:
+
+            if self.logger:
+                self.logger.info("OrderRectification: rectifying order...")
+            '''
+            all_order_names = self.orderlet_names if type(self.orderlet_names) is list else [self.orderlet_names]
+            all_orders = []
+            all_o_sets = []
+
+            s_order = self.start_order if self.start_order is not None else 0
+
+            for order_name in all_order_names:
+                o_set = self.alg.get_order_set(order_name)
+                if o_set.size > 0 :
+                    o_set = self.get_order_set(o_set, s_order)
+                all_o_sets.append(o_set)
+            order_to_process = min([len(a_set) for a_set in all_o_sets])
+            for a_set in all_o_sets:
+                all_orders.extend(a_set[0:order_to_process])
+
+            all_orders = np.sort(all_orders)
+            '''
+            total_orders = np.shape(self.order_trace_data)[0]
+            all_orders = np.arange(0, total_orders, dtype=int)
+            if self.logger:
+                self.logger.info("OrderRectification: do " +
+                                 SpectralExtractionAlg.rectifying_method[self.rectification_method] +
+                                 " rectification on " + str(all_orders.size) + " orders")
+
+            all_o_sets = []
+            first_trace_at = []
+            s_order = 0
+
+            self.o_set = np.arange(self.order_trace_data.shape[0])
+     
+            n_ord = int(self.order_trace_data.shape[0] / 2)
+            
+            for order_name in self.o_set:
+                o_set, f_idx = self.get_order_set(s_order)
+                all_o_sets.append(o_set)
+                first_trace_at.append(f_idx)
+
+            good_result = True
+            
+            with fits.open(self.input_spectrum) as hdul:
+                data= np.zeros([hdul[0].data.shape[0],hdul[0].data.shape[1]])
+                rect_img = fits.ImageHDU(data=data, name="RECT")
+                hdul.append(rect_img)
+                hdul.writeto(self.input_spectrum,overwrite='True')
+
+    #        #Run orders (pairs of fibres) in parallel.
+            manager = mp.Manager()
+            return_dict = manager.dict()
+            processes = [mp.Process(target=self.alg.extract_spectrum, args=(o_set[(2*i):(2*i)+2],i,return_dict,self.input_spectrum)) for i in range(n_ord)]
+            for process in processes:
+                process.start()
+            for process in processes:
+                process.join()
+
+            #return_dict = {}
+            #opt_ext_result = self.alg.extract_spectrum(all_orders,1,return_dict,spectrum_file=self.input_spectrum)
+            data_df = []
+            for i in range(n_ord):
+                data_df.append(return_dict[i])
+            out_data = (pd.concat(data_df,axis=0,ignore_index=True))
+            file_base = os.path.splitext(self.super_arc)[0]
+            out_data.to_csv(file_base+"_Orders_Rect.csv")
         
-        print("DLH ADD CHECK IF KEYWORD FOR RECT PERFORMED OR NOT")
-
-#        if self.input_spectrum is not None:
-#            if SpectralExtractionAlg.RECTIFYKEY in self.input_spectrum.header[self.data_ext]:
-#                self.logger.info("OrderRectification: the order of the spectrum is rectified already")
-#                return (self.input_spectrum)
-#        else:
-#            if SpectralExtractionAlg.RECTIFYKEY in self.input_flat.header[self.flat_ext]:
-#                self.logger.info("OrderRectification: the order of the flat is rectified already")
-#                return (self.input_flat)
-#        # no spectrum data case
-#        if self.input_flat is not None and self.input_flat[self.flat_ext].size == 0:
-#            if self.logger:
-#                self.logger.info("OrderRectification: no spectrum data to rectify")
-#            return (None)
-
-        if self.logger:
-            self.logger.info("OrderRectification: rectifying order...")
-        '''
-        all_order_names = self.orderlet_names if type(self.orderlet_names) is list else [self.orderlet_names]
-        all_orders = []
-        all_o_sets = []
-
-        s_order = self.start_order if self.start_order is not None else 0
-
-        for order_name in all_order_names:
-            o_set = self.alg.get_order_set(order_name)
-            if o_set.size > 0 :
-                o_set = self.get_order_set(o_set, s_order)
-            all_o_sets.append(o_set)
-        order_to_process = min([len(a_set) for a_set in all_o_sets])
-        for a_set in all_o_sets:
-            all_orders.extend(a_set[0:order_to_process])
-
-        all_orders = np.sort(all_orders)
-        '''
-        total_orders = np.shape(self.order_trace_data)[0]
-        all_orders = np.arange(0, total_orders, dtype=int)
-        if self.logger:
-            self.logger.info("OrderRectification: do " +
-                             SpectralExtractionAlg.rectifying_method[self.rectification_method] +
-                             " rectification on " + str(all_orders.size) + " orders")
-
-        all_o_sets = []
-        first_trace_at = []
-        s_order = 0
-
-        self.o_set = np.arange(self.order_trace_data.shape[0])
- 
-        n_ord = int(self.order_trace_data.shape[0] / 2)
-        
-        for order_name in self.o_set:
-            o_set, f_idx = self.get_order_set(s_order)
-            all_o_sets.append(o_set)
-            first_trace_at.append(f_idx)
-
-        good_result = True
-
-#        #Run orders (pairs of fibres) in parallel.
-#        manager = mp.Manager()
-#        return_dict = manager.dict()
-#        processes = [mp.Process(target=self.alg.extract_spectrum, args=(o_set[(2*i):(2*i)+2],i,return_dict)) for i in range(n_ord)]
-#        for process in processes:
-#            process.start()
-#        for process in processes:
-#            process.join()
-
-        return_dict = {}
-        opt_ext_result = self.alg.extract_spectrum(all_orders,1,return_dict,spectrum_file=self.input_spectrum)
-        file_base = os.path.splitext(self.order_trace_file)[0]
-        opt_ext_result.to_csv(file_base+"_Rect.csv")
+        return (file_base+"_Orders_Rect.csv")
 
 

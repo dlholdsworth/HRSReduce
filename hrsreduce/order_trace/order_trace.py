@@ -189,7 +189,6 @@ class OrderTrace():
                     plt.plot(x,ord_cen+all_widths[i-1]['top_edge'],'b')
                     count=count+1
                 plt.savefig(self.out_dir+self.mode+"_Order_Trace.png",bbox_inches='tight',dpi=600)
-                plt.show()
                 plt.close()
             
             starts = cluster_coeffs[:,5]

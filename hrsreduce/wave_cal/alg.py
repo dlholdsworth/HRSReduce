@@ -16,7 +16,7 @@ from scipy.special import erf
 class WaveCalAlg:
 
     def __init__(
-        self, cal_type, logger, save_diagnostics=None, config=None):
+        self, cal_type, logger, save_diagnostics=None, config=None,plot=False):
         """Initializes WaveCalibration class.
         Args:
             clip_peaks_toggle (bool): Whether or not to clip any peaks. True to clip, false to not clip.
@@ -53,11 +53,11 @@ class WaveCalAlg:
         self.fit_iterations = 5 #configpull.get_config_value('fit_iterations',5)
         self.logger = logger
         self.etalon_mask_in = None #configpull.get_config_value('master_etalon_file',None)
-
+        self.plot = plot
 
     def run_wavelength_cal(
         self, calflux, rough_wls=None, our_wavelength_solution_for_order=None,
-        peak_wavelengths_ang=None, lfc_allowed_wls=None,input_filename=None,fibre =None):
+        peak_wavelengths_ang=None, lfc_allowed_wls=None,input_filename=None,fibre =None,plot=False):
         """ Runs all wavelength calibration algorithm steps in order.
         Args:
             calflux (np.array): (N_orders x N_pixels) array of L1 flux data of a
@@ -137,32 +137,33 @@ class WaveCalAlg:
 
         # make a plot of all of the precise new wls minus the rough input  wls
         if self.save_diagnostics_dir is not None and rough_wls is not None:
-            # don't do this for etalon exposures, where we're either not
-            # deriving a new wls or using drift to do so
-            if self.cal_type != 'Etalon':
-                fig, ax = plt.subplots(2,1, figsize=(12,5))
-                for i in order_list:
-                    wls_i = poly_soln[i, :]
-                    rough_wls_i = rough_wls[i,:]
-                    ax[0].plot(wls_i - rough_wls_i, color='grey', alpha=0.5)
+            if plot:
+                # don't do this for etalon exposures, where we're either not
+                # deriving a new wls or using drift to do so
+                if self.cal_type != 'Etalon':
+                    fig, ax = plt.subplots(2,1, figsize=(12,5))
+                    for i in order_list:
+                        wls_i = poly_soln[i, :]
+                        rough_wls_i = rough_wls[i,:]
+                        ax[0].plot(wls_i - rough_wls_i, color='grey', alpha=0.5)
 
-                    pixel_sizes = rough_wls_i[1:] - rough_wls_i[:-1]
-                    ax[1].plot(
-                        (wls_i[:-1] - rough_wls_i[:-1]) / pixel_sizes,
-                        color='grey', alpha=0.5
+                        pixel_sizes = rough_wls_i[1:] - rough_wls_i[:-1]
+                        ax[1].plot(
+                            (wls_i[:-1] - rough_wls_i[:-1]) / pixel_sizes,
+                            color='grey', alpha=0.5
+                        )
+
+                    ax[0].set_title('Derived WLS - Approx WLS')
+                    ax[0].set_xlabel('Pixel')
+                    ax[0].set_ylabel('[$\\rm \AA$]')
+                    ax[1].set_xlabel('Pixel')
+                    ax[1].set_ylabel('[Pixel]')
+                    plt.tight_layout()
+                    plt.savefig(
+                        '{}/all_wls_{}.png'.format(self.save_diagnostics_dir,self.fibre),
+                        dpi=500
                     )
-
-                ax[0].set_title('Derived WLS - Approx WLS')
-                ax[0].set_xlabel('Pixel')
-                ax[0].set_ylabel('[$\\rm \AA$]')
-                ax[1].set_xlabel('Pixel')
-                ax[1].set_ylabel('[Pixel]')
-                plt.tight_layout()
-                plt.savefig(
-                    '{}/all_wls_{}.png'.format(self.save_diagnostics_dir,self.fibre),
-                    dpi=500
-                )
-                plt.close()
+                    plt.close()
 
 
         return poly_soln, wls_and_pixels, orderlet_dict, absolute_precision, order_precisions
@@ -206,7 +207,7 @@ class WaveCalAlg:
             orderlet_dict[order_num] = {"ordernum" : order_num}
 
         # Plot 2D extracted spectra
-        if plt_path is not None:
+        if plt_path is not None and self.plot:
             plt.figure(figsize=(20,10), tight_layout=True)
             im = plt.imshow(cal_flux, aspect='auto',origin='lower')
             im.set_clim(0, 20000)
@@ -789,7 +790,7 @@ class WaveCalAlg:
             
             if plot_path is not None and self.cal_type =='ThAr':
                 approx_dispersion = (our_wavelength_solution_for_order[int(len(rough_wls_order)/2)] - our_wavelength_solution_for_order[int(len(rough_wls_order)/2)+100])/100
-                fig, ax1 = plt.subplots(tight_layout=True, figsize=(8, 4))
+                #fig, ax1 = plt.subplots(tight_layout=True, figsize=(8, 4))
                 
                 # Range of interest b/c CCF chops off first/last 500 pixels
                 pixel_range = np.arange(500, int(len(rough_wls_order))-500)
