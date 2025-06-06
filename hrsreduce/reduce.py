@@ -372,7 +372,11 @@ def main(
         for arc_file in files['arc']:
             SpectralExtraction(arc_file, master_flat,arc_file,order_file_rect,arm_colour,m,base_dir).extraction()
             WavelengthCalibration(arc_file, arm, m, base_dir,cal_type,plot).execute()
+
+        for sci_file in files['sci']:
+            ContNorm(sci_file,files['arc'][0],master_flat).execute()
         
+
         #Calculate the Varience image, rectify the orders, perform slit tilt calculation and correction and extract the frames
         for sci_file in files['sci']:
             logger.info("Processing file: {}".format(sci_file))

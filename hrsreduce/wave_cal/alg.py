@@ -128,7 +128,7 @@ class WaveCalAlg:
         masked_calflux = calflux # TODO: fix
 
         # perform wavelength calibration
-        poly_soln, wls_and_pixels, orderlet_dict, absolute_precision = self.fit_many_orders(
+        poly_soln, wls_and_pixels, orderlet_dict, absolute_precision, order_precisions = self.fit_many_orders(
             masked_calflux, order_list, rough_wls=rough_wls,
             comb_lines_angstrom=lfc_allowed_wls,
             expected_peak_locs=peak_wavelengths_ang, peak_wavelengths_ang=peak_wavelengths_ang,
@@ -166,7 +166,7 @@ class WaveCalAlg:
                     plt.close()
 
 
-        return poly_soln, wls_and_pixels, orderlet_dict, absolute_precision
+        return poly_soln, wls_and_pixels, orderlet_dict, absolute_precision, order_precisions
 
     def fit_many_orders(
         self, cal_flux, order_list, rough_wls=None, comb_lines_angstrom=None,
@@ -461,7 +461,7 @@ class WaveCalAlg:
             #orderlet_dict['overall_std_error_cms'] = overall_std_error
             print('\n\n\nOverall absolute precision (all orders): {:2.2f} cm/s\n\n\n'.format(overall_std_error))
 
-        return poly_soln_final_array, wavelengths_and_pixels, orderlet_dict, overall_std_error
+        return poly_soln_final_array, wavelengths_and_pixels, orderlet_dict, overall_std_error, order_precisions
 
     def line_match(self, flux, linelist, line_pixels_expected, plot_toggle, savefig, gaussian_fit_width=10):
         """
