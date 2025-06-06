@@ -60,6 +60,15 @@ def SortFiles(input_dir, logger, arm, mode):
     if arm[0] == "R":
         ax1 = 4122
         ax2 = 4112
+    
+    if mode == "HS":
+        modefull = 'HIGH STABILITY'
+    if mode == "HR":
+        modefull = 'HIGH RESOLUTION'
+    if mode == "MR":
+        modefull = 'MEDIUM RESOLUTION'
+    if mode == "LR":
+        modefull = 'LOW RESOLUTION'
         
     for file in files:
         with fits.open(file) as hdul:
@@ -72,7 +81,7 @@ def SortFiles(input_dir, logger, arm, mode):
                 except KeyError:
                     continue
                     
-                if hdr["FIFPORT"] == mode:
+                if hdr["OBSMODE"] == modefull:
                     if np.logical_and(hdr["OBSTYPE"] == "Flat field",hdr["PROPID"] == "CAL_FLAT"):
                         flat_files.append(file)
                     elif np.logical_and(hdr["OBSTYPE"] == "Arc",(hdr["PROPID"] == "CAL_ARC" or hdr["PROPID"] == "CAL_STABLE")):
@@ -84,7 +93,7 @@ def SortFiles(input_dir, logger, arm, mode):
                     else:
                         logger.debug("File %s does not match an expected value in %s, %s, %s or %s", file,"Flat field","Arc","Science","Comb")
                 if mode == 'HS':
-                    if np.logical_and(hdr["OBSTYPE"] == "Arc", hdr["PROPID"] == "CAL_STABLE"):
+                    if np.logical_and(hdr["OBSTYPE"] == "Arc", (hdr["PROPID"] == "ENG_HRS" or hdr["PROPID"] == "CAL_STABLE")):
                         if hdr["I2STAGE"] == "Reference Fibre":
                             hs_arc_files.append(file)
 

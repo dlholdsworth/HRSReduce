@@ -94,8 +94,6 @@ class ContNorm():
         if self.logger:
             self.logger.info("Continuum Normalization: Adding data to SCIENCE FITS file")
         with fits.open(self.sci) as hdul:
-            Ext_wave_P = fits.ImageHDU(data=sciwave_P, name="WAVE_P")
-            hdul.append(Ext_wave_P)
             Ext_norm_P = fits.ImageHDU(data=norm_P, name="NORM_P")
             hdul.append(Ext_norm_P)
             merged_P = np.array([full_wave_P,full_spec_P,full_cont_P])
@@ -104,8 +102,6 @@ class ContNorm():
             Ext_merg_P.header["SPEC"] =  (1,"Column of Spectrum data")
             Ext_merg_P.header["CONT"] =  (2,"Column of Continuum data")
             hdul.append(Ext_merg_P)
-            Ext_wave_O = fits.ImageHDU(data=sciwave_O, name="WAVE_O")
-            hdul.append(Ext_wave_O)
             Ext_norm_O = fits.ImageHDU(data=norm_O, name="NORM_O")
             hdul.append(Ext_norm_O)
             merged_O = np.array([full_wave_O,full_spec_O,full_cont_O])

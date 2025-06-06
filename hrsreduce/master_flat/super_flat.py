@@ -35,6 +35,14 @@ class SuperFlat():
         self.s_date = start
         self.e_date =end
         self.mode = mode
+        if mode == "HS":
+            self.modefull = 'HIGH STABILITY'
+        if mode == "HR":
+            self.modefull = 'HIGH RESOLUTION'
+        if mode == "MR":
+            self.modefull = 'MEDIUM RESOLUTION'
+        if mode == "LR":
+            self.modefull = 'LOW RESOLUTION'
         self.tn = '00000000'
 
         self.low_light_limit = 0.1
@@ -69,7 +77,7 @@ class SuperFlat():
         #Search the storage area for the Flat files, when found perform L0 corrections files
         for file in files:
             with fits.open(file) as hdul:
-                if (hdul[0].header["PROPID"] == self.flat_propid and hdul[0].header["FIFPORT"] == self.mode):
+                if (hdul[0].header["PROPID"] == self.flat_propid and hdul[0].header["OBSMODE"] == self.modefull):
                     if hdul[0].header["NAXIS1"] == self.ax1 and hdul[0].header["NAXIS2"] == self.ax2:
                         Flat_files.append(file)
                         Flat_dirs.append(os.path.dirname(file))
@@ -116,7 +124,7 @@ class SuperFlat():
             for file in flat_dir_files:
                 file_dict = {}
                 with fits.open(file) as hdul:
-                    if (hdul[0].header["PROPID"] == self.flat_propid and hdul[0].header["FIFPORT"] == self.mode):
+                    if (hdul[0].header["PROPID"] == self.flat_propid and hdul[0].header["OBSMODE"] == self.modefull):
                         try:
                             noise = hdul[0].header["RONOISE"]
                         except:
@@ -127,5 +135,5 @@ class SuperFlat():
         flats = {}
         flats['flat'] = flat_files
         nights = {}
-        nights['flat'] = str(self.year+'0101')
+        nights['flat'] = str(self.year+str(self.s_date[4:8]))
         master_flat = MasterFlat(flats["flat"],nights,' ',' ',self.base_dir,self.arm,self.tn,self.mode,plot,super=True).create_masterflat()

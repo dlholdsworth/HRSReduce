@@ -142,7 +142,7 @@ class SpectralExtractionAlg():
     extracting_method = ['optimal', 'summ', 'rectonly', 'fox']  # fox: flat-relative optimal extraction
 
     def __init__(self, flat_data, flat_header, spectrum_data, spectrum_header,  order_trace_data, order_trace_header,
-                 config=None, logger=None,
+                spectrum_file,config=None, logger=None,
                  rectification_method=NoRECT, extraction_method=OPTIMAL, ccd_index=None,
                  total_order_per_ccd=None, orderlet_names=None, clip_file=None, logger_name=None,
                  do_outlier_rejection=False, outlier_flux=None, var_data=None):
@@ -203,7 +203,12 @@ class SpectralExtractionAlg():
         self.total_order_per_ccd = total_order_per_ccd
         self.extracted_flux_pixels = None
         self.is_raw_flat = self.RECTIFYKEY not in self.flat_header
-        self.is_raw_spectrum = self.RECTIFYKEY not in spectrum_header if spectrum_header is not None else True
+        try:
+            self.spectrum_header['RECT']
+            self.is_raw_spectrum = False
+        except:
+            self.is_raw_spectrum = True
+        #self.is_raw_spectrum = False #self.RECTIFYKEY not in spectrum_header if spectrum_header is not None else True
         self.clip_file_prefix = clip_file
         self.output_clip_area = False
         self.output_area_info = list()
@@ -2166,11 +2171,11 @@ class SpectralExtractionAlg():
                          order_set,
                          proc_no,
                          return_dict,
+                         spectrum_file,
                          order_name=None,
                          show_time=False,
                          print_debug=None,
                          bleeding_file=None,
-                         spectrum_file = None,
                          first_index=0):
         """ Spectral extraction from 2D flux to 1D. Rectification step is optional.
 
@@ -2292,14 +2297,12 @@ class SpectralExtractionAlg():
                 order_rectification_result.append({"order": c_order, "rectification": order_result[c_order]})
             #t_start = self.time_check(t_start, '**** time ['+str(c_order)+']: ')
  
- 
+
         #Write the rectified image to the input file
         if self.extraction_method == self.NOEXTRACT:
-            print("DLH NO EXTRACTION")
-            with fits.open(spectrum_file) as hdul:
-                rect_img = fits.ImageHDU(data=out_data, name="RECT")
-                hdul.append(rect_img)
-                hdul.writeto(spectrum_file,overwrite='True')
+            with fits.open(spectrum_file,mode='update') as hdul:
+                hdul["RECT"].data +=out_data
+                hdul.flush()
                 
             df_result_out = []
             for i in range(len(order_rectification_result)):
@@ -2309,22 +2312,21 @@ class SpectralExtractionAlg():
                 y_center=(order_rect.get("out_y_center"))
                 df_result={}
                 df_result['order']= order_idx
-                df_result['y'] = y_center
-                df_result['lower_edge'] = edge_low
-                df_result['upper_edge'] = edge_top
-                
+                df_result['Coeff0'] = y_center
+                df_result['BottomEdge'] = edge_low
+                df_result['TopEdge'] = edge_top
+                df_result['X1'] = 0
+                df_result['X2'] =self.spectrum_flux.shape[1]-1
                 df_result_out.append(df_result)
 
             df_result = pd.DataFrame(df_result_out)
-            return df_result
+            return_dict[proc_no] = df_result
                 
-            
-
         else:
             data_df = self.write_data_to_dataframe(out_data, first_row=start_row_at)
             
-        return_dict[proc_no] = {'spectral_extraction_result': data_df}
-        #return {'spectral_extraction_result': data_df, 'rectification_on': rectification_on,
-        #        'outlier_rejection_result':self.outlier_flux}
+            return_dict[proc_no] = {'spectral_extraction_result': data_df}
+            #return {'spectral_extraction_result': data_df, 'rectification_on': rectification_on,
+            #        'outlier_rejection_result':self.outlier_flux}
                 
 
