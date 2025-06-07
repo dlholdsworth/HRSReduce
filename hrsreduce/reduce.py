@@ -21,7 +21,7 @@ import numpy as np
 import os
 from os.path import dirname, join
 from itertools import product
-from . import __version__, tools
+from . import __version__, util
 import importlib
 import arrow
 import glob
@@ -174,7 +174,7 @@ def main(
     for n, m in product(night, modes):
         log_file = join(base_dir.format(mode=modes),"logs/%s_%s_%s.log" %(arm_colour,m, n))
         
-        tools.start_logging(log_file)
+        util.start_logging(log_file)
         # find input files and sort them by type
         files = {}
         nights = {}
@@ -372,11 +372,7 @@ def main(
         for arc_file in files['arc']:
             SpectralExtraction(arc_file, master_flat,arc_file,order_file_rect,arm_colour,m,base_dir).extraction()
             WavelengthCalibration(arc_file, arm, m, base_dir,cal_type,plot).execute()
-
-        for sci_file in files['sci']:
-            ContNorm(sci_file,files['arc'][0],master_flat).execute()
-        
-
+            
         #Calculate the Varience image, rectify the orders, perform slit tilt calculation and correction and extract the frames
         for sci_file in files['sci']:
             logger.info("Processing file: {}".format(sci_file))

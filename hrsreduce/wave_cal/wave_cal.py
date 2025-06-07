@@ -32,8 +32,6 @@ class WavelengthCalibration():
         with fits.open(self.file) as hdul:
             self.nord = hdul['Fibre_P'].header['NORDS']
         
-        print("WAVE ALG", self.mode,self.arm)
-        
         self.alg = WaveCalAlg(self.cal_type,self.logger,save_diagnostics = save_diagnostics)
         if self.mode == 'HS' and self.arm == 'H':
             self.linelist_path_P = "./hrsreduce/wave_cal/New_HS_H_linelist_P_clean.npy"
