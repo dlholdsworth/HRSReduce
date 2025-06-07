@@ -66,12 +66,10 @@ class ContNorm():
         with fits.open(self.sci) as hdul:
             sciflux_P = hdul['FIBRE_P'].data
             sciflux_O = hdul['FIBRE_O'].data
-        with fits.open(self.arc) as hdul:
             sciwave_P = hdul['WAVE_P'].data
             sciwave_O = hdul['WAVE_O'].data
-        with fits.open(self.flat) as hdul:
-            flatflux_P = hdul['FIBRE_P'].data
-            flatflux_O = hdul['FIBRE_O'].data
+            flatflux_P = hdul['BLAZE_P'].data
+            flatflux_O = hdul['BLAZE_O'].data
         
 
 
