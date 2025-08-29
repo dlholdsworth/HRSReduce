@@ -39,18 +39,22 @@ class SuperArc():
             self.fullmode = "HIGH STABILITY"
             self.arc_propid = "CAL_STABLE"
             self.I2STAGE = "Reference Fibre"
+            self.exp = 30.0
         if self.mode == 'HR':
             self.fullmode = "HIGH RESOLUTION"
             self.arc_propid = "CAL_ARC"
             self.I2STAGE = "Nothing In Beam"
+            self.exp = 500.0
         if self.mode == 'MR':
             self.fullmode = "MEDIUM RESOLUTION"
             self.arc_propid = "CAL_ARC"
             self.I2STAGE = "Nothing In Beam"
+            self.exp = 400.0
         if self.mode == 'LR':
             self.fullmode = "LOW RESOLUTION"
             self.arc_propid = "CAL_ARC"
             self.I2STAGE = "Nothing In Beam"
+            self.exp = 300.0
         self.tn = '00000000'
 
         self.low_light_limit = 0.1
@@ -84,7 +88,7 @@ class SuperArc():
         for file in files:
             with fits.open(file) as hdul:
                 if (hdul[0].header["PROPID"] == self.arc_propid and hdul[0].header["OBSMODE"] == self.fullmode):
-                    if (hdul[0].header["I2STAGE"] == self.I2STAGE):
+                    if (hdul[0].header["I2STAGE"] == self.I2STAGE and hdul[0].header["EXPTIME"] == self.exp):
                         if hdul[0].header["NAXIS1"] == self.ax1 and hdul[0].header["NAXIS2"] == self.ax2:
                             Arc_files.append(file)
                             Arc_dirs.append(os.path.dirname(file))

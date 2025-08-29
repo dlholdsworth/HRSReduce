@@ -61,11 +61,17 @@ class SpectralExtraction():
             self.spec_header = hdl[0].header
             self.spec_flux = hdl['STRAIGHT'].data
             var_data = hdl['VAR'].data
-            
+            data_type = self.spec_header['CCDTYPE']
 
         with fits.open(self.input_flat) as hdl:
-            self.flat_data = hdl['STRAIGHT'].data
             self.flat_header = hdl[0].header
+            if data_type == 'Science':
+                self.flat_data = hdl['NORMALISED'].data
+                self.spec_flux = self.spec_flux / self.flat_data
+            else:
+                self.flat_data = hdl['STRAIGHT'].data
+
+            
 
 
         try:

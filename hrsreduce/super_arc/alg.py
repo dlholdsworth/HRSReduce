@@ -26,18 +26,22 @@ class MasterArc():
             self.fullmode = "HIGH STABILITY"
             self.propid = "CAL_STABLE"
             self.I2STAGE = "Reference Fibre"
+            self.reject_limit = 2000
         if self.mode == 'HR':
             self.fullmode = "HIGH RESOLUTION"
             self.propid = "CAL_ARC"
             self.I2STAGE = "Nothing In Beam"
+            self.reject_limit = 50
         if self.mode == 'MR':
             self.fullmode = "MEDIUM RESOLUTION"
             self.propid = "CAL_ARC"
             self.I2STAGE = "Nothing In Beam"
+            self.reject_limit = 100
         if self.mode == 'LR':
             self.fullmode = "LOW RESOLUTION"
             self.propid = "CAL_ARC"
             self.I2STAGE = "Nothing In Beam"
+            self.reject_limit = 120
         if self.arm == "Blu":
             self.sarm = "H"
         else:
@@ -98,7 +102,7 @@ class MasterArc():
                 Arc_files_short.append(os.path.basename(file))
                 with fits.open(file) as hdu:
                     #Perform a test to reject bad files
-                    if np.nanstd(hdu[0].data) > 2000:
+                    if np.nanstd(hdu[0].data) > self.reject_limit:
                         #Subtract master bias
                         arc_data = (hdu[0].data).astype(np.float32)
                         Arc_concat.append(arc_data)#/arc_mean)
