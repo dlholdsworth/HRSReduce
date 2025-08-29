@@ -80,24 +80,11 @@ import matplotlib.pyplot as plt
 
 import hrsreduce.utils.background_subtraction as BkgAlg
 
-# Pipeline dependencies
-# from kpfpipe.logger import start_logger
-#from kpfpipe.primitives.level0 import KPF0_Primitive
-#from kpfpipe.models.level0 import KPF0
-#from kpfpipe.models.level1 import KPF1
-
-# External dependencies
-#from keckdrpframework.models.action import Action
-#from keckdrpframework.models.arguments import Arguments
-#from keckdrpframework.models.processing_context import ProcessingContext
-
 # Local dependencies
 from hrsreduce.extraction.alg import SpectralExtractionAlg
 
 logger = logging.getLogger(__name__)
 
-# Global read-only variables
-DEFAULT_CFG_PATH = 'modules/spectral_extraction/configs/default.cfg'
 
 class OrderRectification():
     default_args_val = {
@@ -217,24 +204,7 @@ class OrderRectification():
 
             if self.logger:
                 self.logger.info("OrderRectification: rectifying order...")
-            '''
-            all_order_names = self.orderlet_names if type(self.orderlet_names) is list else [self.orderlet_names]
-            all_orders = []
-            all_o_sets = []
 
-            s_order = self.start_order if self.start_order is not None else 0
-
-            for order_name in all_order_names:
-                o_set = self.alg.get_order_set(order_name)
-                if o_set.size > 0 :
-                    o_set = self.get_order_set(o_set, s_order)
-                all_o_sets.append(o_set)
-            order_to_process = min([len(a_set) for a_set in all_o_sets])
-            for a_set in all_o_sets:
-                all_orders.extend(a_set[0:order_to_process])
-
-            all_orders = np.sort(all_orders)
-            '''
             total_orders = np.shape(self.order_trace_data)[0]
             all_orders = np.arange(0, total_orders, dtype=int)
             if self.logger:

@@ -33,6 +33,7 @@ from hrsreduce.utils.find_nearest_files import FindNearestFiles
 from hrsreduce.L0_Corrections.level0corrections import L0Corrections
 from hrsreduce.master_bias.master_bias import MasterBias, SubtractBias
 from hrsreduce.master_flat.master_flat import MasterFlat
+from hrsreduce.master_flat.normalisation import FlatNormalisation
 from hrsreduce.var_ext.var_ext import VarExts
 from hrsreduce.order_trace.order_trace import OrderTrace
 from hrsreduce.extraction.order_rectification import OrderRectification
@@ -46,29 +47,6 @@ from .configuration import load_config
 
 logger = logging.getLogger(__name__)
 
-#def load_instrument(instrument) -> Instrument:
-#    """Load an python instrument module
-#
-#    Parameters
-#    ----------
-#    instrument : str
-#        name of the instrument
-#
-#    Returns
-#    -------
-#    instrument : Instrument
-#        Instance of the {instrument} class
-#    """
-#
-#    if instrument is None:
-#        instrument = "common"
-#
-#    fname = ".instruments.%s" % instrument.lower()
-#    lib = importlib.import_module(fname, package="hrsreduce")
-#    instrument = getattr(lib, instrument.upper())
-#    instrument = instrument()
-#
-#    return instrument
 
 def main(
     night=None,
@@ -128,40 +106,14 @@ def main(
     output_dir = arm_colour+"/"+year+"/"+mmdd+"/reduced/"
 
 
-#    isNone = {
-#    "modes": modes is None,
-#    "arm" : arm is None,
-#    "base_dir": base_dir is None,
-#    "input_dir": input_dir is None,
-#    "output_dir": output_dir is None,
-#    }
     
     output = []
 
-#    config = load_config(configuration, instrument, 0)
-#
-#    if isinstance(instrument, str):
-#        instrument = load_instrument(instrument)
-#    info = instrument.info
-#
-#
-#    # load default settings from settings_hrsreduce.json
-#    if base_dir is None:
-#        base_dir = config["hrsreduce"]["base_dir"]
-#    if input_dir is None:
-#        input_dir = config["hrsreduce"]["input_dir"]
-#    if output_dir is None:
-#        output_dir = config["hrsreduce"]["output_dir"]
-#    if modes is None:
-#        modes = info["modes"]
     if np.isscalar(modes):
         modes = [modes]
-#
-#    if arm is None:
-#        arm = info["arm"]
+
     if np.isscalar(arm):
         arm = [arm]
-
 
     input_dir = join(base_dir, input_dir)
     output_dir = join(base_dir, output_dir)
@@ -302,7 +254,7 @@ def main(
         files = files_out
         
         #Clean the files of CRs
-        _ = CosmicRayMasking(files,arm)
+        #_ = CosmicRayMasking(files,arm)
         
         #Remove the intermediate files
         for ff in files["bias"]:
@@ -328,10 +280,14 @@ def main(
             for sfiles in super_flats:
                 s_date=(os.path.basename(sfiles)[-13:-5])
                 s_difference.append((arrow.get(int(yyyymmdd[0:4]),int(yyyymmdd[4:6]),int(yyyymmdd[6:8])) - arrow.get(int(s_date[0:4]),int(s_date[4:6]),int(s_date[6:8]))).days)
-            index_of_closest = s_difference.index(min(filter(lambda x : x > 0, s_difference)))
+                
+            index_of_closest = (np.abs(s_difference)).argmin()
             if s_difference[index_of_closest] < 365:
                 super_flat = super_flats[index_of_closest]
-        logger.info("Using Super Flat file: {}".format(super_flat))
+                logger.info("Using Super Flat file: {}".format(super_flat))
+            else:
+                super_flat = super_flats[index_of_closest]
+                logger.warning("Please update the Super Flat files, currently using potentially outdated file: {}".format(super_flat))
         
         #Create the Order file
         order_file = OrderTrace(super_flat,nights,base_dir,arm_colour,m,plot).order_trace()
@@ -349,11 +305,14 @@ def main(
             for sfiles in super_arcs:
                 s_date=(os.path.basename(sfiles)[-13:-5])
                 s_difference.append((arrow.get(int(yyyymmdd[0:4]),int(yyyymmdd[4:6]),int(yyyymmdd[6:8])) - arrow.get(int(s_date[0:4]),int(s_date[4:6]),int(s_date[6:8]))).days)
-            index_of_closest = s_difference.index(min(filter(lambda x : x > 0, s_difference)))
+            index_of_closest = (np.abs(s_difference)).argmin()
             if s_difference[index_of_closest] < 365:
                 super_arc = super_arcs[index_of_closest]
+                logger.info("Using Super Arc file: {}".format(super_arc))
+            else:
+                super_arc = super_arcs[index_of_closest]
+                logger.warning("Please update the Super Arc files, currently using potentially outdated file: {}".format(super_arc))
                 
-        logger.info("Using Super Arc file: {}".format(super_arc))
         order_file_rect = OrderRectification(super_arc,super_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
         SlitCorrection(super_arc,header_ext,order_file_rect,arm[0],m,base_dir,yyyymmdd,plot=plot,super_arc=super_arc).correct()
         
@@ -368,6 +327,9 @@ def main(
         _ = OrderRectification(master_flat,master_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
         SlitCorrection(master_flat,'RECT', order_file_rect, arm[0],m, base_dir,yyyymmdd,plot=False,super_arc=super_arc).correct()
         
+        #Create the normalised flat
+        FlatNormalisation(master_flat, order_file_rect).normalise()
+        
         #Calculate the Varience image, extract the frames and calculate the wave solution
         for arc_file in files['arc']:
             SpectralExtraction(arc_file, master_flat,arc_file,order_file_rect,arm_colour,m,base_dir).extraction()
@@ -381,7 +343,6 @@ def main(
             header_ext = 'RECT'
             SlitCorrection(sci_file,header_ext, order_file_rect, arm[0],m, base_dir,yyyymmdd,plot=plot,super_arc=super_arc).correct()
             SpectralExtraction(sci_file, master_flat,files['arc'][0],order_file_rect,arm_colour,m,base_dir).extraction()
-
 
         #Calcualte a blaze using the Spectral Extracton module
         VarExts(master_flat,master_bias,master_flat).run()
