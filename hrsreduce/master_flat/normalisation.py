@@ -35,14 +35,15 @@ class FlatNormalisation():
     def normalise(self):
     
         with fits.open(self.flat) as hdu:
+            self.logger.info("Running Flat normaliseation...")
         
             #Check if flat is already normalised
             try:
-                Normalised = hdul['NORMALISED']
+                Normalised = hdu['NORMALISED']
                 Norm_done = True
             except:
                 Norm_done = False
-                
+            
             if Norm_done:
                 if self.logger:
                     self.logger.info("Flat normaliseation already done...")

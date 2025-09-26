@@ -34,17 +34,17 @@ class WavelengthCalibration():
         
         self.alg = WaveCalAlg(self.cal_type,self.logger,save_diagnostics = save_diagnostics)
         if self.mode == 'HS' and self.arm == 'H':
-            self.linelist_path_P = "./hrsreduce/wave_cal/New_HS_H_linelist_P_clean.npy"
-            self.linelist_path_O = "./hrsreduce/wave_cal/New_HS_H_linelist_O_clean.npy"
+            self.linelist_path_P = "./hrsreduce/wave_cal/HS_H_linelist_P.npy"
+            self.linelist_path_O = "./hrsreduce/wave_cal/HS_H_linelist_O.npy"
         if self.mode == 'HS' and self.arm == 'R':
-            self.linelist_path_P = "./hrsreduce/wave_cal/New_HS_R_linelist_P_clean.npy"
-            self.linelist_path_O = "./hrsreduce/wave_cal/New_HS_R_linelist_O_clean.npy"
+            self.linelist_path_P = "./hrsreduce/wave_cal/HS_R_linelist_P.npy"
+            self.linelist_path_O = "./hrsreduce/wave_cal/HS_R_linelist_O.npy"
         if self.mode == 'HR' and self.arm == 'H':
-            self.linelist_path_P = "./hrsreduce/wave_cal/New_HR_H_linelist_P_clean.npy"
-            self.linelist_path_O = "./hrsreduce/wave_cal/New_HR_H_linelist_O_clean.npy"
+            self.linelist_path_P = "./hrsreduce/wave_cal/HR_H_linelist_P.npy"
+            self.linelist_path_O = "./hrsreduce/wave_cal/HR_H_linelist_O.npy"
         if self.mode == 'HR' and self.arm == 'R':
-            self.linelist_path_P = "./hrsreduce/wave_cal/New_HR_R_linelist_P_clean.npy"
-            self.linelist_path_O = "./hrsreduce/wave_cal/New_HR_R_linelist_O_clean.npy"
+            self.linelist_path_P = "./hrsreduce/wave_cal/HR_R_linelist_P.npy"
+            self.linelist_path_O = "./hrsreduce/wave_cal/HR_R_linelist_O.npy"
         if self.mode == 'MR' and self.arm == 'H':
             self.linelist_path_P = "./hrsreduce/wave_cal/New_MR_H_linelist_P_clean.npy"
             self.linelist_path_O = "./hrsreduce/wave_cal/New_MR_H_linelist_O_clean.npy"
@@ -67,83 +67,94 @@ class WavelengthCalibration():
     def execute(self):
     
         with fits.open(self.file) as hdul:
-
-            if self.cal_type == 'LFC' or 'ThAr':
-
-                # Create dictionary for storing information about the WLS, fits of each order, fits of each line, etc.
-                self.wls_dict = {
-                    'wls_processing_date' : str(datetime.datetime.now()), # data and time that this dictionary was created
-                    'cal_type' : self.cal_type, # LFC, ThAr
-                    'order' : {} #one order_dict for each order
-                }
-                P_fluxs = hdul['Fibre_P'].data
-                O_fluxs = hdul['Fibre_O'].data
-
-                P_fluxs = np.nan_to_num(P_fluxs)
-                O_fluxs = np.nan_to_num(O_fluxs)
-                ord_lens = np.zeros(P_fluxs.shape[0])
-                for o in range(len(ord_lens)):
-                    ord_lens[o] = len(P_fluxs[o])
-                #self.rough_wls, self.echelle_ord = BuildWaveModel(self.arm,self.mode,ord_lens).execute()
+        
+            try:
+                test = hdul['WAVE_P']
+                wave_cal_done = True
+            except:
+                wave_cal_done = False
                 
-                #### lfc ####
-                if self.cal_type == 'LFC':
-                    line_list, wl_soln, orderlet_dict = self.calibrate_lfc(calflux, output_ext=output_ext)
-                    # self.drift_correction(prefix, line_list, wl_soln)
-                    self.wls_dict['orderlets'][orderlet_name]['norders'] = self.max_order-self.min_order+1
-                    self.wls_dict['orderlets'][orderlet_name]['orders'] = orderlet_dict
- 
-                #### thar ####
-                elif self.cal_type == 'ThAr':
-                    if self.linelist_path_O is not None:
-
-                        peak_wavelengths_ang_P = np.load(self.linelist_path_P,allow_pickle=True).item()
-                        peak_wavelengths_ang_O = np.load(self.linelist_path_O,allow_pickle=True).item()
-                        
-                        wls_P = []
-                        wls_O = []
-                        for o in range(len(ord_lens)):
-                            fit_P = np.polyfit(peak_wavelengths_ang_P[o]['line_positions'],peak_wavelengths_ang_P[o]['known_wavelengths_vac'],3)
-                            fit_O = np.polyfit(peak_wavelengths_ang_O[o]['line_positions'],peak_wavelengths_ang_O[o]['known_wavelengths_vac'],3)
-                            
-                            x_len = len(O_fluxs[o])
-                            
-                            wls_P.append(np.polyval(fit_P,np.arange(x_len)))
-                            wls_O.append(np.polyval(fit_O,np.arange(x_len)))
-                            
-                        self.rough_wls_P = np.array(wls_P)
-                        self.rough_wls_O = np.array(wls_O)
-
-                        
-                    else:
-                        raise ValueError('ThAr run requires linelist_path')
-
-
-                    wl_soln_P, wls_and_pixels_P, orderlet_dict_P,absolute_precision_P, order_precisions_P = self.alg.run_wavelength_cal(
-                        P_fluxs,peak_wavelengths_ang=peak_wavelengths_ang_P,
-                        rough_wls=self.rough_wls_P,fibre='P',plot=self.plot)
-                    #Save the wavelength solution to a new fits extension
-                    Ext_wave_P = fits.ImageHDU(data=wl_soln_P, name="WAVE_P")
-                    Ext_wave_P.header["RV_PREC"] = ((absolute_precision_P),"Overall absolute precision (all orders) cm/s")
-                    hdul.append(Ext_wave_P)
-                    Ext_wave_P2 = fits.ImageHDU(name='WAVE_P_PRE', data=order_precisions_P)
-                    hdul.append(Ext_wave_P2)
-                    
-                    wl_soln_O, wls_and_pixels_O, orderlet_dict_O, absolute_precision_O, order_precisions_O = self.alg.run_wavelength_cal(
-                        O_fluxs,peak_wavelengths_ang=peak_wavelengths_ang_O,
-                        rough_wls=self.rough_wls_O,fibre='O',plot=self.plot)
-                    #Save the wavelength solution to a new fits extension
-                    Ext_wave_O = fits.ImageHDU(data=wl_soln_O, name="WAVE_O")
-                    Ext_wave_O.header["RV_PREC"] = ((absolute_precision_O),"Overall absolute precision (all orders) cm/s")
-                    hdul.append(Ext_wave_O)
-                    Ext_wave_O2 = fits.ImageHDU(name='WAVE_O_PRE', data=order_precisions_O)
-                    hdul.append(Ext_wave_O2)
-                    
-                        
-                    hdul.writeto(self.file,overwrite='True')
-
+            if wave_cal_done:
+                self.logger.info('Wavelength Calibration already done')
+                
             else:
-                raise ValueError('cal_type {} not recognized. Available options are LFC or ThAr'.format(self.cal_type))
+
+                if self.cal_type == 'LFC' or 'ThAr':
+
+                    # Create dictionary for storing information about the WLS, fits of each order, fits of each line, etc.
+                    self.wls_dict = {
+                        'wls_processing_date' : str(datetime.datetime.now()), # data and time that this dictionary was created
+                        'cal_type' : self.cal_type, # LFC, ThAr
+                        'order' : {} #one order_dict for each order
+                    }
+                    P_fluxs = hdul['Fibre_P'].data
+                    O_fluxs = hdul['Fibre_O'].data
+
+                    P_fluxs = np.nan_to_num(P_fluxs)
+                    O_fluxs = np.nan_to_num(O_fluxs)
+                    ord_lens = np.zeros(P_fluxs.shape[0])
+                    for o in range(len(ord_lens)):
+                        ord_lens[o] = len(P_fluxs[o])
+                    #self.rough_wls, self.echelle_ord = BuildWaveModel(self.arm,self.mode,ord_lens).execute()
+                    
+                    #### lfc ####
+                    if self.cal_type == 'LFC':
+                        line_list, wl_soln, orderlet_dict = self.calibrate_lfc(calflux, output_ext=output_ext)
+                        # self.drift_correction(prefix, line_list, wl_soln)
+                        self.wls_dict['orderlets'][orderlet_name]['norders'] = self.max_order-self.min_order+1
+                        self.wls_dict['orderlets'][orderlet_name]['orders'] = orderlet_dict
+     
+                    #### thar ####
+                    elif self.cal_type == 'ThAr':
+                        if self.linelist_path_O is not None:
+
+                            peak_wavelengths_ang_P = np.load(self.linelist_path_P,allow_pickle=True).item()
+                            peak_wavelengths_ang_O = np.load(self.linelist_path_O,allow_pickle=True).item()
+                            
+                            wls_P = []
+                            wls_O = []
+                            for o in range(len(ord_lens)):
+                                fit_P = np.polyfit(peak_wavelengths_ang_P[o]['line_positions'],peak_wavelengths_ang_P[o]['known_wavelengths_air'],6)
+                                fit_O = np.polyfit(peak_wavelengths_ang_O[o]['line_positions'],peak_wavelengths_ang_O[o]['known_wavelengths_air'],6)
                                 
+                                x_len = len(O_fluxs[o])
+                                
+                                wls_P.append(np.polyval(fit_P,np.arange(x_len)))
+                                wls_O.append(np.polyval(fit_O,np.arange(x_len)))
+                                
+                            self.rough_wls_P = np.array(wls_P)
+                            self.rough_wls_O = np.array(wls_O)
+
+                            
+                        else:
+                            raise ValueError('ThAr run requires linelist_path')
+
+
+                        wl_soln_P, wls_and_pixels_P, orderlet_dict_P,absolute_precision_P, order_precisions_P = self.alg.run_wavelength_cal(
+                            P_fluxs,peak_wavelengths_ang=peak_wavelengths_ang_P,
+                            rough_wls=self.rough_wls_P,fibre='P',plot=self.plot)
+                        #Save the wavelength solution to a new fits extension
+                        Ext_wave_P = fits.ImageHDU(data=wl_soln_P, name="WAVE_P")
+                        Ext_wave_P.header["RV_PREC"] = ((absolute_precision_P),"Overall absolute precision (all orders) cm/s")
+                        hdul.append(Ext_wave_P)
+                        Ext_wave_P2 = fits.ImageHDU(name='WAVE_P_PRE', data=order_precisions_P)
+                        hdul.append(Ext_wave_P2)
+                        
+                        wl_soln_O, wls_and_pixels_O, orderlet_dict_O, absolute_precision_O, order_precisions_O = self.alg.run_wavelength_cal(
+                            O_fluxs,peak_wavelengths_ang=peak_wavelengths_ang_O,
+                            rough_wls=self.rough_wls_O,fibre='O',plot=self.plot)
+                        #Save the wavelength solution to a new fits extension
+                        Ext_wave_O = fits.ImageHDU(data=wl_soln_O, name="WAVE_O")
+                        Ext_wave_O.header["RV_PREC"] = ((absolute_precision_O),"Overall absolute precision (all orders) cm/s")
+                        hdul.append(Ext_wave_O)
+                        Ext_wave_O2 = fits.ImageHDU(name='WAVE_O_PRE', data=order_precisions_O)
+                        hdul.append(Ext_wave_O2)
+                        
+                            
+                        hdul.writeto(self.file,overwrite='True')
+
+                else:
+                    raise ValueError('cal_type {} not recognized. Available options are LFC or ThAr'.format(self.cal_type))
+                                    
         return
             

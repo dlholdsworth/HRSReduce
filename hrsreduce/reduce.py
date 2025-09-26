@@ -292,6 +292,7 @@ def main(
         #Create the Order file
         order_file = OrderTrace(super_flat,nights,base_dir,arm_colour,m,plot).order_trace()
         
+        
         #Find the appropriate Super Arc file for the Slit Tilt correction, this must be the closest PREVIOUS frame in case of tank openings etc.
         super_arc = []
         prev_night = yyyymmdd
@@ -313,8 +314,16 @@ def main(
                 super_arc = super_arcs[index_of_closest]
                 logger.warning("Please update the Super Arc files, currently using potentially outdated file: {}".format(super_arc))
                 
+        #Fully process the Super Arc and Flat in the right order
         order_file_rect = OrderRectification(super_arc,super_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
         SlitCorrection(super_arc,header_ext,order_file_rect,arm[0],m,base_dir,yyyymmdd,plot=plot,super_arc=super_arc).correct()
+        VarExts(super_arc,master_bias,master_flat).run()
+        
+        #Rectify and tilt correct the the flat as this needs only doing once
+        _ = OrderRectification(master_flat,master_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
+        SlitCorrection(master_flat,'RECT', order_file_rect, arm[0],m, base_dir,yyyymmdd,plot=False,super_arc=super_arc).correct()
+        
+        SpectralExtraction(super_arc, master_flat,super_arc,order_file_rect,arm_colour,m,base_dir).extraction()
         
         #Calculate the Varience image, extract the frames
         for arc_file in files['arc']:
@@ -322,16 +331,13 @@ def main(
             VarExts(arc_file,master_bias,master_flat).run()
             _ = OrderRectification(arc_file,master_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
             SlitCorrection(arc_file,header_ext,order_file_rect,arm[0],m,base_dir,yyyymmdd,plot=plot,super_arc=super_arc).correct()
- 
-        #Rectify and tilt correct the the flat as this needs only doing once
-        _ = OrderRectification(master_flat,master_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
-        SlitCorrection(master_flat,'RECT', order_file_rect, arm[0],m, base_dir,yyyymmdd,plot=False,super_arc=super_arc).correct()
         
         #Create the normalised flat
         FlatNormalisation(master_flat, order_file_rect).normalise()
         
         #Calculate the Varience image, extract the frames and calculate the wave solution
         for arc_file in files['arc']:
+            print("ARC_FILE",arc_file)
             SpectralExtraction(arc_file, master_flat,arc_file,order_file_rect,arm_colour,m,base_dir).extraction()
             WavelengthCalibration(arc_file, arm, m, base_dir,cal_type,plot).execute()
             

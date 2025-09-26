@@ -130,17 +130,21 @@ class OrderRectification():
         with fits.open(self.input_spectrum) as hdul:
             spec_data = hdul[0].data
             spec_header = hdul[0].header
+            data_type = hdul[0].header['OBSTYPE']
             
         # Calculate and subtract the background
         order_trace_npz = self.order_trace_file.replace(".csv",".npz")
-        spec_data,bkg = BkgAlg.BkgAlg(spec_data,order_trace_npz,self.logger)
+        if data_type == "Sci":
+            spec_data,_ = BkgAlg.BkgAlg(spec_data,order_trace_npz,self.logger)
 
         with fits.open(self.input_flat) as hdul:
             flat_data = hdul[0].data
             flat_header = hdul[0].header
+#            if data_type == 'Arc':
+#                flat_data /=flat_data
         
         # Calculate and subtract the background
-        flat_data,bkg = BkgAlg.BkgAlg(flat_data,order_trace_npz,self.logger)
+        #flat_data,bkg = BkgAlg.BkgAlg(flat_data,order_trace_npz,self.logger)
 
         self.order_trace_data = None
         if order_trace_file:

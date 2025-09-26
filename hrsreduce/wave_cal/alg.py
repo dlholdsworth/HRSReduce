@@ -246,6 +246,7 @@ class WaveCalAlg:
                 order_plt_path = None
 
             order_flux = cal_flux[order_num,:]
+            order_flux -= np.nanmedian(order_flux)
             rough_wls_order = rough_wls[order_num,:]
             n_pixels = len(order_flux)
             
@@ -284,7 +285,7 @@ class WaveCalAlg:
                         print(e)
                         poly_soln_final_array[order_num, :] = rough_wls_order
                         wavelengths_and_pixels[order_num] = {
-                            'known_wavelengths_vac': rough_wls_order,
+                            'known_wavelengths_air': rough_wls_order,
                             'line_positions': []
                         }
                         continue
@@ -301,7 +302,7 @@ class WaveCalAlg:
                     self.logger.warn('TypeError = ' + str(e))
                     poly_soln_final_array[order_num,:] = rough_wls_order
                     wavelengths_and_pixels[order_num] = {
-                        'known_wavelengths_vac': rough_wls_order,
+                        'known_wavelengths_air': rough_wls_order,
                         'line_positions':[]
                     }
                     order_dict = {}
@@ -327,7 +328,7 @@ class WaveCalAlg:
                     except:
                         poly_soln_final_array[order_num,:] = rough_wls_order
                         wavelengths_and_pixels[order_num] = {
-                            'known_wavelengths_vac': rough_wls_order,
+                            'known_wavelengths_air': rough_wls_order,
                             'line_positions':[]
                         }
                         order_dict = {}
@@ -365,7 +366,7 @@ class WaveCalAlg:
                 min_order_wave = np.min(rough_wls_order)
                 max_order_wave = np.max(rough_wls_order)
 #                line_wavelengths = expected_peak_locs.query(f'{min_order_wave} < wave < {max_order_wave}')['wave'].values
-                line_wavelengths = expected_peak_locs[order_num]['known_wavelengths_vac']
+                line_wavelengths = expected_peak_locs[order_num]['known_wavelengths_air']
                 ii = np.where(np.logical_and(line_wavelengths > min_order_wave, line_wavelengths < max_order_wave))[0]
                 
                 line_wavelengths = line_wavelengths[ii]
@@ -441,7 +442,7 @@ class WaveCalAlg:
                 orderlet_dict[order_num]['rel_precision_cms'] = rel_precision
                 orderlet_dict[order_num]['abs_precision_cms'] = abs_precision
                 orderlet_dict[order_num]['num_detected_peaks'] = len(fitted_peak_pixels)
-                orderlet_dict[order_num]['known_wavelengths_vac'] = wls
+                orderlet_dict[order_num]['known_wavelengths_air'] = wls
                 orderlet_dict[order_num]['line_positions'] = fitted_peak_pixels
 
             # compute drift, and use this to update the wavelength solution
@@ -449,7 +450,7 @@ class WaveCalAlg:
                 pass
                 
             wavelengths_and_pixels[order_num] = {
-                'known_wavelengths_vac':wls,
+                'known_wavelengths_air':wls,
                 'line_positions':fitted_peak_pixels
             }
 
@@ -748,7 +749,7 @@ class WaveCalAlg:
                         # fit ThAr based on 4/30 WLS
                         rough_wls_int = interp1d(np.arange(n_pixels), rough_wls_order, kind='linear', fill_value="extrapolate")
                         
-                        def polynomial_func(x, c0, c1, c2, c3, c4, c5):
+                        def polynomial_func_6(x, c0, c1, c2, c3, c4, c5):
                             """
                             Polynomial function to fit.
                             Args:
@@ -758,12 +759,29 @@ class WaveCalAlg:
                                 np.array: Evaluated polynomial.
                             """
                             return rough_wls_int(x) + c0 + c1 * x + c2 * x**2 + c3 * x**3 + c4 * x**4 + c5 * x**5
+                            
+                        def polynomial_func_3(x, c0, c1, c2, c3):
+                            """
+                            Polynomial function to fit.
+                            Args:
+                                x (np.array): Pixel values.
+                                c0, c1, c2, c3 (float): Coefficients of the polynomial.
+                            Returns:
+                                np.array: Evaluated polynomial.
+                            """
+                            return rough_wls_int(x) + c0 + c1 * x + c2 * x**2 + c3 * x**3
                         
                         # Using curve_fit to find the best-fit values of {c0, c1}
-                        popt, _ = curve_fit(polynomial_func, x, y)
+                        if len(x) < 6:
+                            popt, _ = curve_fit(polynomial_func_3, x, y)
+                            # Create the wavelength solution for the order
+                            our_wavelength_solution_for_order = polynomial_func_3(np.arange(len(rough_wls_order)), *popt)
+                        else:
+                            popt, _ = curve_fit(polynomial_func_6, x, y)
+                            # Create the wavelength solution for the order
+                            our_wavelength_solution_for_order = polynomial_func_6(np.arange(len(rough_wls_order)), *popt)
 
-                        # Create the wavelength solution for the order
-                        our_wavelength_solution_for_order = polynomial_func(np.arange(len(rough_wls_order)), *popt)
+                        
                         leg_out = Legendre.fit(np.arange(n_pixels), our_wavelength_solution_for_order, 9)
                     
                     if self.cal_type == 'LFC':

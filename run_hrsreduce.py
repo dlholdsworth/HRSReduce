@@ -189,7 +189,7 @@ if __name__ == '__main__':
     # define parameters
 #    nights = ["2022-10-08"]
 #    nights = ["2023-12-04"]
-    nights = ["2022-07-17"]
+    nights = ["2022-07-30"]
     for night in nights:
         mode = "HR"
         arm = "H"
