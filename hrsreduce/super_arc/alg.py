@@ -31,7 +31,7 @@ class MasterArc():
             self.fullmode = "HIGH RESOLUTION"
             self.propid = "CAL_ARC"
             self.I2STAGE = "Nothing In Beam"
-            self.reject_limit = 50
+            self.reject_limit = 40
         if self.mode == 'MR':
             self.fullmode = "MEDIUM RESOLUTION"
             self.propid = "CAL_ARC"
@@ -80,7 +80,6 @@ class MasterArc():
             if n <1:
                 logger.error("\n   !!! No Arc files found in {}. Check arm ({}) and night ({}). Exiting.\n".format(self.out_dir,self.arm,yyyymmdd))
                 exit()
-                
             Arc_concat = []
             Arc_files_short = []
             exptime = []
@@ -103,9 +102,8 @@ class MasterArc():
                 with fits.open(file) as hdu:
                     #Perform a test to reject bad files
                     if np.nanstd(hdu[0].data) > self.reject_limit:
-                        #Subtract master bias
                         arc_data = (hdu[0].data).astype(np.float32)
-                        Arc_concat.append(arc_data)#/arc_mean)
+                        Arc_concat.append(arc_data)
                         jd_mean.append(float(hdu[0].header['JD']))
                         PRE_DEW.append(float(hdu[0].header['PRE-DEW']))
                         PRE_VAC.append(float(hdu[0].header['PRE-VAC']))
@@ -198,7 +196,7 @@ class MasterArc():
             '''
  
             #Create the master arc and write to new FITS file.
-            master_arc = arc_avg.astype(np.float32)
+            master_arc = arc_avg.astype(np.float32)+1.
             new_hdu = fits.PrimaryHDU(data=master_arc)
             
             new_hdu.header.insert(6,('COMMENT',"  FITS (Flexible Image Transport System) format is defined in 'Astronomy"))
