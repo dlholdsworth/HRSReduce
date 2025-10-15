@@ -61,11 +61,11 @@ class OrderTrace():
                 #self.logger.warning("OrderTrace: locating cluster...")
             cluster_xy = self.alg.locate_clusters(self.rows_to_reset, self.cols_to_reset)
             
-#            if self.plot:
-#                plt.title("OrderTrace: locating cluster result")
-#                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
-#                plt.plot(cluster_xy['x'],cluster_xy['y'],'.')
-#                plt.show()
+            if self.plot:
+                plt.title("OrderTrace: locating cluster result")
+                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
+                plt.plot(cluster_xy['x'],cluster_xy['y'],'.')
+                plt.show()
             
             # 2) assign cluster id and do basic cleaning
             if self.logger:
@@ -105,7 +105,7 @@ class OrderTrace():
                 self.logger.info("OrderTrace: merging cluster...")
                 #self.logger.warning("OrderTrace: merging cluster...")
             c_x, c_y, c_index = self.alg.merge_clusters_and_clean(new_index, new_x, new_y)
-            
+#            
 #            if self.plot:
 #                plt.title("OrderTrace: merged clusters")
 #                uniq = np.unique(c_index)

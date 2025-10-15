@@ -6,7 +6,7 @@ Loads a HRS dataset, and runs the full extraction
 
 import os.path
 import hrsreduce
-from hrsreduce import configuration,reduce
+from hrsreduce import reduce
 
 #import pyreduce
 #from pyreduce import datasets
@@ -189,10 +189,10 @@ if __name__ == '__main__':
     # define parameters
 #    nights = ["2022-10-08"]
 #    nights = ["2023-12-04"]
-    nights = ["2022-07-30"]
+    nights = ["2022-07-17"]
     for night in nights:
         mode = "HR"
-        arm = "H"
+        arm = "R"
     #    steps = (
     #         "bias",
     #         "flat",
@@ -208,13 +208,10 @@ if __name__ == '__main__':
         # some basic settings
         # Expected Folder Structure: base_dir/arm/year/mmdd/raw/*.fits
 
-#        config = hrsreduce.configuration.get_configuration_for_instrument(plot=1)
-        config = None
         hrsreduce.reduce.main(
             night,
             mode,
             arm,
-            configuration=config,
             instrument="HRS",
             plot=False
         )

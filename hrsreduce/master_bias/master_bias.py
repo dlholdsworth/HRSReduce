@@ -301,13 +301,19 @@ class SubtractBias():
             mb_hdr = mb_hdu[0].header
         out_dir = str(self.base_dir+self.arm+"/"+self.date[0:4]+"/"+self.date[4:8]+"/reduced/")
 
+        #Scale the Master Bias Frame with the OVERSCAN means. There are some issues there the BIAS fluctuates on short timescales.
+
+        MB_overscan = float(mb_hdr['OS_MEAN'])
+
         files = self.files[self.type]
         files_out = []
         for i,file in enumerate(files):
             with fits.open(file) as hdu:
                 hdu[0].header['MstrBias'] = (str(os.path.basename(self.master_bias)), "Master Bias File")
                 hdu[0].header['RONOISE'] = (mb_hdr['RONOISE'],"Readout Noise calculated from Master Bais")
-                hdu[0].data = hdu[0].data - master_bias
+                Sci_overscan = float(hdu[0].header['OS_MEAN'])
+                ratio = Sci_overscan / MB_overscan
+                hdu[0].data = hdu[0].data - (master_bias * ratio)
                 out_file = str(out_dir+"b"+file.removeprefix(out_dir))
                 hdu.writeto(out_file,overwrite=True)
                 files_out.append(out_file)

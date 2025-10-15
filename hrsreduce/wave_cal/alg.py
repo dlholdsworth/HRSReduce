@@ -9,7 +9,7 @@ import pandas as pd
 import scipy
 from scipy import signal
 import warnings
-from scipy.optimize.minpack import curve_fit
+from scipy.optimize import curve_fit
 from scipy.special import erf
 
 
@@ -30,12 +30,7 @@ class WaveCalAlg:
                 Defaults to None.
         """
         self.cal_type = cal_type
-#        self.clip_peaks_toggle = clip_peaks_toggle
-#        self.min_order = min_order
-#        self.max_order = max_order
         self.save_diagnostics_dir = save_diagnostics
-#        configpull = ConfigHandler(config,'PARAM')
-#        self.figsave_name = configpull.get_config_value('drift_figsave_name','instrument_drift')
         self.red_skip_orders = None #configpull.get_config_value('red_skip_orders')
         self.green_skip_orders = None #configpull.get_config_value('green_skip_orders')
         self.chi_2_threshold = 2 #configpull.get_config_value('chi_2_threshold')
@@ -54,10 +49,70 @@ class WaveCalAlg:
         self.logger = logger
         self.etalon_mask_in = None #configpull.get_config_value('master_etalon_file',None)
         self.plot = plot
+        
+    def run_wavelength_cal_nonHS(self,all_obs,all_super,linelist_path, nord, arm, atlas_wave,atlas_flux):
+                
+        line_list = np.load(linelist_path,allow_pickle=True).item()
+        
+        pixels = np.arange(all_obs.shape[1])
+        
+        wls = []
+    
+        for ord in range(nord):
+            #Remove nan values and normalsie the two spectra
+            obs = all_obs
+            super = all_super
+            if arm =='H' and ord ==41:
+                obs = obs[ord][2:1670]-np.nanmedian(obs[ord][2:1670])
+                obs /= np.nanmax(obs)
+                super = super[ord][2:1670]-np.nanmedian(super[ord][2:1670])
+                super /= np.nanmax(super)
+            else:
+                obs = obs[ord][2:-2]-np.nanmedian(obs[ord][2:-2])
+                obs /= np.nanmax(obs)
+                super = super[ord][2:-2]-np.nanmedian(super[ord][2:-2])
+                super /= np.nanmax(super)
+            
+            obs[np.isnan(obs)] = 0
+            super[np.isnan(super)] = 0
+            
+            #Calcualte the difference between the two, any positive residuals indicates a cosmic ray, so mask that out.
+            diff = obs - super
+            ii = np.where(diff > 0.2)[0]
+    
+            for idx in ii:
+                if idx > 2 and idx < len(obs)-2:
+                    obs[idx-2:idx+2] = 0
+                elif idx > 1 and idx < len(obs)-1:
+                    obs[idx-1:idx+1] = 0
+                else:
+                    obs[idx] = 0
+                    
+            #Calculate the cross correlation between the two and fit a gaussian to find the peak. The sift between the two is the centre of the gaussian.
+            corr = signal.correlate(obs, super,mode='full',method='fft')
+            lags = signal.correlation_lags(len(super), len(obs))
+            #corr /= np.max(corr)
+            
+            fit_params,_ = self.fit_gaussian_integral(lags,corr,x0=0,do_test=False)
+            gaussian_fit = self.integrate_gaussian(lags, fit_params[0], fit_params[1], fit_params[2], fit_params[3])
+#            plt.plot(lags,corr)
+#            plt.plot(lags,gaussian_fit,'r')
+#            plt.title(str(fit_params[1]))
+#            plt.show()
+            
+            shift = fit_params[1] #Add this to the to the lineline pixels to get to the current observation.
+            
+            fit = np.polyfit(line_list[ord]['line_positions']+shift,line_list[ord]['known_wavelengths_air'],6)
+                                    
+            wls.append(np.polyval(fit,pixels))
+            
+        return wls
+            
+    
 
     def run_wavelength_cal(
         self, calflux, rough_wls=None, our_wavelength_solution_for_order=None,
-        peak_wavelengths_ang=None, lfc_allowed_wls=None,input_filename=None,fibre =None,plot=False):
+        peak_wavelengths_ang=None, lfc_allowed_wls=None,input_filename=None,fibre=None,plot=False):
         """ Runs all wavelength calibration algorithm steps in order.
         Args:
             calflux (np.array): (N_orders x N_pixels) array of L1 flux data of a
@@ -598,7 +653,7 @@ class WaveCalAlg:
 
         return linelist, coefs, lines_dict
 
-    def fit_gaussian_integral(self, x, y):
+    def fit_gaussian_integral(self, x, y,x0=None,do_test=True):
         """
         Fits a continuous Gaussian to a discrete set of x and y datapoints
         using scipy.curve_fit
@@ -617,7 +672,10 @@ class WaveCalAlg:
         y = np.ma.compressed(y)
         i = np.argmax(y[len(y) // 4 : len(y) * 3 // 4]) + len(y) // 4
         
-        p0 = [y[i], x[i], 1.5, np.min(y)]
+        if x0 is not None:
+            p0 = [y[i], x0, 1.5, np.min(y)]
+        else:
+            p0 = [y[i], x[i], 1.5, np.min(y)]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             popt, pcov = curve_fit(self.integrate_gaussian, x, y, p0=p0, maxfev=1000000)
@@ -633,7 +691,7 @@ class WaveCalAlg:
             line_dict['quality'] = 'good' # fits are assumed good until marked bad elsewhere
             
 
-        if self.cal_type == 'ThAr':
+        if self.cal_type == 'ThAr' and do_test:
             # Quality Checks for Gaussian Fits
             
             if max(y) == 0:
@@ -773,9 +831,13 @@ class WaveCalAlg:
                         
                         # Using curve_fit to find the best-fit values of {c0, c1}
                         if len(x) < 6:
-                            popt, _ = curve_fit(polynomial_func_3, x, y)
-                            # Create the wavelength solution for the order
-                            our_wavelength_solution_for_order = polynomial_func_3(np.arange(len(rough_wls_order)), *popt)
+                            try:
+                                popt, _ = curve_fit(polynomial_func_3, x, y)
+                                # Create the wavelength solution for the order
+                                our_wavelength_solution_for_order = polynomial_func_3(np.arange(len(rough_wls_order)), *popt)
+                            except:
+                                our_wavelength_solution_for_order = np.zeros(len(rough_wls_order))
+                                leg_out = our_wavelength_solution_for_order
                         else:
                             popt, _ = curve_fit(polynomial_func_6, x, y)
                             # Create the wavelength solution for the order

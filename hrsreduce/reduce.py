@@ -40,9 +40,7 @@ from hrsreduce.extraction.order_rectification import OrderRectification
 from hrsreduce.extraction.slit_correction import SlitCorrection
 from hrsreduce.extraction.extraction import SpectralExtraction
 from hrsreduce.wave_cal.wave_cal import WavelengthCalibration
-from hrsreduce.norm.norm import ContNorm
-
-from .configuration import load_config
+from hrsreduce.order_merge.order_merge import OrderMerge
 
 
 logger = logging.getLogger(__name__)
@@ -55,7 +53,6 @@ def main(
     base_dir=None,
     input_dir=None,
     output_dir=None,
-    configuration=None,
     instrument=None,
     allow_calibration_only=False,
     skip_existing=False,
@@ -81,8 +78,6 @@ def main(
         input directory containing raw files. If relative will use base_dir as root (default: use settings_pyreduce.json)
     output_dir : str, optional
         output directory for intermediary and final results. If relative will use base_dir as root (default: use settings_pyreduce.json)
-    configuration : dict[str:obj], str, list[str], dict[{instrument}:dict,str], optional
-        configuration file for the current run, contains parameters for different parts of reduce. Can be a path to a json file, or a dict with configurations for the different instruments. When a list, the order must be the same as instruments (default: settings_{instrument.upper()}.json)
     """
 
     if night is None or np.isscalar(night):
@@ -105,7 +100,7 @@ def main(
     input_dir = arm_colour+"/"+year+"/"+mmdd+"/raw/"
     output_dir = arm_colour+"/"+year+"/"+mmdd+"/reduced/"
 
-
+    logger.info(f"Version %s",__version__)
     
     output = []
 
@@ -216,10 +211,8 @@ def main(
             --  Calculate the slit illumination function, or read from file
             --  Extract the science frame
             --  Calculate the wavelength solution
-            --  Calculate RVs
             --  Blaze correction
             --  Merge orders
-            --  Continuum normalisation
         '''
         
         #Apply the level 0 corrections (gain and overscan)
@@ -254,7 +247,7 @@ def main(
         files = files_out
         
         #Clean the files of CRs
-        #_ = CosmicRayMasking(files,arm)
+        _ = CosmicRayMasking(files,arm)
         
         #Remove the intermediate files
         for ff in files["bias"]:
@@ -328,6 +321,7 @@ def main(
         #Calculate the Varience image, extract the frames
         for arc_file in files['arc']:
             cal_type = 'ThAr'
+            cal_line_list = './hrsreduce/wave_cal/thar_best.txt'
             VarExts(arc_file,master_bias,master_flat).run()
             _ = OrderRectification(arc_file,master_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
             SlitCorrection(arc_file,header_ext,order_file_rect,arm[0],m,base_dir,yyyymmdd,plot=plot,super_arc=super_arc).correct()
@@ -335,11 +329,14 @@ def main(
         #Create the normalised flat
         FlatNormalisation(master_flat, order_file_rect).normalise()
         
+        #Calcualte a blaze using the Spectral Extracton module
+        VarExts(master_flat,master_bias,master_flat).run()
+        SpectralExtraction(master_flat, master_flat,files['arc'][0],order_file_rect,arm_colour,m,base_dir).extraction()
+        
         #Calculate the Varience image, extract the frames and calculate the wave solution
         for arc_file in files['arc']:
-            print("ARC_FILE",arc_file)
             SpectralExtraction(arc_file, master_flat,arc_file,order_file_rect,arm_colour,m,base_dir).extraction()
-            WavelengthCalibration(arc_file, arm, m, base_dir,cal_type,plot).execute()
+            WavelengthCalibration(arc_file, super_arc, arm, m, base_dir,cal_type,cal_line_list,plot).execute()
             
         #Calculate the Varience image, rectify the orders, perform slit tilt calculation and correction and extract the frames
         for sci_file in files['sci']:
@@ -349,13 +346,7 @@ def main(
             header_ext = 'RECT'
             SlitCorrection(sci_file,header_ext, order_file_rect, arm[0],m, base_dir,yyyymmdd,plot=plot,super_arc=super_arc).correct()
             SpectralExtraction(sci_file, master_flat,files['arc'][0],order_file_rect,arm_colour,m,base_dir).extraction()
-
-        #Calcualte a blaze using the Spectral Extracton module
-        VarExts(master_flat,master_bias,master_flat).run()
-        SpectralExtraction(master_flat, master_flat,files['arc'][0],order_file_rect,arm_colour,m,base_dir).extraction()
-        
-#        for sci_file in files['sci']:
-#            ContNorm(sci_file,files['arc'][0],master_flat).execute()
+            OrderMerge(sci_file,master_flat,arm,plot=False).execute()
         
     return output
 

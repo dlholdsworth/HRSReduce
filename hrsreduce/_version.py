@@ -41,9 +41,9 @@ def get_config():
     cfg = VersioneerConfig()
     cfg.VCS = "git"
     cfg.style = "pep440"
-    cfg.tag_prefix = "pyreduce-"
-    cfg.parentdir_prefix = "pyreduce-"
-    cfg.versionfile_source = "pyreduce/_version.py"
+    cfg.tag_prefix = "hrsreduce-"
+    cfg.parentdir_prefix = "hrsreduce-"
+    cfg.versionfile_source = "hrsreduce/_version.py"
     cfg.verbose = False
     return cfg
 

@@ -1,0 +1,1017 @@
+[2025-10-02 13:13:25,071] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:13:25,372] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:13:25,420] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:13:25,465] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:13:25,511] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:13:25,557] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:13:25,603] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:13:25,649] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:13:25,696] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:13:25,742] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:13:25,788] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:32,683] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:32,986] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:33,033] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:33,078] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:33,124] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:33,169] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:33,215] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:33,261] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:33,307] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:33,352] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:33,398] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:33,452] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:33,741] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:33,757] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:33,773] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:33,790] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:33,806] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:33,823] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:33,839] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:33,856] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:33,872] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:33,888] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:34,269] [INFO] [lines:__model_velocity_profile:2455]: Peak found at 49.50 km/s (fitted at 49.48900 +/- 2.03405 km/s)
+[2025-10-02 13:14:34,278] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:34,588] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:34,878] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:34,892] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:34,907] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:34,922] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:34,937] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:34,951] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:34,966] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:34,981] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:34,996] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:35,010] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:35,052] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -91.60 km/s (fitted at -91.61120 +/- 21279.22464 km/s)
+[2025-10-02 13:14:35,063] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:35,361] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:35,375] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:35,389] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:35,403] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:35,417] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:35,430] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:35,444] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:35,458] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:35,472] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:35,486] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:35,549] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -87.80 km/s (fitted at -87.79940 +/- 285.05665 km/s)
+[2025-10-02 13:14:35,559] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:35,846] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:35,861] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:35,875] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:35,890] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:35,904] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:35,919] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:35,934] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:35,949] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:35,963] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:35,978] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:36,022] [INFO] [lines:__model_velocity_profile:2455]: Peak found at 92.80 km/s (fitted at 92.79730 +/- 2.76693 km/s)
+[2025-10-02 13:14:36,032] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:36,324] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:36,338] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:36,352] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:36,366] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:36,381] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:36,394] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:36,409] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:36,422] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:36,436] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:36,450] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:36,496] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -81.20 km/s (fitted at -81.15070 +/- 743.08258 km/s)
+[2025-10-02 13:14:36,506] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:36,792] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:36,807] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:36,821] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:36,836] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:36,850] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:36,865] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:36,879] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:36,894] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:36,909] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:36,923] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:36,974] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -78.10 km/s (fitted at -78.13890 +/- 37058.75589 km/s)
+[2025-10-02 13:14:36,984] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:37,271] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:37,286] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:37,300] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:37,315] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:37,329] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:37,344] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:37,359] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:37,373] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:37,388] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:37,402] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:37,452] [INFO] [lines:__model_velocity_profile:2455]: Peak found at 71.80 km/s (fitted at 71.76120 +/- 11692.99176 km/s)
+[2025-10-02 13:14:37,463] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:37,753] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:37,768] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:37,783] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:37,798] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:37,813] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:37,827] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:37,842] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:37,857] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:37,872] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:37,887] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:37,941] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.44260 +/- 0.05116 km/s)
+[2025-10-02 13:14:37,951] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:38,242] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:38,256] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:38,271] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:38,285] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:38,300] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:38,315] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:38,329] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:38,344] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:38,358] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:38,372] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:38,436] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.38660 +/- 0.07323 km/s)
+[2025-10-02 13:14:38,446] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:38,735] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:38,751] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:38,766] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:38,782] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:38,797] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:38,812] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:38,827] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:38,842] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:38,857] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:38,871] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:38,929] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.43030 +/- 0.11383 km/s)
+[2025-10-02 13:14:38,939] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:39,225] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:39,240] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:39,254] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:39,269] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:39,283] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:39,298] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:39,312] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:39,327] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:39,341] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:39,356] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:39,403] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.60 km/s (fitted at -6.64070 +/- 0.08560 km/s)
+[2025-10-02 13:14:39,414] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:39,702] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:39,716] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:39,729] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:39,743] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:39,757] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:39,771] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:39,784] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:39,798] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:39,812] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:39,826] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:39,903] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.30 km/s (fitted at -6.27500 +/- 0.10567 km/s)
+[2025-10-02 13:14:39,914] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:40,214] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:40,229] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:40,244] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:40,258] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:40,273] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:40,287] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:40,302] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:40,316] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:40,330] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:40,345] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:40,395] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.70 km/s (fitted at -6.67590 +/- 0.10946 km/s)
+[2025-10-02 13:14:40,405] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:40,694] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:40,708] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:40,723] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:40,737] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:40,752] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:40,766] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:40,781] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:40,795] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:40,810] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:40,825] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:40,883] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.53560 +/- 0.11906 km/s)
+[2025-10-02 13:14:40,894] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:41,188] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:41,202] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:41,217] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:41,232] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:41,246] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:41,260] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:41,274] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:41,289] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:41,303] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:41,317] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:41,377] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.46860 +/- 0.11571 km/s)
+[2025-10-02 13:14:41,387] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:41,673] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:41,688] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:41,702] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:41,717] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:41,732] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:41,747] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:41,762] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:41,777] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:41,792] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:41,807] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:41,858] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.49070 +/- 0.16598 km/s)
+[2025-10-02 13:14:41,870] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:42,159] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:42,174] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:42,188] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:42,202] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:42,217] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:42,231] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:42,246] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:42,260] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:42,274] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:42,289] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:42,331] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.30 km/s (fitted at -6.28480 +/- 0.16638 km/s)
+[2025-10-02 13:14:42,341] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:42,627] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:42,641] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:42,655] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:42,670] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:42,684] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:42,698] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:42,712] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:42,727] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:42,741] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:42,756] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:42,828] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.42610 +/- 0.13553 km/s)
+[2025-10-02 13:14:42,839] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:43,124] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:43,139] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:43,153] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:43,168] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:43,183] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:43,197] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:43,211] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:43,226] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:43,240] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:43,255] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:43,304] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.60 km/s (fitted at -6.55330 +/- 0.11651 km/s)
+[2025-10-02 13:14:43,315] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:43,610] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:43,625] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:43,640] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:43,654] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:43,670] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:43,684] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:43,699] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:43,714] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:43,728] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:43,743] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:43,801] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.38590 +/- 0.12533 km/s)
+[2025-10-02 13:14:43,813] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:44,101] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:44,115] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:44,129] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:44,144] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:44,158] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:44,173] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:44,187] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:44,201] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:44,215] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:44,230] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:44,290] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.20 km/s (fitted at -6.24690 +/- 0.11868 km/s)
+[2025-10-02 13:14:44,301] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:44,588] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:44,602] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:44,616] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:44,631] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:44,646] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:44,660] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:44,674] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:44,689] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:44,703] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:44,718] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:44,782] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.20 km/s (fitted at -6.21970 +/- 0.16173 km/s)
+[2025-10-02 13:14:44,792] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:45,084] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:45,099] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:45,114] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:45,128] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:45,143] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:45,157] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:45,172] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:45,187] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:45,201] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:45,216] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:45,263] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.40270 +/- 0.13655 km/s)
+[2025-10-02 13:14:45,273] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:45,560] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:45,575] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:45,590] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:45,604] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:45,619] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:45,634] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:45,649] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:45,663] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:45,678] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:45,692] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:45,750] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.45800 +/- 0.15955 km/s)
+[2025-10-02 13:14:45,761] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:46,057] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:46,072] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:46,086] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:46,101] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:46,116] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:46,130] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:46,145] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:46,160] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:46,174] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:46,189] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:46,249] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.44650 +/- 0.17217 km/s)
+[2025-10-02 13:14:46,259] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:46,546] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:46,561] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:46,575] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:46,589] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:46,603] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:46,617] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:46,632] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:46,646] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:46,660] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:46,675] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:46,722] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.47840 +/- 0.14315 km/s)
+[2025-10-02 13:14:46,732] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:47,018] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:47,033] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:47,047] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:47,061] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:47,076] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:47,090] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:47,104] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:47,119] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:47,133] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:47,147] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:47,198] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.60 km/s (fitted at -6.57700 +/- 0.18019 km/s)
+[2025-10-02 13:14:47,208] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:47,493] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:47,508] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:47,522] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:47,536] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:47,551] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:47,565] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:47,579] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:47,593] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:47,607] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:47,622] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:47,664] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.42290 +/- 0.26087 km/s)
+[2025-10-02 13:14:47,676] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:47,965] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:47,979] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:47,994] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:48,009] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:48,023] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:48,038] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:48,053] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:48,067] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:48,082] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:48,096] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:48,165] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.52270 +/- 0.14609 km/s)
+[2025-10-02 13:14:48,176] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:48,463] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:48,478] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:48,493] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:48,508] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:48,523] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:48,538] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:48,554] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:48,569] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:48,583] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:48,598] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:48,661] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.60 km/s (fitted at -6.61940 +/- 0.14352 km/s)
+[2025-10-02 13:14:48,671] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:48,958] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:48,973] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:48,987] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:49,001] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:49,016] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:49,030] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:49,044] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:49,059] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:49,073] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:49,087] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:49,135] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.44110 +/- 0.13173 km/s)
+[2025-10-02 13:14:49,146] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:49,442] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:49,457] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:49,471] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:49,485] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:49,499] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:49,513] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:49,527] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:49,542] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:49,556] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:49,570] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:49,640] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -5.90 km/s (fitted at -5.90750 +/- 0.14233 km/s)
+[2025-10-02 13:14:49,651] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:49,944] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:49,959] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:49,974] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:49,989] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:50,004] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:50,018] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:50,033] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:50,048] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:50,062] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:50,077] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:50,158] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.20 km/s (fitted at -6.20740 +/- 0.14046 km/s)
+[2025-10-02 13:14:50,169] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:50,456] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:50,472] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:50,487] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:50,502] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:50,517] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:50,532] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:50,547] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:50,562] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:50,577] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:50,592] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:50,639] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.30 km/s (fitted at -6.26040 +/- 0.14271 km/s)
+[2025-10-02 13:14:50,649] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:50,935] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:50,950] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:50,964] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:50,978] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:50,993] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:51,007] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:51,021] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:51,036] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:51,050] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:51,065] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:51,118] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.46940 +/- 0.13838 km/s)
+[2025-10-02 13:14:51,129] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:51,420] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:51,435] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:51,449] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:51,463] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:51,478] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:51,492] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:51,506] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:51,520] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:51,535] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:51,549] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:51,602] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.39690 +/- 0.14931 km/s)
+[2025-10-02 13:14:51,614] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:51,914] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:51,928] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:51,942] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:51,957] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:51,971] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:51,985] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:51,999] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:52,014] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:52,028] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:52,042] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:52,101] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.54160 +/- 0.13967 km/s)
+[2025-10-02 13:14:52,111] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:52,398] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:52,412] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:52,426] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:52,441] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:52,455] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:52,469] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:52,483] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:52,497] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:52,511] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:52,526] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:52,587] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.41080 +/- 0.14123 km/s)
+[2025-10-02 13:14:52,597] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:52,883] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:52,897] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:52,912] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:52,926] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:52,940] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:52,955] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:52,969] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:52,983] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:52,998] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:53,012] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:53,079] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.41330 +/- 0.17609 km/s)
+[2025-10-02 13:14:53,089] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:14:53,378] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:14:53,393] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:14:53,407] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:14:53,421] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:14:53,435] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:14:53,449] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:14:53,463] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:14:53,478] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:14:53,492] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:14:53,506] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:14:53,545] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.35090 +/- 0.15724 km/s)
+[2025-10-02 13:15:54,879] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:15:55,186] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:15:55,235] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:15:55,283] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:15:55,330] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:15:55,377] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:15:55,423] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:15:55,469] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:15:55,515] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:15:55,561] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:15:55,607] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:15:55,661] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:15:55,955] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:15:55,971] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:15:55,988] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:15:56,005] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:15:56,022] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:15:56,039] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:15:56,056] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:15:56,072] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:15:56,089] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:15:56,106] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:15:56,423] [INFO] [lines:__model_velocity_profile:2455]: Peak found at 49.50 km/s (fitted at 49.48900 +/- 2.03405 km/s)
+[2025-10-02 13:15:56,432] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:15:56,735] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:15:57,030] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:15:57,045] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:15:57,060] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:15:57,075] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:15:57,089] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:15:57,103] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:15:57,118] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:15:57,133] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:15:57,148] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:15:57,162] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:15:57,205] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -91.60 km/s (fitted at -91.61120 +/- 21279.22464 km/s)
+[2025-10-02 13:15:57,214] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:15:57,515] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:15:57,529] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:15:57,544] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:15:57,558] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:15:57,572] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:15:57,587] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:15:57,601] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:15:57,615] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:15:57,630] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:15:57,644] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:15:57,709] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -87.80 km/s (fitted at -87.79940 +/- 285.05665 km/s)
+[2025-10-02 13:15:57,719] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:15:58,012] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:15:58,026] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:15:58,041] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:15:58,055] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:15:58,070] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:15:58,084] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:15:58,099] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:15:58,113] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:15:58,128] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:15:58,142] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:15:58,184] [INFO] [lines:__model_velocity_profile:2455]: Peak found at 92.80 km/s (fitted at 92.79730 +/- 2.76693 km/s)
+[2025-10-02 13:15:58,194] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:15:58,486] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:15:58,500] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:15:58,514] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:15:58,528] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:15:58,542] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:15:58,556] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:15:58,570] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:15:58,585] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:15:58,598] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:15:58,613] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:15:58,659] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -81.20 km/s (fitted at -81.15070 +/- 743.08258 km/s)
+[2025-10-02 13:15:58,668] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:15:58,956] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:15:58,971] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:15:58,986] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:15:59,000] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:15:59,015] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:15:59,029] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:15:59,044] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:15:59,058] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:15:59,073] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:15:59,087] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:15:59,138] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -78.10 km/s (fitted at -78.13890 +/- 37058.75589 km/s)
+[2025-10-02 13:15:59,148] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:15:59,439] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:15:59,453] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:15:59,468] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:15:59,483] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:15:59,498] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:15:59,513] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:15:59,527] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:15:59,542] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:15:59,557] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:15:59,571] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:15:59,621] [INFO] [lines:__model_velocity_profile:2455]: Peak found at 71.80 km/s (fitted at 71.76120 +/- 11692.99176 km/s)
+[2025-10-02 13:15:59,631] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:15:59,921] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:15:59,935] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:15:59,950] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:15:59,965] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:15:59,979] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:15:59,994] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:00,008] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:00,023] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:00,037] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:00,052] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:00,102] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.44260 +/- 0.05116 km/s)
+[2025-10-02 13:16:00,112] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:00,400] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:00,415] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:00,429] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:00,444] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:00,458] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:00,472] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:00,487] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:00,501] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:00,515] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:00,530] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:00,594] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.38660 +/- 0.07323 km/s)
+[2025-10-02 13:16:00,604] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:00,893] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:00,907] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:00,922] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:00,936] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:00,951] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:00,965] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:00,980] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:00,994] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:01,009] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:01,023] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:01,082] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.43030 +/- 0.11383 km/s)
+[2025-10-02 13:16:01,092] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:01,385] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:01,399] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:01,413] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:01,428] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:01,442] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:01,457] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:01,471] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:01,485] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:01,500] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:01,514] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:01,562] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.60 km/s (fitted at -6.64070 +/- 0.08560 km/s)
+[2025-10-02 13:16:01,572] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:01,883] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:01,897] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:01,911] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:01,924] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:01,938] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:01,952] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:01,965] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:01,979] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:01,993] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:02,006] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:02,081] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.30 km/s (fitted at -6.27500 +/- 0.10567 km/s)
+[2025-10-02 13:16:02,091] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:02,380] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:02,395] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:02,409] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:02,423] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:02,438] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:02,452] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:02,466] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:02,481] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:02,495] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:02,510] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:02,562] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.70 km/s (fitted at -6.67590 +/- 0.10946 km/s)
+[2025-10-02 13:16:02,573] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:02,877] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:02,892] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:02,906] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:02,921] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:02,935] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:02,950] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:02,964] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:02,978] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:02,993] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:03,007] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:03,065] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.53560 +/- 0.11906 km/s)
+[2025-10-02 13:16:03,075] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:03,365] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:03,379] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:03,393] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:03,407] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:03,421] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:03,435] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:03,449] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:03,463] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:03,477] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:03,491] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:03,551] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.46860 +/- 0.11571 km/s)
+[2025-10-02 13:16:03,562] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:03,856] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:03,870] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:03,884] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:03,899] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:03,913] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:03,927] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:03,942] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:03,956] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:03,970] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:03,985] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:04,032] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.49070 +/- 0.16598 km/s)
+[2025-10-02 13:16:04,042] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:04,336] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:04,351] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:04,366] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:04,381] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:04,396] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:04,410] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:04,425] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:04,440] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:04,454] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:04,469] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:04,513] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.30 km/s (fitted at -6.28480 +/- 0.16638 km/s)
+[2025-10-02 13:16:04,524] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:04,832] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:04,847] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:04,862] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:04,876] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:04,891] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:04,905] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:04,920] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:04,934] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:04,949] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:04,963] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:05,037] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.42610 +/- 0.13553 km/s)
+[2025-10-02 13:16:05,048] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:05,341] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:05,356] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:05,370] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:05,384] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:05,398] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:05,412] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:05,427] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:05,441] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:05,455] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:05,469] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:05,517] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.60 km/s (fitted at -6.55330 +/- 0.11651 km/s)
+[2025-10-02 13:16:05,527] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:05,821] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:05,836] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:05,850] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:05,865] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:05,880] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:05,894] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:05,909] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:05,923] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:05,938] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:05,953] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:06,012] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.38590 +/- 0.12533 km/s)
+[2025-10-02 13:16:06,023] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:06,328] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:06,343] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:06,358] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:06,372] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:06,387] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:06,402] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:06,416] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:06,431] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:06,445] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:06,460] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:06,522] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.20 km/s (fitted at -6.24690 +/- 0.11868 km/s)
+[2025-10-02 13:16:06,532] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:06,841] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:06,855] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:06,870] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:06,884] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:06,898] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:06,912] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:06,927] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:06,941] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:06,955] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:06,969] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:07,034] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.20 km/s (fitted at -6.21970 +/- 0.16173 km/s)
+[2025-10-02 13:16:07,044] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:07,339] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:07,353] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:07,368] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:07,382] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:07,396] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:07,410] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:07,424] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:07,439] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:07,453] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:07,467] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:07,513] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.40270 +/- 0.13655 km/s)
+[2025-10-02 13:16:07,523] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:07,814] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:07,829] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:07,843] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:07,858] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:07,873] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:07,887] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:07,902] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:07,916] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:07,931] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:07,945] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:08,003] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.45800 +/- 0.15955 km/s)
+[2025-10-02 13:16:08,014] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:08,313] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:08,328] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:08,342] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:08,357] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:08,372] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:08,386] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:08,400] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:08,415] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:08,429] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:08,444] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:08,504] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.44650 +/- 0.17217 km/s)
+[2025-10-02 13:16:08,514] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:08,810] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:08,824] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:08,838] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:08,852] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:08,866] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:08,880] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:08,894] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:08,908] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:08,922] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:08,937] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:08,983] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.47840 +/- 0.14315 km/s)
+[2025-10-02 13:16:08,993] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:09,284] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:09,299] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:09,313] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:09,328] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:09,343] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:09,357] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:09,371] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:09,386] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:09,400] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:09,414] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:09,465] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.60 km/s (fitted at -6.57700 +/- 0.18019 km/s)
+[2025-10-02 13:16:09,475] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:09,778] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:09,792] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:09,806] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:09,821] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:09,835] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:09,850] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:09,864] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:09,879] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:09,893] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:09,907] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:09,949] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.42290 +/- 0.26087 km/s)
+[2025-10-02 13:16:09,960] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:10,253] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:10,267] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:10,281] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:10,295] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:10,309] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:10,324] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:10,338] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:10,352] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:10,366] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:10,380] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:10,446] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.52270 +/- 0.14609 km/s)
+[2025-10-02 13:16:10,456] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:10,756] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:10,770] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:10,784] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:10,799] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:10,813] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:10,827] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:10,841] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:10,855] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:10,869] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:10,883] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:10,944] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.60 km/s (fitted at -6.61940 +/- 0.14352 km/s)
+[2025-10-02 13:16:10,954] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:11,274] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:11,288] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:11,302] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:11,317] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:11,331] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:11,345] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:11,359] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:11,373] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:11,387] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:11,401] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:11,448] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.44110 +/- 0.13173 km/s)
+[2025-10-02 13:16:11,458] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:11,748] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:11,762] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:11,776] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:11,791] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:11,805] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:11,819] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:11,833] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:11,847] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:11,862] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:11,876] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:11,950] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -5.90 km/s (fitted at -5.90750 +/- 0.14233 km/s)
+[2025-10-02 13:16:11,960] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:12,252] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:12,267] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:12,281] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:12,295] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:12,310] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:12,324] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:12,338] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:12,352] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:12,366] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:12,380] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:12,460] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.20 km/s (fitted at -6.20740 +/- 0.14046 km/s)
+[2025-10-02 13:16:12,470] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:12,755] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:12,770] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:12,784] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:12,798] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:12,813] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:12,827] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:12,850] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:13,136] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:13,150] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:13,165] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:13,180] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:13,195] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:13,209] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:13,223] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:13,237] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:13,251] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:13,265] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:13,316] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.50 km/s (fitted at -6.46940 +/- 0.13838 km/s)
+[2025-10-02 13:16:13,326] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:16:13,617] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-02 13:16:13,631] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.04%
+[2025-10-02 13:16:13,645] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.09%
+[2025-10-02 13:16:13,659] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.13%
+[2025-10-02 13:16:13,674] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.18%
+[2025-10-02 13:16:13,688] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 50.22%
+[2025-10-02 13:16:13,702] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.27%
+[2025-10-02 13:16:13,716] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.31%
+[2025-10-02 13:16:13,730] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.36%
+[2025-10-02 13:16:13,744] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.40%
+[2025-10-02 13:16:13,799] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -6.40 km/s (fitted at -6.39690 +/- 0.14931 km/s)
+[2025-10-02 13:16:13,809] [INFO] [iSpec_script:determine_radial_velocity_with_template:129]: Radial velocity determination with template...
+[2025-10-02 13:32:26,726] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:27,652] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:28,117] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:28,588] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:29,066] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:29,545] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:30,006] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:30,492] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:30,962] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:31,443] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:31,916] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:32,397] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:32,867] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:33,348] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:33,809] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:34,279] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:34,743] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:35,227] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:35,691] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:36,156] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:36,656] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:37,143] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:37,615] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:38,094] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:38,584] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:39,043] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:39,518] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:39,995] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:40,457] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:40,941] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:41,406] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:41,899] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:42,377] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:42,865] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:43,348] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:43,820] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:44,296] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:44,782] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:45,268] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:45,746] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:46,216] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-02 13:32:46,692] [WARNING] [spectrum:resample_spectrum:879]: Spline interpolation not recommended.
+[2025-10-07 15:08:34,905] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-07 15:08:34,918] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.22%
+[2025-10-07 15:08:34,928] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.45%
+[2025-10-07 15:08:34,937] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.67%
+[2025-10-07 15:08:34,946] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.90%
+[2025-10-07 15:08:34,960] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.10%
+[2025-10-07 15:08:34,968] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.32%
+[2025-10-07 15:08:34,975] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.55%
+[2025-10-07 15:08:34,983] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.77%
+[2025-10-07 15:08:35,504] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -7.00 km/s (fitted at -6.95540 +/- 0.39940 km/s)
+[2025-10-07 15:08:43,452] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-07 15:08:43,460] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.22%
+[2025-10-07 15:08:43,469] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.45%
+[2025-10-07 15:08:43,477] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.67%
+[2025-10-07 15:08:43,485] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.90%
+[2025-10-07 15:08:43,499] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.10%
+[2025-10-07 15:08:43,506] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.32%
+[2025-10-07 15:08:43,514] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.55%
+[2025-10-07 15:08:43,521] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.77%
+[2025-10-07 15:08:43,555] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -7.00 km/s (fitted at -6.95540 +/- 0.39940 km/s)
+[2025-10-07 15:09:43,491] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 0.00%
+[2025-10-07 15:09:43,500] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 10.22%
+[2025-10-07 15:09:43,507] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 20.45%
+[2025-10-07 15:09:43,514] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 30.67%
+[2025-10-07 15:09:43,520] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 40.90%
+[2025-10-07 15:09:43,532] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 60.10%
+[2025-10-07 15:09:43,539] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 70.32%
+[2025-10-07 15:09:43,545] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 80.55%
+[2025-10-07 15:09:43,552] [INFO] [lines:__cross_correlation_function_uniform_in_velocity:1994]: 90.77%
+[2025-10-07 15:09:43,586] [INFO] [lines:__model_velocity_profile:2455]: Peak found at -7.00 km/s (fitted at -6.92500 +/- 0.45849 km/s)
+[2025-10-09 16:54:04,825] [INFO] [iSpecBaseApp:on_synthesize:4291]: Loading ATLAS9.Kurucz modeled atmospheres...
+[2025-10-09 16:54:21,424] [WARNING] [iSpecBaseApp:on_synthesize:4311]: Limiting linelist to lines that have at least 0.01 depth in the Sun

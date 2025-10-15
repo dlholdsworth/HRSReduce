@@ -209,10 +209,10 @@ class SlitCorrection():
         xmin, xmax = int(x[0]), int(x[-1] + 1)
 
         # Look above and below the line center
-        y = np.arange(-xwd[0], xwd[1] + 1)[:, None] - ycen[xmin:xmax][None, :]
+        y = np.arange(-xwd[0], xwd[1] )[:, None] - ycen[xmin:xmax][None, :]
 
         x = x[None, :]
-        idx = self.make_index(ycen_int - xwd[0], ycen_int + xwd[1], xmin, xmax)
+        idx = self.make_index(ycen_int - xwd[0], ycen_int + xwd[1]-1, xmin, xmax)
         img = original[idx].astype('float64')
         img_compressed = np.ma.compressed(img)
 
@@ -268,7 +268,7 @@ class SlitCorrection():
 
         return tilt, shear
         
-    def find_peaks(self,vec, cr):
+    def find_peaks(self,vec, cr,pk_height):
         # This should probably be the same as in the wavelength calibration
         max_vec=np.max(vec)
         threshold = 2.
@@ -276,12 +276,12 @@ class SlitCorrection():
         window_width = 15.
         #vec -= np.ma.median(vec)
         height = np.median(vec)
-        height=0.001
+        #height=0.01
         #vec = np.ma.filled(vec, 0)
 
         #height = np.percentile(vec, 90) * threshold
         peaks, _ = signal.find_peaks(
-            vec/max_vec, height=height, width=peak_width, distance=window_width
+            vec, height=pk_height, width=peak_width, distance=window_width, prominence=(0,0.99)
         )
 
         # Remove peaks at the edge
@@ -312,10 +312,22 @@ class SlitCorrection():
 
             # Find peaks
             vec = extracted[j,cr[0] : cr[1]].astype('float64')
-            vec, peaks = self.find_peaks(vec, cr)
-
+            vec_med = np.median(vec[2:-2])
+            vec -= vec_med
+            if np.max(vec) > 500:
+                factor = 500.
+                vec /= factor
+                pk_height = 0.002
+                
+            else:
+                factor = np.max(vec)
+                vec /= factor
+                pk_height =0.01
+            vec, peaks = self.find_peaks(vec, cr,pk_height)
             npeaks = len(peaks)
             
+            with fits.open(self.sci_frame) as hdul:
+                original = hdul[self.ext_name].data
 
             # Determine curvature for each line seperately
             tilt = np.zeros(npeaks)
@@ -330,7 +342,8 @@ class SlitCorrection():
                     )
                 except RuntimeError:  # pragma: no cover
                     mask[ipeak] = False
-
+            vec *= factor
+            vec += vec_med
             # Store results
             all_peaks += [peaks[mask]]
             all_tilt += [tilt[mask]]
@@ -339,8 +352,12 @@ class SlitCorrection():
         return all_peaks, all_tilt, all_shear, plot_vec
         
     def plot_comparison(self,original, tilt, shear, peaks,extraction_width,nord,column_range,savefile):  # pragma: no cover
+        
+        with fits.open(self.sci_frame) as hdul:
+            original = hdul[self.ext_name].data
+            
         _, ncol = original.shape
-        output = np.zeros((np.sum(extraction_width) + nord, ncol),dtype=np.int16)
+        output = np.zeros((np.sum(extraction_width) + nord, ncol),dtype=np.float32)
         pos = [0]
         x = np.arange(ncol)
         for i in range(nord):

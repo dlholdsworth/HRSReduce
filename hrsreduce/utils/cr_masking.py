@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def CosmicRayMasking(all_files, arm, verbose=True):
     """Masks cosmic rays from input file.
     """
-    sigclip = 6.
+    sigclip = 10.
     sigfrac = 0.3
     f_types = ['sci', 'lfc','flat']
 
@@ -46,7 +46,7 @@ def CosmicRayMasking(all_files, arm, verbose=True):
 
                 if verbose:
                     N = recov_mask.sum()
-                    logger.info('Number of CR masked pixels {}:'.format(N))
+                    logger.info('Number of CR masked pixels {} in {}'.format(N, file))
                 
                 hdu.flush()
     return files

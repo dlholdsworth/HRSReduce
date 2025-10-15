@@ -86,25 +86,27 @@ class SuperArc():
         
         #Search the storage area for the Arc files, when found perform L0 corrections files
         for file in files:
-            with fits.open(file) as hdul:
-                if (hdul[0].header["PROPID"] == self.arc_propid and hdul[0].header["OBSMODE"] == self.fullmode):
-                    if (hdul[0].header["I2STAGE"] == self.I2STAGE and hdul[0].header["EXPTIME"] == self.exp):
-                        if hdul[0].header["NAXIS1"] == self.ax1 and hdul[0].header["NAXIS2"] == self.ax2:
-                            Arc_files.append(file)
-                            Arc_dirs.append(os.path.dirname(file))
-                            Arc_nights.append(os.path.basename(file)[1:9])
-                            input_dir = os.path.dirname(file)+"/"
-                            l0_file = {}
-                            l0_night = {}
-                            l0_file['arc'] = [file]
-                            l0_night['arc'] = os.path.basename(file)[1:9]
-                            output_dir =os.path.dirname(file)[:-4]+"/reduced/"
-                            try:
-                                os.mkdir(output_dir)
-                            except Exception:
-                                pass
-                            L0_arc.append(L0Corrections(l0_file,l0_night,self.tn,input_dir,output_dir,self.base_dir,self.sarm).run()['arc'][0])
- 
+            try:
+                with fits.open(file) as hdul:
+                    if (hdul[0].header["PROPID"] == self.arc_propid and hdul[0].header["OBSMODE"] == self.fullmode):
+                        if (hdul[0].header["I2STAGE"] == self.I2STAGE and hdul[0].header["EXPTIME"] == self.exp):
+                            if hdul[0].header["NAXIS1"] == self.ax1 and hdul[0].header["NAXIS2"] == self.ax2:
+                                Arc_files.append(file)
+                                Arc_dirs.append(os.path.dirname(file))
+                                Arc_nights.append(os.path.basename(file)[1:9])
+                                input_dir = os.path.dirname(file)+"/"
+                                l0_file = {}
+                                l0_night = {}
+                                l0_file['arc'] = [file]
+                                l0_night['arc'] = os.path.basename(file)[1:9]
+                                output_dir =os.path.dirname(file)[:-4]+"/reduced/"
+                                try:
+                                    os.mkdir(output_dir)
+                                except Exception:
+                                    pass
+                                L0_arc.append(L0Corrections(l0_file,l0_night,self.tn,input_dir,output_dir,self.base_dir,self.sarm).run()['arc'][0])
+            except:
+                pass
         #For each of the nights, need to calcluate a master bias and thus run L0 corrections on those biases first
         single_nights = sorted(set(Arc_nights))
         plot = False
@@ -119,12 +121,15 @@ class SuperArc():
             mmdd = yyyymmdd[4:]
             files = sorted(glob.glob(self.base_dir+self.arm+"/"+str(self.year)+"/"+mmdd+"/raw/*.fits"))
             for file in files:
-                with fits.open(file) as hdul:
-                    if((hdul[0].header["OBSTYPE"] == "Bias" or hdul[0].header["CCDTYPE"] == "Bias") and hdul[0].header["EXPTIME"] == 0.):
-                        if hdul[0].header["NAXIS1"] == self.ax1 and hdul[0].header["NAXIS2"] == self.ax2:
-                            b_files.append(file)
-                            output_dir =os.path.dirname(file)[:-4]+"/reduced/"
-                            input_dir = os.path.dirname(file)+"/"
+                try:
+                    with fits.open(file) as hdul:
+                        if((hdul[0].header["OBSTYPE"] == "Bias" or hdul[0].header["CCDTYPE"] == "Bias") and hdul[0].header["EXPTIME"] == 0.):
+                            if hdul[0].header["NAXIS1"] == self.ax1 and hdul[0].header["NAXIS2"] == self.ax2:
+                                b_files.append(file)
+                                output_dir =os.path.dirname(file)[:-4]+"/reduced/"
+                                input_dir = os.path.dirname(file)+"/"
+                except:
+                    pass
             bias_files['bias'] = b_files
             bias_files = L0Corrections(bias_files,bias_night,self.tn,input_dir,output_dir,self.base_dir,self.sarm).run()
             master_bias = MasterBias(bias_files["bias"],input_dir,output_dir,self.arm,yyyymmdd,plot).create_masterbias()
