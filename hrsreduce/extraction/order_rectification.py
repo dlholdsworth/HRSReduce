@@ -124,11 +124,25 @@ class OrderRectification():
         self.super_arc=super_arc
 
         self.logger = logger
+        if self.arm == 'Blu':
+            mask_file = './hrsreduce/utils/BPM_H.fits'
+            with fits.open(mask_file) as M_hdu:
+                mask = M_hdu[0].data
+                mask = mask.astype(bool)
+        elif self.arm == 'Red':
+            mask_file = './hrsreduce/utils/BPM_R.fits'
+            with fits.open(mask_file) as M_hdu:
+                mask = M_hdu[0].data
+                mask = mask.astype(bool)
+        else:
+            self.logger.warning("No BPM file available. Using all pixels instead.")
+            mask = False
 
 
         # Order trace algorithm setup
         with fits.open(self.input_spectrum) as hdul:
             spec_data = hdul[0].data
+            spec_data = np.ma.masked_array(spec_data, mask=mask)
             spec_header = hdul[0].header
             data_type = hdul[0].header['OBSTYPE']
             
@@ -139,6 +153,7 @@ class OrderRectification():
 
         with fits.open(self.input_flat) as hdul:
             flat_data = hdul[0].data
+            flat_data = np.ma.masked_array(flat_data, mask=mask)
             flat_header = hdul[0].header
 #            if data_type == 'Arc':
 #                flat_data /=flat_data

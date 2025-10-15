@@ -7,6 +7,10 @@ import numpy as np
 import os.path
 from astropy.io import fits
 
+import barycorrpy
+from astropy.coordinates import SkyCoord
+from astropy.time import Time
+
 # Local dependencies
 from hrsreduce.extraction.alg import SpectralExtractionAlg
 
@@ -235,12 +239,58 @@ class SpectralExtraction():
                         hdul.append(Ext_wave_P)
                         Ext_wave_O = fits.ImageHDU(data=sciwave_O, name="WAVE_O")
                         hdul.append(Ext_wave_O)
+                        hdul[0].header['MSTRWAVE'] = (str(os.path.basename(self.arc_frame)),"Arc file")
                     
                     if blaze:
                         Ext_ords_P_BLZ = fits.ImageHDU(data=Blaze_P, name="BLAZE_P")
                         hdul.append(Ext_ords_P_BLZ)
                         Ext_ords_O_BLZ = fits.ImageHDU(data=Blaze_O, name="BLAZE_O")
                         hdul.append(Ext_ords_O_BLZ)
+                        
+                    if hdul[0].header["CCDTYPE"] == 'Science':
+                        
+                        #Calculate and add the Barycentric correction value
+                        obs_date = hdul[0].header["DATE-OBS"]
+                        ut = hdul[0].header["TIME-OBS"]
+                        if obs_date is not None and ut is not None:
+                            obs_date = f"{obs_date}T{ut}"
+                        fwmt = hdul[0].header["EXP-MID"]
+                        et = hdul[0].header["EXPTIME"]
+                        
+                        if fwmt > 0.:
+                            mid = float(fwmt)/86400.
+                        else:
+                            mid =  float(float(et)/2./86400.)
+        
+                        jd = Time(obs_date,scale='utc',format='isot').jd + mid
+        
+                        lat = -32.3722685109
+                        lon = 20.806403441
+                        alt = hdul[0].header["SITEELEV"]
+                        object = hdul[0].header["OBJECT"]
+                        
+                        try:
+                            BCV =(barycorrpy.get_BC_vel(JDUTC=jd,starname = object, lat=lat, longi=lon, alt=alt, leap_update=True,ephemeris='de430'))
+
+                            BJD = barycorrpy.JDUTC_to_BJDTDB(jd, starname = object, lat=lat, longi=lon, alt=alt)
+                            Sub_ms = 'True'
+                            
+                        except:
+                            co = SkyCoord(hdul[0].header["RA"],hdul[0].header["DEC"],unit=(u.hourangle, u.deg))
+                            
+                            BCV =(barycorrpy.get_BC_vel(JDUTC=jd,ra=co.ra.degree, dec=co.dec.degree, lat=lat, longi=lon, alt=alt, leap_update=True,ephemeris='de430'))
+
+                            BJD = barycorrpy.JDUTC_to_BJDTDB(jd, ra=co.ra.degree, dec=co.dec.degree, lat=lat, longi=lon, alt=alt)
+                        
+                            Sub_ms = 'False'
+                        
+                        BARYCORR = BCV[0]/1000.
+                        BARYJD = BJD[0]
+                        
+                        hdul[0].header["BARYRV"] = (str(BARYCORR[0]),"Barycentric RV from barycorrpy")
+                        hdul[0].header["BRV_PRE"] = (str(Sub_ms),"BRV precision <3 m/s precision")
+                        hdul[0].header["BJD"] = (str(BARYJD[0]),"BJD mid obs (using FWMT if not 0)")
+                        
                         
                     hdul.writeto(self.input_spectrum,overwrite='True')
         
