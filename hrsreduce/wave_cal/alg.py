@@ -56,6 +56,8 @@ class WaveCalAlg:
         
         pixels = np.arange(all_obs.shape[1])
         
+        poly_fit = 6
+        
         wls = []
     
         for ord in range(nord):
@@ -67,6 +69,12 @@ class WaveCalAlg:
                 obs /= np.nanmax(obs)
                 super = super[ord][2:1670]-np.nanmedian(super[ord][2:1670])
                 super /= np.nanmax(super)
+            elif arm =='R' and ord ==32:
+                obs = obs[ord][2:-1800]-np.nanmedian(obs[ord][2:-1800])
+                obs /= np.nanmax(obs)
+                super = super[ord][2:-1800]-np.nanmedian(super[ord][2:-1800])
+                super /= np.nanmax(super)
+                poly_fit = 3
             else:
                 obs = obs[ord][2:-2]-np.nanmedian(obs[ord][2:-2])
                 obs /= np.nanmax(obs)
@@ -102,10 +110,9 @@ class WaveCalAlg:
             
             shift = fit_params[1] #Add this to the to the lineline pixels to get to the current observation.
             
-            fit = np.polyfit(line_list[ord]['line_positions']+shift,line_list[ord]['known_wavelengths_air'],6)
+            fit = np.polyfit(line_list[ord]['line_positions']+shift,line_list[ord]['known_wavelengths_air'],poly_fit)
                                     
             wls.append(np.polyval(fit,pixels))
-            
         return wls
             
     

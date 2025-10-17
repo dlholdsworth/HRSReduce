@@ -11,34 +11,16 @@ def find_nearest(array, value):
     idx = (np.abs(array - value)).argmin()
     return array[idx], idx
 
-def gaussian(x, amp, cen, wid):
+def gaussian(x, amp, cen, wid, offset):
     """1-d gaussian: gaussian(x, amp, cen, wid)"""
     #return (amp / (np.sqrt(2*np.pi) * wid)) * np.exp(-(x-cen)**2 / (2*wid**2))
     #return (1./(wid*np.sqrt(2*np.pi))) * np.exp(-(x-cen)**2 / (2*wid**2))
-    return amp*np.exp(-(x-cen)**2/(2*wid**2))
-    
-def air2vac(wl_air):
-    """
-    Convert wavelengths in air to vacuum wavelength
-    Author: Nikolai Piskunov
-    """
-    wl_vac = np.copy(wl_air)
-    ii = np.where(wl_air > 1999.352)
-
-    sigma2 = (1e4 / wl_air[ii]) ** 2  # Compute wavenumbers squared
-    fact = (
-        1e0
-        + 8.336624212083e-5
-        + 2.408926869968e-2 / (1.301065924522e2 - sigma2)
-        + 1.599740894897e-4 / (3.892568793293e1 - sigma2)
-    )
-    wl_vac[ii] = wl_air[ii] * fact  # Convert to vacuum wavelength
-    return wl_vac
+    return amp*np.exp(-(x-cen)**2/(2*wid**2)) + offset
             
 arm = 'R'
 
 
-with fits.open('thar_best.fits') as hdu:
+with fits.open('../thar_best.fits') as hdu:
     header = hdu[0].header
     known_spec = (hdu[0].data)
 
@@ -106,9 +88,9 @@ if arm == 'R':
     #Order 32 range 8685-8910
 
 
-    ord=32
-    order_min = 8685
-    order_max = 8910
+    ord=0
+    order_min = 5420
+    order_max = 5540
 
 #    jj=np.where(np.logical_and(wave2>order_min-5,wave2<order_max+5))[0]
 #    plt.plot(wave2[jj], spec2[jj]/np.max(spec2[jj]),'m',alpha=0.5)
@@ -136,9 +118,10 @@ if arm == 'R':
 
     plt.xlim(order_min,order_max)
     #Change these for scaling
-    plt.ylim(-0.001,0.06)
-    atlas = np.loadtxt('thar_list_orig.txt',usecols=(0),unpack=True)
+#    plt.ylim(-0.001,0.06)
+    atlas, atlas_int = np.loadtxt('../New_Th_linelist_air.list',usecols=(0,1),unpack=True)
 
+    gmod = Model(gaussian)
     
     line_wave = []
     line_pix = []
@@ -166,7 +149,8 @@ if arm == 'R':
             FIBRE_P[np.isnan(FIBRE_P)] = 0
             FIBRE_P -=np.median(FIBRE_P)
             FIBRE_P -=np.min(FIBRE_P[10:-10])
-            FIBRE_P/=(np.max(FIBRE_P))
+#            FIBRE_P/=(np.max(FIBRE_P))
+            FIBRE_P *= 1000.
             if ord == 31:
                 FIBRE_P -= 0.0405
             if ord == 32:
@@ -175,7 +159,7 @@ if arm == 'R':
             plt.plot(fit_wave,FIBRE_P,'k')
 
             #Change height for when there are very strong lines and need to detect weaker ones.
-            peaks,_ = find_peaks(FIBRE_P,height=0.002,distance=6)
+            peaks,_ = find_peaks(FIBRE_P,height=100,distance=6)
             plt.plot(fit_wave[peaks],FIBRE_P[peaks],'kx')
             
             #fit gausians to the peaks and over plot in green.
@@ -184,8 +168,8 @@ if arm == 'R':
                     #Do fit in Wavelength space
                     cut_x = fit_wave[peak-5:peak+5]
                     cut_y =FIBRE_P[peak-5:peak+5]
-                    gmod = Model(gaussian)
-                    result_ref = gmod.fit(cut_y, x=cut_x, amp=Parameter('amp',value=np.max(cut_y)),cen=Parameter('cen',value=fit_wave[peak]),wid=Parameter('wid',value=0.05,min=0.001))
+
+                    result_ref = gmod.fit(cut_y, x=cut_x, amp=Parameter('amp',value=np.max(cut_y)),cen=Parameter('cen',value=fit_wave[peak]),wid=Parameter('wid',value=0.05,min=0.001), offset=10)
 
                     plt.plot(cut_x,result_ref.best_fit,'g--')
                     if np.logical_and(result_ref.params['cen'] > order_min, result_ref.params['cen'] <order_max):
@@ -196,13 +180,12 @@ if arm == 'R':
                         #Do fit in pixel space
                         cut_x = x[peak-6:peak+6]
                         cut_y =FIBRE_P[peak-6:peak+6]
-                        gmod = Model(gaussian)
-                        result_ref = gmod.fit(cut_y, x=cut_x, amp=Parameter('amp',value=np.max(cut_y)),cen=Parameter('cen',value=x[peak]),wid=Parameter('wid',value=2,min=1))
+                        result_ref = gmod.fit(cut_y, x=cut_x, amp=Parameter('amp',value=np.max(cut_y)),cen=Parameter('cen',value=x[peak]),wid=Parameter('wid',value=2,min=1), offset=10)
 
                         peak_cens_pix.append(result_ref.params['cen'].value)
 
-                    
-    plt.vlines(atlas,0,0.01,'r')
+    aa = np.where(np.logical_and(atlas > np.min(fit_wave)-5, atlas < np.max(fit_wave)+5))[0]
+    plt.vlines(atlas[aa],0,atlas_int[aa],'r')
     plt.show(block=False)
     plt.pause(0.1)
     
@@ -363,8 +346,7 @@ if arm == 'H':
                     #Do fit in Wavelength space
                     cut_x = fit_wave[peak-5:peak+5]
                     cut_y =FIBRE_P[peak-5:peak+5]
-                    gmod = Model(gaussian)
-                    result_ref = gmod.fit(cut_y, x=cut_x, amp=Parameter('amp',value=np.max(cut_y)),cen=Parameter('cen',value=fit_wave[peak]),wid=Parameter('wid',value=0.05,min=0.001))
+                    result_ref = gmod.fit(cut_y, x=cut_x, amp=Parameter('amp',value=np.max(cut_y)),cen=Parameter('cen',value=fit_wave[peak]),wid=Parameter('wid',value=0.05,min=0.001), offset=10)
 
                     plt.plot(cut_x,result_ref.best_fit,'g--')
                     if np.logical_and(result_ref.params['cen'] > order_min, result_ref.params['cen'] <order_max):
@@ -375,8 +357,7 @@ if arm == 'H':
                         #Do fit in pixel space
                         cut_x = x[peak-6:peak+6]
                         cut_y =FIBRE_P[peak-6:peak+6]
-                        gmod = Model(gaussian)
-                        result_ref = gmod.fit(cut_y, x=cut_x, amp=Parameter('amp',value=np.max(cut_y)),cen=Parameter('cen',value=x[peak]),wid=Parameter('wid',value=2,min=1))
+                        result_ref = gmod.fit(cut_y, x=cut_x, amp=Parameter('amp',value=np.max(cut_y)),cen=Parameter('cen',value=x[peak]),wid=Parameter('wid',value=2,min=1), offset=10)
 
                         peak_cens_pix.append(result_ref.params['cen'].value)
 

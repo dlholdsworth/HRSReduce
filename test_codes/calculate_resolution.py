@@ -21,6 +21,10 @@ with fits.open(file_blu) as hdu:
     Fibre_O_Blu = hdu['FIBRE_O'].data
     Wave_O_Blu = hdu['WAVE_O'].data
 
+#This holds the science spectrum and arc
+file_blu = ("/Users/daniel/Desktop/SALT_HRS_DATA/Blu/2022/Super_Arcs/HR_Super_Arc_H20220701.fits")
+with fits.open(file_blu) as hdu:
+    Fibre_O_Blu = hdu['FIBRE_O'].data
 
 
 gmod = Model(gaussian)
@@ -50,19 +54,20 @@ for ord in range(42):
     arc[np.isnan(arc)] = 0
     peaks = linelist[ord]['known_wavelengths_air']
 
-
     ord_ave_res = []
     ord_ave_wav = []
     ord_ave_res_err = []
     for j in range(len(peaks)):
         jj=np.where(np.logical_and(wave > peaks[j]-0.5, wave < peaks[j]+0.5))
         result = gmod.fit(arc[jj], x=wave[jj], amp=np.max(arc[jj]), cen=peaks[j], wid=0.03,offset=10)
-#            plt.plot(wave[peaks[j]-10:peaks[j]+10],arc[peaks[j]-10:peaks[j]+10])
+#        plt.plot(wave[jj],arc[jj])
+#        plt.plot(wave[jj],result.best_fit,'--')
+#        plt.show()
             #print(wave[peaks[j]],result.params['cen'].value,result.params['wid'].value*2.3548,result.params['cen'].value/(result.params['wid'].value*2.3548))
         res = result.params['cen'].value/(result.params['wid'].value*2.3548)
             #print(result.fit_report())
         if res > 20000 and res < 90000 and result.params['wid'].value*2.3548 > 0 and result.params['wid'].value*2.3548 < 0.2 :
-            if result.params['amp'].value > 500:
+            if result.params['amp'].value > 0:
 
 #                plt.plot(wave, result.init_fit, 'g-')
 #                plt.plot(wave[peaks[j]-10:peaks[j]+10], result.best_fit, 'r-')
@@ -179,10 +184,9 @@ file_red = ("/Users/daniel/Desktop/SALT_HRS_DATA/Red/2022/0729/reduced/bgoR20220
 with fits.open(file_red) as hdu:
     Fibre_O_Red = hdu['FIBRE_O'].data
     Wave_O_Red = hdu['WAVE_O'].data
-#file_red = ("/Users/daniel/Desktop/SALT_HRS_DATA/Red/2022/Super_Arcs/HR_Super_Arc_R20220701.fits")
-#with fits.open(file_red) as hdu:
-#    Fibre_O_Red = hdu['FIBRE_O'].data
-#    Wave_O_Red = hdu['WAVE_O'].data
+file_red = ("/Users/daniel/Desktop/SALT_HRS_DATA/Red/2022/Super_Arcs/HR_Super_Arc_R20220701.fits")
+with fits.open(file_red) as hdu:
+    Fibre_O_Red = hdu['FIBRE_O'].data
 
 colour=0
 
@@ -211,7 +215,7 @@ for ord in range(33):
             res = result.params['cen'].value/(result.params['wid'].value*2.3548)
                 #print(result.fit_report())
             if res > 30000 and res < 100000 and result.params['wid'].value*2.3548 > 0 and result.params['wid'].value*2.3548 < 0.2 :
-                if result.params['amp'].value > 500:# and result.params['wid'].stderr*2.3548 <0.01:
+                if result.params['amp'].value > 0:# and result.params['wid'].stderr*2.3548 <0.01:
                     if result.params['wid'].stderr is not None:
 
             #                plt.plot(wave, result.init_fit, 'g-')
@@ -322,7 +326,7 @@ axs[0].plot(wave2,yfit2,'r',label='MIDAS Red')
 axs[0].legend()
 axs[1].legend()
 
-plt.savefig('Resolution.png', dpi=900)
+plt.savefig('Resolution_Super.png', dpi=900)
 plt.show()
 
 

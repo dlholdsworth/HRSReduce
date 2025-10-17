@@ -70,12 +70,9 @@ class WavelengthCalibration():
     def execute(self):
     
         with fits.open(self.file) as hdul:
-        
             try:
                 test = hdul['WAVE_P']
-                wave_cal_done = False #True
-                hdul.pop('WAVE_P')
-                hdul.pop('WAVE_O')
+                wave_cal_done = True
             except:
                 wave_cal_done = False
                 
