@@ -70,22 +70,31 @@ class VarExts():
 
     def run(self):
     
-        # Assemble master-file variance images.
-        
-        bias_varimg = self.assemble_var_image(self.bias_frame)
-        flat_varimg = self.assemble_var_image(self.flat_frame)
-        
-        # Assemble Readnoise variance image.
-        rn_var, ccdimg = self.assemble_read_noise_var_image(self.sci_frame)
-        
-        ccdimg = np.where(ccdimg >= 0.0, ccdimg , 0.0)
-        
-        
-        var_image = rn_var +\
-                    bias_varimg +\
-                    flat_varimg * ccdimg +\
-                    ccdimg
-                    
-        self.write_to_file(var_image)
+        #Test if VAR ext exists
+        with fits.open(self.sci_frame) as hdul:
+            try:
+                test = hdul['VAR'].data
+                exists = True
+            except:
+                exists = False
+    
+        if not exists:
+    
+            # Assemble master-file variance images.
+            bias_varimg = self.assemble_var_image(self.bias_frame)
+            flat_varimg = self.assemble_var_image(self.flat_frame)
+            
+            # Assemble Readnoise variance image.
+            rn_var, ccdimg = self.assemble_read_noise_var_image(self.sci_frame)
+            
+            ccdimg = np.where(ccdimg >= 0.0, ccdimg , 0.0)
+            
+            
+            var_image = rn_var +\
+                        bias_varimg +\
+                        flat_varimg * ccdimg +\
+                        ccdimg
+                        
+            self.write_to_file(var_image)
         
         return

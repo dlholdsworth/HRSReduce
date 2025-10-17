@@ -53,10 +53,11 @@ class SuperFlat():
         return [start_date + timedelta(days=n) for n in range(int((end_date - start_date).days) + 1)]
 
     def create_superflat(self):
+    
+        logger.info('Creating Super Flat file for {} arm, {} mode between {} and {}'.format(self.arm, self.mode,self.s_date, self.e_date))
         
         #Find all flat files in the given date range
         files = []
-        print(self.s_date[0:4])
         start = date(int(self.s_date[0:4]), int(self.s_date[4:6]), int(self.s_date[6:8]))
         end = date(int(self.e_date[0:4]), int(self.e_date[4:6]), int(self.e_date[6:8]))
         all_dates = self.date_range(start, end)

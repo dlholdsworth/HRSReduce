@@ -67,6 +67,7 @@ class SuperArc():
     def create_superarc(self):
         
         #Find all arc files in the given date range
+        logger.info('Creating Super Arc file for {} arm, {} mode between {} and {}'.format(self.arm, self.mode,self.s_date, self.e_date))
         files = []
         start = date(int(self.s_date[0:4]), int(self.s_date[4:6]), int(self.s_date[6:8]))
         end = date(int(self.e_date[0:4]), int(self.e_date[4:6]), int(self.e_date[6:8]))
