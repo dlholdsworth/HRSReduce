@@ -247,7 +247,7 @@ def main(
         files = files_out
         
         #Clean the files of CRs
-        _ = CosmicRayMasking(files,arm)
+        #_ = CosmicRayMasking(files,arm)
         
         #Remove the intermediate files
         for ff in files["bias"]:

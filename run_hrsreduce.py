@@ -8,12 +8,8 @@ import os.path
 import hrsreduce
 from hrsreduce import reduce
 
-#import pyreduce
-#from pyreduce import datasets
-
 if __name__ == '__main__':
 
-#done "2023-01-12"
     nights=["2023-01-25",
 "2023-01-25",
 "2023-01-30",
@@ -187,27 +183,12 @@ if __name__ == '__main__':
 
 
     # define parameters
-#    nights = ["2022-10-08"]
-#    nights = ["2023-12-04"]
-    nights = ["2022-07-17"]
+    nights = ["2022-07-30"]
     for night in nights:
         mode = "HR"
-        arm = "R"
-    #    steps = (
-    #         "bias",
-    #         "flat",
-    #         "orders",
-    #         "norm_flat",
-    #         "wavecal",
-    #         "curvature",
-    #         "science",
-    #         "continuum",
-    #         "finalize",
-    #    )
-
-        # some basic settings
-        # Expected Folder Structure: base_dir/arm/year/mmdd/raw/*.fits
-
+        arm = "H"
+        
+        #Run the code
         hrsreduce.reduce.main(
             night,
             mode,

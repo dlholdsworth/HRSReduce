@@ -67,11 +67,18 @@ class SpectralExtraction():
             var_data = hdl['VAR'].data
             data_type = self.spec_header['CCDTYPE']
             
-            try:
-                test = hdl['FIBRE_P']
-                self.Done_Extraction = True
-            except:
-                self.Done_Extraction = False
+            if data_type == 'Science' or data_type == 'Arc':
+                try:
+                    test = hdl['FIBRE_P']
+                    self.Done_Extraction = True
+                except:
+                    self.Done_Extraction = False
+            elif data_type == 'Flat':
+                try:
+                    test = hdl['BLAZE_P']
+                    self.Done_Extraction = True
+                except:
+                    self.Done_Extraction = False
 
         with fits.open(self.input_flat) as hdl:
             self.flat_header = hdl[0].header
