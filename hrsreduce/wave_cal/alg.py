@@ -50,7 +50,9 @@ class WaveCalAlg:
         self.etalon_mask_in = None #configpull.get_config_value('master_etalon_file',None)
         self.plot = plot
         
-    def run_wavelength_cal_nonHS(self,all_obs,all_super,linelist_path, nord, arm, atlas_wave,atlas_flux):
+    def run_wavelength_cal_nonHS(self,all_obs,all_super,all_ref,linelist_path, nord, arm, atlas_wave,atlas_flux):
+    
+        HRS_lines = np.loadtxt('./hrsreduce/wave_cal/New_Th_linelist_air.list',usecols=(0),unpack=True)
                 
         line_list = np.load(linelist_path,allow_pickle=True).item()
         
@@ -59,32 +61,62 @@ class WaveCalAlg:
         poly_fit = 6
         
         wls = []
+        new_line_list = {}
     
         for ord in range(nord):
+            new_line_list[ord] = {}
+            new_pix = []
+            new_wav = []
             #Remove nan values and normalsie the two spectra
             obs = all_obs
             super = all_super
+            ref = all_ref
+            if arm == 'H':
+                red_lim = 2025
+            if arm =='R':
+                red_lim = 4070
             if arm =='H' and ord ==41:
-                obs = obs[ord][2:1670]-np.nanmedian(obs[ord][2:1670])
+                obs = obs[ord][4:1670]-np.nanmedian(obs[ord][4:1670])
                 obs /= np.nanmax(obs)
-                super = super[ord][2:1670]-np.nanmedian(super[ord][2:1670])
+                super = super[ord][4:1670]-np.nanmedian(super[ord][4:1670])
                 super /= np.nanmax(super)
-            elif arm =='R' and ord ==32:
-                obs = obs[ord][2:-1800]-np.nanmedian(obs[ord][2:-1800])
+                ref = ref[ord][4:1670]-np.nanmedian(ref[ord][4:1670])
+                ref /= np.nanmax(ref)
+                red_lim = 1650
+            elif arm =='R' and ord == 32:
+                obs = obs[ord][4:2000]-np.nanmedian(obs[ord][4:2000])
                 obs /= np.nanmax(obs)
-                super = super[ord][2:-1800]-np.nanmedian(super[ord][2:-1800])
+                super = super[ord][4:2000]-np.nanmedian(super[ord][4:2000])
                 super /= np.nanmax(super)
+                ref = ref[ord][4:2000]-np.nanmedian(ref[ord][4:2000])
+                ref /= np.nanmax(ref)
                 poly_fit = 3
+                red_lim = 1480
             else:
-                obs = obs[ord][2:-2]-np.nanmedian(obs[ord][2:-2])
+                obs = obs[ord][4:-2]-np.nanmedian(obs[ord][4:-2])
                 obs /= np.nanmax(obs)
-                super = super[ord][2:-2]-np.nanmedian(super[ord][2:-2])
+                super = super[ord][4:-2]-np.nanmedian(super[ord][4:-2])
                 super /= np.nanmax(super)
+                ref = ref[ord][4:-2]-np.nanmedian(ref[ord][4:-2])
+                ref /= np.nanmax(ref)
+
             
             obs[np.isnan(obs)] = 0
             super[np.isnan(super)] = 0
             
-            #Calcualte the difference between the two, any positive residuals indicates a cosmic ray, so mask that out.
+            #Update the line list based on the super arc
+
+            #Calculate the cross correlation between the two and fit a gaussian to find the peak. The sift between the two is the centre of the gaussian.
+            corr = signal.correlate(ref, super,mode='full',method='fft')
+            lags = signal.correlation_lags(len(super), len(ref))
+            #corr /= np.max(corr)
+            
+            fit_params,_ = self.fit_gaussian_integral(lags,corr,do_test=False)
+            gaussian_fit = self.integrate_gaussian(lags, fit_params[0], fit_params[1], fit_params[2], fit_params[3])
+            
+            shift = fit_params[1]
+            line_list[ord]['line_positions'] -= shift
+            #Calcualte the difference between the super and observec arc, any positive residuals indicates a cosmic ray, so mask that out.
             diff = obs - super
             ii = np.where(diff > 0.2)[0]
     
@@ -103,15 +135,41 @@ class WaveCalAlg:
             
             fit_params,_ = self.fit_gaussian_integral(lags,corr,x0=0,do_test=False)
             gaussian_fit = self.integrate_gaussian(lags, fit_params[0], fit_params[1], fit_params[2], fit_params[3])
-#            plt.plot(lags,corr)
-#            plt.plot(lags,gaussian_fit,'r')
-#            plt.title(str(fit_params[1]))
-#            plt.show()
             
             shift = fit_params[1] #Add this to the to the lineline pixels to get to the current observation.
+            line_list[ord]['line_positions'] += shift
             
-            fit = np.polyfit(line_list[ord]['line_positions']+shift,line_list[ord]['known_wavelengths_air'],poly_fit)
-                                    
+            line_count = 0
+            #Now we have an ititial relocaation fit the lines with Gaussians to get the precise new centre.
+            #This works for red arm as lines are strong and not blended. Not so well for the blue. Need deeper arcs for that.
+            
+            if arm == 'R':
+                for old_pix in line_list[ord]['line_positions']:
+                
+                    if np.logical_and(old_pix-10-0 > 0, old_pix+10-0 < len(obs)):
+                        
+                        cut_line = obs[int(old_pix)-10-0:int(old_pix)+10-0]
+                        cut_pix = np.arange(len(cut_line))+int(old_pix)-10
+                        coef,_=self.fit_gaussian_integral(cut_pix,cut_line,x0=old_pix)
+                        
+                        if coef is not None:
+                            new_pix.append(coef[1])
+                            new_wav.append(line_list[ord]['known_wavelengths_air'][line_count])
+                        line_count += 1
+                new_line_list[ord]['line_positions'] = new_pix
+                new_line_list[ord]['known_wavelengths_air'] = new_wav
+
+                new_pix = []
+                new_wav = []
+            
+            else:
+                new_line_list[ord]['line_positions'] = line_list[ord]['line_positions']
+                new_line_list[ord]['known_wavelengths_air'] = line_list[ord]['known_wavelengths_air']
+                new_pix = []
+                new_wav = []
+                
+            fit = np.polyfit(new_line_list[ord]['line_positions'],new_line_list[ord]['known_wavelengths_air'],poly_fit)
+
             wls.append(np.polyval(fit,pixels))
         return wls
             
@@ -962,3 +1020,176 @@ class WaveCalAlg:
             plt.close()
 
         return rel_precision_cm_s, abs_precision_cm_s
+        
+    def find_peaks_in_order(self, order_flux, plot_path=None):
+        """
+        Runs find_peaks on successive subsections of the order_flux lines and concatenates
+        the output. The difference between adjacent peaks changes as a function
+        of position on the detector, so this results in more accurate peak-finding.
+        Based on pyreduce.
+        Args:
+            order_flux (np.array): flux values. Their indices correspond to
+                their pixel numbers. Generally the entire order.
+            plot_path (str): Path for diagnostic plots. If None, plots are not made.
+        Returns:
+            tuple of:
+                np.array: array of true peak locations as determined by Gaussian fitting
+                np.array: array of detected peak locations (pre-Gaussian fitting)
+                np.array: array of detected peak heights (pre-Gaussian fitting)
+                np.array: array of size (4, n_peaks) 
+                    containing best-fit Gaussian parameters [a, mu, sigma**2, const]
+                    for each detected peak
+                dict: dictionary of information about each line in the order
+        """
+
+        lines_dict = {}
+    
+        n_pixels = len(order_flux)
+        fitted_peak_pixels = np.array([])
+        detected_peak_pixels = np.array([])
+        detected_peak_heights = np.array([])
+        gauss_coeffs = np.zeros((4,0))
+        ind_dict = 0
+
+        try:
+            for i in np.arange(self.n_sections):
+    
+                if i == self.n_sections - 1:
+                    indices = np.arange(i * n_pixels // self.n_sections, n_pixels)
+                else:
+                    indices = np.arange(i * n_pixels // self.n_sections, (i+1) * n_pixels // self.n_sections)
+                    
+                fitted_peaks_section, detected_peaks_section, peak_heights_section, \
+                    gauss_coeffs_section, this_lines_dict = self.find_peaks(order_flux[indices], peak_height_threshold=self.peak_height_threshold)
+                print("peaks alg", fitted_peaks_section)
+    
+                for ii, row in enumerate(this_lines_dict):
+                    lines_dict[ind_dict] = this_lines_dict[ii]
+                    ind_dict += 1
+                
+                detected_peak_heights = np.append(detected_peak_heights, peak_heights_section)
+                gauss_coeffs = np.append(gauss_coeffs, gauss_coeffs_section, axis=1)
+                if i == 0:
+                    fitted_peak_pixels = np.append(fitted_peak_pixels, fitted_peaks_section)
+                    detected_peak_pixels = np.append(detected_peak_pixels, detected_peaks_section)
+    
+                else:
+                    fitted_peak_pixels = np.append(
+                        fitted_peak_pixels,
+                        fitted_peaks_section + i * n_pixels // self.n_sections
+                    )
+                    detected_peak_pixels = np.append(
+                        detected_peak_pixels,
+                        detected_peaks_section + i * n_pixels // self.n_sections
+                    )
+        
+        except Exception as e:
+            print('Exception: ' + str(e))
+            print('self.n_sections = ', str(self.n_sections))
+        
+        if plot_path is not None:
+            plt.figure(figsize=(20,10), tight_layout=True)
+            #plt.plot(order_flux, color='k', lw=0.1)
+            plt.plot(order_flux, color='k', lw=0.5)
+            plt.scatter(detected_peak_pixels, detected_peak_heights, s=2, color='r')
+            plt.xlabel('Pixel', fontsize=28)
+            plt.ylabel('Flux', fontsize=28)
+            plt.yscale('symlog')
+            plt.tick_params(axis='both', direction='inout', length=6, width=3, colors='k', labelsize=24)
+            plt.savefig('{}/detected_peaks.png'.format(plot_path), dpi=250)
+            plt.close()
+
+            n_zoom_sections = 5
+            zoom_section_pixels = n_pixels // n_zoom_sections
+
+            _, ax_list = plt.subplots(n_zoom_sections, 1, figsize=(12,6))
+            for i, ax in enumerate(ax_list):
+                ax.plot(order_flux,color='k', lw=0.5)
+                ax.scatter(detected_peak_pixels,detected_peak_heights,s=1,color='r')
+                ax.set_xlim(zoom_section_pixels * i, zoom_section_pixels * (i+1))
+                ax.set_ylim(
+                    0,
+                    np.max(
+                        order_flux[zoom_section_pixels * i : zoom_section_pixels * (i+1)]
+                    )
+                )
+                ax.set_ylabel('Flux', fontsize=14)
+                if i == n_zoom_sections-1:
+                    ax.set_xlabel('Pixel', fontsize=14)
+
+            plt.tight_layout()
+            plt.savefig('{}/detected_peaks_zoom.png'.format(plot_path),dpi=250)
+            plt.close()
+                  
+        return fitted_peak_pixels, detected_peak_pixels, detected_peak_heights, gauss_coeffs, lines_dict
+
+    def find_peaks(self, order_flux, peak_height_threshold=1.5, lower_lim=0):
+        """
+        Finds all order_flux peaks in an array. This runs scipy.signal.find_peaks 
+            twice: once to find the average distance between peaks, and once
+            for real, disregarding close peaks.
+        Args:
+            order_flux (np.array): flux values. Their indices correspond to
+                their pixel numbers. Generally a subset of the full order.
+            peak_height_threshold (float): only detect peaks above this num * sigma
+                above the chip median.
+            
+        Returns:
+            tuple of:
+                np.array: array of true peak locations as determined by Gaussian fitting
+                np.array: array of detected peak locations (pre-Gaussian fitting)
+                np.array: array of detected peak heights (pre-Gaussian fitting)
+                np.array: array of size (4, n_peaks) containing best-fit Gaussian 
+                    parameters [a, mu, sigma**2, const] for each detected peak
+        """
+
+        lines_dict = {} # dictionary of lines and their parameters
+        
+        c = order_flux - np.ma.min(order_flux)
+
+        # TODO: make this more indep of order_flux flux
+        height = peak_height_threshold * np.ma.median(c)
+        detected_peaks, properties = signal.find_peaks(c, height=height)
+
+        distance = np.median(np.diff(detected_peaks)) // 2
+        detected_peaks, properties = signal.find_peaks(c, distance=distance, height=height)
+        peak_heights = np.array(properties['peak_heights'])
+
+        # Only consider peaks with height greater than lower_lim
+        valid_peak_indices = np.where(peak_heights > lower_lim)[0]
+        detected_peaks = detected_peaks[valid_peak_indices]
+        peak_heights = peak_heights[valid_peak_indices]
+
+        # fit peaks with Gaussian to get accurate position
+        fitted_peaks = detected_peaks.astype(float)
+        gauss_coeffs = np.empty((4, len(detected_peaks)))
+        width = np.mean(np.diff(detected_peaks)) // 2
+        width = 10
+
+        # Create mask initially set to True for all detected peaks
+        mask = np.ones(len(detected_peaks), dtype=bool)
+
+        for j, p in enumerate(detected_peaks):
+            idx = p + np.arange(-width, width + 1, 1)
+            idx = np.clip(idx, 0, len(c) - 1).astype(int)
+            coef, line_dict = self.fit_gaussian_integral(np.arange(len(idx)), c[idx],do_test=False)
+            gaussian_fit = self.integrate_gaussian(np.arange(len(idx)), coef[0], coef[1], coef[2], coef[3])
+            
+            if coef is None:
+                mask[j] = False # mask out bad fits
+            elif np.abs(peak_heights[j]-coef[0]) > 0.1 or coef[0] < 0.002:
+                mask[j] = False
+            else: # Only update the coefficients and peaks if fit_gaussian did not return None
+                gauss_coeffs[:, j] = coef
+                fitted_peaks[j] = coef[1] + p - width
+                lines_dict[j] = line_dict
+                plt.plot(np.arange(len(idx))+p,c[idx])
+                plt.plot(np.arange(len(idx))+p,gaussian_fit,'r')
+        plt.show()
+        # Remove the peaks where fit_gaussian returned None
+        fitted_peaks = fitted_peaks[mask]
+        detected_peaks = detected_peaks[mask]
+        peak_heights = peak_heights[mask]
+        gauss_coeffs = gauss_coeffs[:, mask]
+                
+        return fitted_peaks, detected_peaks, peak_heights, gauss_coeffs, lines_dict
