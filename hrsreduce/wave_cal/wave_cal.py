@@ -80,6 +80,15 @@ class WavelengthCalibration():
                 self.logger.info('Wavelength Calibration already done')
                 
             else:
+            
+                if self.arm =='R':
+                    ref_arc = "./hrsreduce/wave_cal/HR_Super_Arc_R_Reference.fits"
+                if self.arm =='H':
+                    ref_arc = "./hrsreduce/wave_cal/HR_Super_Arc_H_Reference.fits"
+            
+                with fits.open(ref_arc) as hdu_ref:
+                    ref_P_fluxes = np.nan_to_num(hdu_ref['Fibre_P'].data)
+                    ref_O_fluxes = np.nan_to_num(hdu_ref['Fibre_O'].data)
 
                 if self.cal_type == 'LFC' or 'ThAr':
                     if self.mode == 'HS':
@@ -160,11 +169,11 @@ class WavelengthCalibration():
                             Su_O_fluxes = np.nan_to_num(Shdu['Fibre_O'].data)
                             
                         
-                        wl_soln_P = self.alg.run_wavelength_cal_nonHS(P_fluxs,Su_P_fluxes,self.linelist_path_P,self.nord, self.arm, atlas_wave,atlas_flux)
+                        wl_soln_P = self.alg.run_wavelength_cal_nonHS(P_fluxs,Su_P_fluxes,ref_P_fluxes,self.linelist_path_P,self.nord, self.arm, atlas_wave,atlas_flux)
                         absolute_precision_P = 0
                         order_precisions_P=np.zeros(self.nord)
                         
-                        wl_soln_O = self.alg.run_wavelength_cal_nonHS(O_fluxs,Su_O_fluxes,self.linelist_path_O,self.nord, self.arm, atlas_wave,atlas_flux)
+                        wl_soln_O = self.alg.run_wavelength_cal_nonHS(O_fluxs,Su_O_fluxes,ref_O_fluxes,self.linelist_path_O,self.nord, self.arm, atlas_wave,atlas_flux)
                         absolute_precision_O = 0
                         order_precisions_O=np.zeros(self.nord)
                                 
@@ -184,6 +193,7 @@ class WavelengthCalibration():
                     
                         
                     hdul.writeto(self.file,overwrite='True')
+                    print("FILE OUT+", self.file)
 
                 else:
                     raise ValueError('cal_type {} not recognized. Available options are LFC or ThAr'.format(self.cal_type))

@@ -234,7 +234,7 @@ def polyfit2d(
     return coeff
 
 
-lines = np.load('HR_H_linelist_P.npy',allow_pickle=True).item()
+lines = np.load('HR_R_linelist_P.npy',allow_pickle=True).item()
 
 m_pix = []
 m_ord = []
@@ -250,12 +250,36 @@ for ord in range(len(lines)):
 
 wave_solution = polyfit2d(m_pix, m_ord, m_wave, degree=[6,6], plot=False)
 
-wave_img = make_wave(wave_solution,42,2048)
+wave_img = make_wave(wave_solution,33,4096)
+
+lines = np.load('HR_R_linelist_O.npy',allow_pickle=True).item()
+
+m_pix = []
+m_ord = []
+m_wave = []
+
+for ord in range(len(lines)):
+    for line in range(len(lines[ord]['line_positions'])):
+    
+        m_pix.append(lines[ord]['line_positions'][line])
+        m_wave.append(lines[ord]['known_wavelengths_air'][line])
+        m_ord.append(ord)
+    
+
+wave_solution_O = polyfit2d(m_pix, m_ord, m_wave, degree=[6,6], plot=False)
+
+wave_img_O = make_wave(wave_solution_O,33,4096)
 
 ref_file = '/Users/daniel/Desktop/SALT_HRS_DATA/Blu/2022/Super_Arcs/HR_Super_Arc_H20220701.fits'
+ref_file = "/Users/daniel/Desktop/SALT_HRS_DATA/Red/2022/0729/reduced/bgoR202207290042.fits"
+ref_file = '/Users/daniel/Desktop/bgoR202510110034.fits'
+ref_file = '/Users/daniel/Desktop/SALT_HRS_DATA/Blu/2025/1011/reduced/bgoH202510110034.fits'
 
 hdu=fits.open(ref_file)
 P_Fibre = hdu['FIBRE_P'].data
+P_Wave = hdu['WAVE_P'].data
+O_Fibre = hdu['FIBRE_O'].data
+O_Wave = hdu['WAVE_O'].data
 
 with fits.open('thar_best.fits') as hdu:
     header = hdu[0].header
@@ -269,13 +293,27 @@ with fits.open('thar_best.fits') as hdu:
     xconv = lambda v: ((v-reference_pixel+1)*wave_step+wave_base)
     known_waveobs = xconv(np.arange(len(flux)))
     
-plt.plot(known_waveobs,known_spec/10000,'k')
+#plt.plot(known_waveobs,known_spec,'k')
+
+th = np.loadtxt("./thar_list_orig.txt",usecols=(0),unpack=True)
 
 for ord in range(42):
-    plt.plot(wave_img[ord],P_Fibre[ord])
+#    plt.plot(wave_img[ord],P_Fibre[ord])
+    ii=np.where(np.logical_and(known_waveobs > np.min(P_Wave[ord]), known_waveobs < np.max(O_Wave[ord])))[0]
+    plt.plot(known_waveobs[ii],known_spec[ii]/np.max(known_spec[ii]),'k')
+    plt.plot(P_Wave[ord],P_Fibre[ord]/np.nanmax(P_Fibre[ord]))
+    plt.plot(O_Wave[ord],O_Fibre[ord]/np.nanmax(O_Fibre[ord]))
+    ii=np.where(np.logical_and(th > np.min(P_Wave[ord]), th < np.max(O_Wave[ord])))[0]
+    plt.vlines(th[ii],0,0.1,'r')
+    plt.title(str(ord))
+    plt.show()
+    
+for ord in range(42):
+#    plt.plot(wave_img_O[ord],O_Fibre[ord])
+    plt.plot(O_Wave[ord],O_Fibre[ord])
 plt.show()
 
-for ord in range(42):
-    for i in range(2047):
-        plt.plot(wave_img[ord][i],wave_img[ord][i+1]-wave_img[ord][i],'.')
-plt.show()
+#for ord in range(42):
+#    for i in range(2047):
+#        plt.plot(wave_img[ord][i],wave_img[ord][i+1]-wave_img[ord][i],'.')
+#plt.show()
