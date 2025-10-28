@@ -26,7 +26,6 @@ import importlib
 import arrow
 import glob
 
-from hrsreduce.hrs_info import Instrument
 from hrsreduce.utils.sort_files import SortFiles
 from hrsreduce.utils.cr_masking import CosmicRayMasking
 from hrsreduce.utils.find_nearest_files import FindNearestFiles
@@ -53,10 +52,10 @@ def main(
     base_dir=None,
     input_dir=None,
     output_dir=None,
-    instrument=None,
     allow_calibration_only=False,
     skip_existing=False,
     plot=False,
+    clean=False,
     ):
     
     """
@@ -344,5 +343,10 @@ def main(
             SpectralExtraction(sci_file, master_flat,files['arc'][0],order_file_rect,arm_colour,m,base_dir).extraction()
             OrderMerge(sci_file,master_flat,arm,plot=False).execute()
         
+        if clean:
+            for type in ["sci", "arc", "lfc", "flat"]:
+                for file in files[type]:
+                    try:
+                        os.remove(file)
     return output
 

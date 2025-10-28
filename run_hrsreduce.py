@@ -196,6 +196,6 @@ if __name__ == '__main__':
             night,
             mode,
             arm,
-            instrument="HRS",
+            clean=False,
             plot=False
         )
