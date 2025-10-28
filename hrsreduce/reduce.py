@@ -224,7 +224,7 @@ def main(
         #Subtract the bias from all other frames
         #Loop over the files dict for the different types to make sure the correct bias file is subtracted (e.g., if the Flats are from a different night)
         files_out = {}
-        for type in types:
+        for type in ["sci", "arc", "lfc", "flat"]:
             files_type = {}
             files_tmp = {}
             files_tmp2 = {}
@@ -247,11 +247,7 @@ def main(
         files = files_out
         
         #Clean the files of CRs
-        #_ = CosmicRayMasking(files,arm)
-        
-        #Remove the intermediate files
-        for ff in files["bias"]:
-            os.remove(ff)
+        _ = CosmicRayMasking(files,arm)
         
         #Calcualte the master flat
         master_flat = MasterFlat(files["flat"],nights,input_dir,output_dir,base_dir,arm_colour,yyyymmdd,m,plot).create_masterflat()

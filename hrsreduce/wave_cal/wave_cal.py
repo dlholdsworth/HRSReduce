@@ -169,31 +169,28 @@ class WavelengthCalibration():
                             Su_O_fluxes = np.nan_to_num(Shdu['Fibre_O'].data)
                             
                         
-                        wl_soln_P = self.alg.run_wavelength_cal_nonHS(P_fluxs,Su_P_fluxes,ref_P_fluxes,self.linelist_path_P,self.nord, self.arm, atlas_wave,atlas_flux)
-                        absolute_precision_P = 0
-                        order_precisions_P=np.zeros(self.nord)
+                        wl_soln_P, order_precisions_P,absolute_precision_P  = self.alg.run_wavelength_cal_nonHS(P_fluxs,Su_P_fluxes,ref_P_fluxes,self.linelist_path_P,self.nord, self.arm, atlas_wave,atlas_flux)
+                        self.logger.info("Overall absolute precision (all orders P): {} m/s".format(absolute_precision_P))
                         
-                        wl_soln_O = self.alg.run_wavelength_cal_nonHS(O_fluxs,Su_O_fluxes,ref_O_fluxes,self.linelist_path_O,self.nord, self.arm, atlas_wave,atlas_flux)
-                        absolute_precision_O = 0
-                        order_precisions_O=np.zeros(self.nord)
-                                
+                        wl_soln_O, order_precisions_O, absolute_precision_O = self.alg.run_wavelength_cal_nonHS(O_fluxs,Su_O_fluxes,ref_O_fluxes,self.linelist_path_O,self.nord, self.arm, atlas_wave,atlas_flux)
+                        self.logger.info("Overall absolute precision (all orders O): {} m/s".format(absolute_precision_O))
+                        
                     #Save the wavelength solution to a new fits extension
                     Ext_wave_P = fits.ImageHDU(data=wl_soln_P, name="WAVE_P")
-                    Ext_wave_P.header["RV_PREC"] = ((absolute_precision_P),"Overall absolute precision (all orders) cm/s")
+                    Ext_wave_P.header["RV_PREC"] = ((absolute_precision_P),"Overall absolute precision (all orders) m/s")
                     hdul.append(Ext_wave_P)
                     Ext_wave_P2 = fits.ImageHDU(name='WAVE_P_PRE', data=order_precisions_P)
                     hdul.append(Ext_wave_P2)
 
                     #Save the wavelength solution to a new fits extension
                     Ext_wave_O = fits.ImageHDU(data=wl_soln_O, name="WAVE_O")
-                    Ext_wave_O.header["RV_PREC"] = ((absolute_precision_O),"Overall absolute precision (all orders) cm/s")
+                    Ext_wave_O.header["RV_PREC"] = ((absolute_precision_O),"Overall absolute precision (all orders) m/s")
                     hdul.append(Ext_wave_O)
                     Ext_wave_O2 = fits.ImageHDU(name='WAVE_O_PRE', data=order_precisions_O)
                     hdul.append(Ext_wave_O2)
                     
                         
                     hdul.writeto(self.file,overwrite='True')
-                    print("FILE OUT+", self.file)
 
                 else:
                     raise ValueError('cal_type {} not recognized. Available options are LFC or ThAr'.format(self.cal_type))

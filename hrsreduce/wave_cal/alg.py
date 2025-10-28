@@ -1,6 +1,7 @@
 from astropy import units as u, constants as cst
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.fft import fft2, ifft2, fftshift
 from numpy.polynomial.legendre import Legendre
 from scipy.interpolate import interp1d
 import os
@@ -10,8 +11,9 @@ import scipy
 from scipy import signal
 import warnings
 from scipy.optimize import curve_fit
-from scipy.special import erf
-
+from scipy.special import erf, binom
+from scipy.linalg import lstsq
+from lmfit import  Model,Parameter
 
 class WaveCalAlg:
 
@@ -58,11 +60,20 @@ class WaveCalAlg:
         
         pixels = np.arange(all_obs.shape[1])
         
-        poly_fit = 6
+        def gaussian(x, amp, cen, wid, offset):
+            """1-d gaussian: gaussian(x, amp, cen, wid)"""
+            #return (amp / (np.sqrt(2*np.pi) * wid)) * np.exp(-(x-cen)**2 / (2*wid**2))
+            #return (1./(wid*np.sqrt(2*np.pi))) * np.exp(-(x-cen)**2 / (2*wid**2))
+            return amp*np.exp(-(x-cen)**2/(2*wid**2)) + offset
+        gmod = Model(gaussian)
         
         wls = []
         new_line_list = {}
-    
+        
+        #Do a 2D CCF with the extracted arc and the reference arc (which the line list is based on). Then we get the rough pixel
+        #offset between the two to align the reference list pixel locations to the observed arc.
+        dx, dy = self.compute_offset_fft_subpixel(all_ref[5:,10:-10], all_obs[5:,10:-10])
+        
         for ord in range(nord):
             new_line_list[ord] = {}
             new_pix = []
@@ -71,107 +82,95 @@ class WaveCalAlg:
             obs = all_obs
             super = all_super
             ref = all_ref
-            if arm == 'H':
-                red_lim = 2025
-            if arm =='R':
-                red_lim = 4070
+            
+            #Trim the data a bit to remove the edge effects.
             if arm =='H' and ord ==41:
-                obs = obs[ord][4:1670]-np.nanmedian(obs[ord][4:1670])
+                obs = obs[ord][:1650]-np.nanmedian(obs[ord][4:1650])
                 obs /= np.nanmax(obs)
-                super = super[ord][4:1670]-np.nanmedian(super[ord][4:1670])
+                super = super[ord][:1650]-np.nanmedian(super[ord][4:1650])
                 super /= np.nanmax(super)
-                ref = ref[ord][4:1670]-np.nanmedian(ref[ord][4:1670])
+                ref = ref[ord][:1650]-np.nanmedian(ref[ord][4:1650])
                 ref /= np.nanmax(ref)
-                red_lim = 1650
             elif arm =='R' and ord == 32:
-                obs = obs[ord][4:2000]-np.nanmedian(obs[ord][4:2000])
+                obs = obs[ord][:2000]-np.nanmedian(obs[ord][4:2000])
                 obs /= np.nanmax(obs)
-                super = super[ord][4:2000]-np.nanmedian(super[ord][4:2000])
+                super = super[ord][:2000]-np.nanmedian(super[ord][4:2000])
                 super /= np.nanmax(super)
-                ref = ref[ord][4:2000]-np.nanmedian(ref[ord][4:2000])
+                ref = ref[ord][:2000]-np.nanmedian(ref[ord][4:2000])
                 ref /= np.nanmax(ref)
-                poly_fit = 3
-                red_lim = 1480
             else:
-                obs = obs[ord][4:-2]-np.nanmedian(obs[ord][4:-2])
+                obs = obs[ord][:-2]-np.nanmedian(obs[ord][4:-2])
                 obs /= np.nanmax(obs)
-                super = super[ord][4:-2]-np.nanmedian(super[ord][4:-2])
+                super = super[ord][:-2]-np.nanmedian(super[ord][4:-2])
                 super /= np.nanmax(super)
-                ref = ref[ord][4:-2]-np.nanmedian(ref[ord][4:-2])
+                ref = ref[ord][:-2]-np.nanmedian(ref[ord][4:-2])
                 ref /= np.nanmax(ref)
 
             
             obs[np.isnan(obs)] = 0
             super[np.isnan(super)] = 0
             
-            #Update the line list based on the super arc
-
-            #Calculate the cross correlation between the two and fit a gaussian to find the peak. The sift between the two is the centre of the gaussian.
-            corr = signal.correlate(ref, super,mode='full',method='fft')
-            lags = signal.correlation_lags(len(super), len(ref))
-            #corr /= np.max(corr)
-            
-            fit_params,_ = self.fit_gaussian_integral(lags,corr,do_test=False)
-            gaussian_fit = self.integrate_gaussian(lags, fit_params[0], fit_params[1], fit_params[2], fit_params[3])
-            
-            shift = fit_params[1]
-            line_list[ord]['line_positions'] -= shift
-            #Calcualte the difference between the super and observec arc, any positive residuals indicates a cosmic ray, so mask that out.
-            diff = obs - super
-            ii = np.where(diff > 0.2)[0]
-    
-            for idx in ii:
-                if idx > 2 and idx < len(obs)-2:
-                    obs[idx-2:idx+2] = 0
-                elif idx > 1 and idx < len(obs)-1:
-                    obs[idx-1:idx+1] = 0
-                else:
-                    obs[idx] = 0
-                    
-            #Calculate the cross correlation between the two and fit a gaussian to find the peak. The sift between the two is the centre of the gaussian.
-            corr = signal.correlate(obs, super,mode='full',method='fft')
-            lags = signal.correlation_lags(len(super), len(obs))
-            #corr /= np.max(corr)
-            
-            fit_params,_ = self.fit_gaussian_integral(lags,corr,x0=0,do_test=False)
-            gaussian_fit = self.integrate_gaussian(lags, fit_params[0], fit_params[1], fit_params[2], fit_params[3])
-            
-            shift = fit_params[1] #Add this to the to the lineline pixels to get to the current observation.
-            line_list[ord]['line_positions'] += shift
-            
             line_count = 0
-            #Now we have an ititial relocaation fit the lines with Gaussians to get the precise new centre.
-            #This works for red arm as lines are strong and not blended. Not so well for the blue. Need deeper arcs for that.
-            
-            if arm == 'R':
-                for old_pix in line_list[ord]['line_positions']:
-                
-                    if np.logical_and(old_pix-10-0 > 0, old_pix+10-0 < len(obs)):
-                        
-                        cut_line = obs[int(old_pix)-10-0:int(old_pix)+10-0]
-                        cut_pix = np.arange(len(cut_line))+int(old_pix)-10
-                        coef,_=self.fit_gaussian_integral(cut_pix,cut_line,x0=old_pix)
-                        
-                        if coef is not None:
-                            new_pix.append(coef[1])
-                            new_wav.append(line_list[ord]['known_wavelengths_air'][line_count])
-                        line_count += 1
-                new_line_list[ord]['line_positions'] = new_pix
-                new_line_list[ord]['known_wavelengths_air'] = new_wav
 
-                new_pix = []
-                new_wav = []
+            #Update the line positions by fitting gaussians.
+            for old_pix in line_list[ord]['line_positions']:
+                old_pix -=dx
             
-            else:
-                new_line_list[ord]['line_positions'] = line_list[ord]['line_positions']
-                new_line_list[ord]['known_wavelengths_air'] = line_list[ord]['known_wavelengths_air']
-                new_pix = []
-                new_wav = []
-                
-            fit = np.polyfit(new_line_list[ord]['line_positions'],new_line_list[ord]['known_wavelengths_air'],poly_fit)
+                if np.logical_and(old_pix-10 > 0, old_pix+10 < len(obs)):
+                    
+                    cut_line = obs[int(old_pix)-10:int(old_pix)+10]
+                    cut_pix = np.arange(len(cut_line))+int(old_pix)-10
+                    coef,_=self.fit_gaussian_integral(cut_pix,cut_line,x0=old_pix)
+                    
+                    if coef is not None:
+                        new_pix.append(coef[1])
+                        new_wav.append(line_list[ord]['known_wavelengths_air'][line_count])
 
-            wls.append(np.polyval(fit,pixels))
-        return wls
+                line_count += 1
+            new_line_list[ord]['line_positions'] = new_pix
+            new_line_list[ord]['known_wavelengths_air'] = new_wav
+
+            new_pix = []
+            new_wav = []
+         
+        #Set up the 2D wavelength solution
+        m_pix = []
+        m_ord = []
+        m_wave = []
+
+        for ord in range(nord):
+            for line in range(len(new_line_list[ord]['line_positions'])):
+    
+                m_pix.append(new_line_list[ord]['line_positions'][line])
+                m_wave.append(new_line_list[ord]['known_wavelengths_air'][line])
+                m_ord.append(ord)
+                
+        #Calcualte the 2D solution and return. Working with a 6x6 degree polynomial [column,order]
+        wave_solution = self.polyfit2d(m_pix, m_ord, m_wave, degree=[7,7], plot=False)
+        wave_img = self.make_wave(wave_solution,nord,all_obs.shape[1])
+        
+        
+        order_precisions = []
+        num_detected_peaks = []
+        for ord in range(nord):
+
+            leg_out = Legendre.fit(np.arange(all_obs.shape[1]), wave_img[ord], 9)
+            our_wls_peak_pos = leg_out(new_line_list[ord]['line_positions'])
+            # absolute/polynomial precision of order = difference between fundemental wavelengths
+            # and our wavelength solution wavelengths for (fractional) peak pixels
+            abs_residual = ((our_wls_peak_pos - new_line_list[ord]['known_wavelengths_air']) * scipy.constants.c) / new_line_list[ord]['known_wavelengths_air']
+            abs_precision_m_s =  np.nanstd(abs_residual)/np.sqrt(len(new_line_list[ord]['line_positions']))
+            # the above line should use RMS not STD
+            if abs_precision_m_s != 0:
+                #print('Absolute standard error (this order {}): {:.2f} m/s'.format(ord, abs_precision_m_s))
+                order_precisions.append(abs_precision_m_s)
+                num_detected_peaks.append(len(new_line_list[ord]['line_positions']))
+        squared_resids = (np.array(order_precisions) * num_detected_peaks)**2
+        sum_of_squared_resids = np.sum(squared_resids)
+        overall_std_error = (np.sqrt(sum_of_squared_resids) / np.sum(num_detected_peaks))
+        #orderlet_dict['overall_std_error_cms'] = overall_std_error
+
+        return wave_img,order_precisions,overall_std_error
             
     
 
@@ -718,7 +717,7 @@ class WaveCalAlg:
 
         return linelist, coefs, lines_dict
 
-    def fit_gaussian_integral(self, x, y,x0=None,do_test=True):
+    def fit_gaussian_integral(self, x, y,x0=None,do_test=True,Silent=True):
         """
         Fits a continuous Gaussian to a discrete set of x and y datapoints
         using scipy.curve_fit
@@ -760,7 +759,8 @@ class WaveCalAlg:
             # Quality Checks for Gaussian Fits
             
             if max(y) == 0:
-                print('Amplitude is 0')
+                if not Silent:
+                    print('Amplitude is 0')
                 return(None, line_dict)
             
             chi_squared_threshold = int(self.chi_2_threshold)
@@ -790,13 +790,15 @@ class WaveCalAlg:
             
             # Run checks against defined quality thresholds
             if (chi_squared > chi_squared_threshold):
-                print("Chi squared exceeded the threshold for this line. Line skipped")
+                if not Silent:
+                    print("Chi squared exceeded the threshold for this line. Line skipped")
                 return None, line_dict
 
             # Check if the Gaussian amplitude is positive, the peak is higher than the wings, or the peak is too high
             if popt[0] <= 0 or popt[0] <= popt[3] or popt[0] >= 500*max(y):
                 line_dict['quality'] = 'bad_amplitude'  # Mark the fit as bad due to bad amplitude or U shaped gaussian
-                print('Bad amplitude detected')
+                if not Silent:
+                    print('Bad amplitude detected')
                 return None, line_dict
 
         return (popt, line_dict)
@@ -962,6 +964,192 @@ class WaveCalAlg:
             raise ValueError('Only set up to perform Legendre fits currently! Please set fit_type to "Legendre"')
 
         return our_wavelength_solution_for_order, leg_out
+        
+    def polyfit2d(self,x, y, z, degree=1, max_degree=None, scale=True, plot=False, plot_title=None):
+        """A simple 2D plynomial fit to data x, y, z
+        The polynomial can be evaluated with numpy.polynomial.polynomial.polyval2d
+
+        Parameters
+        ----------
+        x : array[n]
+            x coordinates
+        y : array[n]
+            y coordinates
+        z : array[n]
+            data values
+        degree : int, optional
+            degree of the polynomial fit (default: 1)
+        max_degree : {int, None}, optional
+            if given the maximum combined degree of the coefficients is limited to this value
+        scale : bool, optional
+            Wether to scale the input arrays x and y to mean 0 and variance 1, to avoid numerical overflows.
+            Especially useful at higher degrees. (default: True)
+        plot : bool, optional
+            wether to plot the fitted surface and data (slow) (default: False)
+
+        Returns
+        -------
+        coeff : array[degree+1, degree+1]
+            the polynomial coefficients in numpy 2d format, i.e. coeff[i, j] for x**i * y**j
+        """
+        # Flatten input
+        x = np.asarray(x).ravel()
+        y = np.asarray(y).ravel()
+        z = np.asarray(z).ravel()
+
+        # Removed masked values
+        mask = ~(np.ma.getmask(z) | np.ma.getmask(x) | np.ma.getmask(y))
+        x, y, z = x[mask].ravel(), y[mask].ravel(), z[mask].ravel()
+
+        if scale:
+            x, y, norm, offset = self._scale(x, y)
+
+        # Create combinations of degree of x and y
+        # usually: [(0, 0), (1, 0), (0, 1), (1, 1), (2, 0), ....]
+        if np.isscalar(degree):
+            degree = (int(degree), int(degree))
+        assert len(degree) == 2, "Only 2D polynomials can be fitted"
+        degree = [int(degree[0]), int(degree[1])]
+        # idx = [[i, j] for i, j in product(range(degree[0] + 1), range(degree[1] + 1))]
+        coeff = np.zeros((degree[0] + 1, degree[1] + 1))
+        idx = self._get_coeff_idx(coeff)
+
+        # Calculate elements 1, x, y, x*y, x**2, y**2, ...
+        A = self.polyvander2d(x, y, degree)
+
+        # We only want the combinations with maximum order COMBINED power
+        if max_degree is not None:
+            mask = idx[:, 0] + idx[:, 1] <= int(max_degree)
+            idx = idx[mask]
+            A = A[:, mask]
+
+        # Do least squares fit
+        C, *_ = lstsq(A, z)
+
+        # Reorder coefficients into numpy compatible 2d array
+        for k, (i, j) in enumerate(idx):
+            coeff[i, j] = C[k]
+
+        # # Backup copy of coeff
+        if scale:
+            coeff = self.polyscale2d(coeff, *norm, copy=False)
+            coeff = self.polyshift2d(coeff, *offset, copy=False)
+
+        if plot:  # pragma: no cover
+            if scale:
+                x, y = self._unscale(x, y, norm, offset)
+            plot2d(x, y, z, coeff, title='Title')
+            
+        return coeff
+        
+    def _scale(self,x, y):
+        # Normalize x and y to avoid huge numbers
+        # Mean 0, Variation 1
+        offset_x, offset_y = np.mean(x), np.mean(y)
+        norm_x, norm_y = np.std(x), np.std(y)
+        if norm_x == 0:
+            norm_x = 1
+        if norm_y == 0:
+            norm_y = 1
+        x = (x - offset_x) / norm_x
+        y = (y - offset_y) / norm_y
+        return x, y, (norm_x, norm_y), (offset_x, offset_y)
+
+    def _unscale(self,x, y, norm, offset):
+        x = x * norm[0] + offset[0]
+        y = y * norm[1] + offset[1]
+        return x, y
+        
+    def _get_coeff_idx(self,coeff):
+        idx = np.indices(coeff.shape)
+        idx = idx.T.swapaxes(0, 1).reshape((-1, 2))
+        # degree = coeff.shape
+        # idx = [[i, j] for i, j in product(range(degree[0]), range(degree[1]))]
+        # idx = np.asarray(idx)
+        return idx
+        
+    def polyvander2d(self,x, y, degree):
+        # A = np.array([x ** i * y ** j for i, j in idx], dtype=float).T
+        A = np.polynomial.polynomial.polyvander2d(x, y, degree)
+        return A
+        
+    def polyscale2d(self,coeff, scale_x, scale_y, copy=True):
+        if copy:
+            coeff = np.copy(coeff)
+        idx = self._get_coeff_idx(coeff)
+        for k, (i, j) in enumerate(idx):
+            coeff[i, j] /= scale_x ** i * scale_y ** j
+        return coeff
+        
+    def polyshift2d(self,coeff, offset_x, offset_y, copy=True):
+        if copy:
+            coeff = np.copy(coeff)
+        idx = self._get_coeff_idx(coeff)
+        # Copy coeff because it changes during the loop
+        coeff2 = np.copy(coeff)
+        for k, m in idx:
+            not_the_same = ~((idx[:, 0] == k) & (idx[:, 1] == m))
+            above = (idx[:, 0] >= k) & (idx[:, 1] >= m) & not_the_same
+            for i, j in idx[above]:
+                b = binom(i, k) * binom(j, m)
+                sign = (-1) ** ((i - k) + (j - m))
+                offset = offset_x ** (i - k) * offset_y ** (j - m)
+                coeff[k, m] += sign * b * coeff2[i, j] * offset
+        return coeff
+        
+    def make_wave(self,wave_solution, nord, ncol, plot=False):
+        """Expand polynomial wavelength solution into full image
+
+        Parameters
+        ----------
+        wave_solution : array of shape(degree,)
+            polynomial coefficients of wavelength solution
+        plot : bool, optional
+            wether to plot the solution (default: False)
+
+        Returns
+        -------
+        wave_img : array of shape (nord, ncol)
+            wavelength solution for each point in the spectrum
+        """
+
+        y, x = np.indices((nord, ncol))
+        wave_img = self.evaluate_solution(x, y, wave_solution)
+
+        return wave_img
+        
+    def evaluate_solution(self,pos, order, solution, dimensionality="2D"):
+        """
+        Evaluate the 1d or 2d wavelength solution at the given pixel positions and orders
+
+        Parameters
+        ----------
+        pos : array
+            pixel position on the detector (i.e. x axis)
+        order : array
+            order of each point
+        solution : array of shape (nord, ndegree) or (degree_x, degree_y)
+            polynomial coefficients. For mode=1D, one set of coefficients per order.
+            For mode=2D, the first dimension is for the positions and the second for the orders
+        mode : str, optional
+            Wether to interpret the solution as 1D or 2D polynomials, by default "1D"
+
+        Returns
+        -------
+        result: array
+            Evaluated polynomial
+
+        Raises
+        ------
+        ValueError
+            If pos and order have different shapes, or mode is of the wrong value
+        """
+        if not np.array_equal(np.shape(pos), np.shape(order)):
+            raise ValueError("pos and order must have the same shape")
+
+        result = np.polynomial.polynomial.polyval2d(pos, order, solution)
+
+        return result
 
     def calculate_rv_precision(
         self, fitted_peak_pixels, wls, leg_out, rough_wls, our_wavelength_solution_for_order, rough_wls_order,
@@ -1193,3 +1381,50 @@ class WaveCalAlg:
         gauss_coeffs = gauss_coeffs[:, mask]
                 
         return fitted_peaks, detected_peaks, peak_heights, gauss_coeffs, lines_dict
+
+    def compute_offset_fft_subpixel(self,ref, target):
+        """
+        Compute (x, y) offset between two 2D arrays using FFT phase correlation
+        with subpixel accuracy (via parabolic peak fitting).
+        """
+
+        # Ensure floating-point data
+        ref = ref.astype(float)
+        target = target.astype(float)
+        
+        # Compute cross power spectrum
+        F_ref = fft2(ref)
+        F_target = fft2(target)
+        R = F_ref * F_target.conj()
+        R /= np.abs(R) + 1e-15  # normalize
+        
+        # Inverse FFT to get correlation
+        corr = fftshift(ifft2(R).real)
+        
+        # Find integer location of maximum
+        max_y, max_x = np.unravel_index(np.argmax(corr), corr.shape)
+        center_y, center_x = np.array(corr.shape) // 2
+        offset_y = max_y - center_y
+        offset_x = max_x - center_x
+
+        # --- Subpixel refinement using quadratic fit around the peak ---
+        def quadratic_subpixel_peak(zm1, z0, zp1):
+            """Estimate subpixel shift of peak using 3-point quadratic fit."""
+            denom = 2 * (zm1 - 2*z0 + zp1)
+            if abs(denom) < 1e-10:
+                return 0.0
+            return (zm1 - zp1) / denom
+
+        # Get 3x3 neighborhood around peak (handle edges safely)
+        y0, x0 = max_y, max_x
+        if 1 <= y0 < corr.shape[0]-1 and 1 <= x0 < corr.shape[1]-1:
+            dy = quadratic_subpixel_peak(corr[y0-1, x0], corr[y0, x0], corr[y0+1, x0])
+            dx = quadratic_subpixel_peak(corr[y0, x0-1], corr[y0, x0], corr[y0, x0+1])
+        else:
+            dx = dy = 0.0
+
+        # Combine integer and fractional parts
+        offset_x += dx
+        offset_y += dy
+
+        return offset_x, offset_y
