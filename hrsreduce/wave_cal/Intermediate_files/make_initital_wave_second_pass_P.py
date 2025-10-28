@@ -255,7 +255,7 @@ if arm == 'H':
 #        wave2 = xconv(np.arange(len(spec2)))
 
     #Order 00 range 3720-3755
-    #Order 01 range 3745-3795
+    #Order 01 range 3740-3795 #Remove a lot!
     #Order 02 range 3760-3815
     #Order 03 range 3790-3850
     #Order 04 range 3825-3880
@@ -297,9 +297,9 @@ if arm == 'H':
     #Order 40 range 5446-5520
     #Order 41 range 5510-5580
 
-    ord=5
-    order_min = 3850
-    order_max = 3910
+    ord=0
+    order_min = 3720
+    order_max = 3755
 
     ii=np.where(np.logical_and(known_waveobs>order_min-5,known_waveobs<order_max+5))[0]
 
@@ -316,7 +316,7 @@ if arm == 'H':
         
             x=np.arange(len(hdu['FIBRE_P'].data[i]))
             
-            lines = np.load('./HR_H_linelist_P_cl_500s_'+str(ord)+'.npy',allow_pickle=True).item()
+            lines = np.load('./HR_H_linelist_P_cl_'+str(ord)+'.npy',allow_pickle=True).item()
             fit = np.polyfit(lines[i]['line_positions'],lines[i]['known_wavelengths_air'],3)
             #fit = ([-1.52192313e-18,  9.33330773e-15, -2.12069425e-11,  1.92488133e-08, -1.88106710e-06,  1.72081971e-02,  3.70900000e+03])
             fit_wave = np.polyval(fit,x)
@@ -333,14 +333,14 @@ if arm == 'H':
             FIBRE_P -=np.median(FIBRE_P)
             FIBRE_P/=(np.max(FIBRE_P))
             
-            fig, axs = plt.subplots(1,1,figsize=(20,7))
+            fig, axs = plt.subplots(1,1,figsize=(18,7))
             plt.plot(known_waveobs[ii], (known_spec[ii]/np.max(known_spec[ii])),'c')
-            plt.xlim(order_min+20,order_max)
+            plt.xlim(order_min,order_max)
             plt.ylim(-0.05,0.5)
             plt.plot(fit_wave,FIBRE_P,'k')
 
 
-            peaks,_ = find_peaks(FIBRE_P,height=0.02,distance=8)
+            peaks,_ = find_peaks(FIBRE_P,height=0.1,distance=8)
             plt.plot(fit_wave[peaks],FIBRE_P[peaks],'kx')
             
             #fit gausians to the peaks and over plot in green.

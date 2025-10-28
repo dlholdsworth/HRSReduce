@@ -186,10 +186,10 @@ if __name__ == '__main__':
 #2022-07-16 very faint file 27
 
     # define parameters
-    nights = ["2025-10-16"]
+    nights = ["2023-07-01"]
     for night in nights:
         mode = "HR"
-        arm = "H"
+        arm = "R"
         
         #Run the code
         hrsreduce.reduce.main(

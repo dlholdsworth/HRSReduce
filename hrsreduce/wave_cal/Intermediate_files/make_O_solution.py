@@ -4,6 +4,14 @@ from scipy.special import erf
 import warnings
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+from lmfit import  Model,Parameter
+
+def gaussian(x, amp, cen, wid, offset):
+    """1-d gaussian: gaussian(x, amp, cen, wid)"""
+    #return (amp / (np.sqrt(2*np.pi) * wid)) * np.exp(-(x-cen)**2 / (2*wid**2))
+    #return (1./(wid*np.sqrt(2*np.pi))) * np.exp(-(x-cen)**2 / (2*wid**2))
+    return amp*np.exp(-(x-cen)**2/(2*wid**2)) + offset
+    
 def integrate_gaussian(x, a, mu, sig, const, int_width=0.5):
     """
     Returns the integral of a Gaussian over a specified symmetric range.
@@ -112,11 +120,13 @@ def fit_gaussian_integral(x, y):
 
 arm = 'R'
 
+gmod = Model(gaussian)
+
 if arm == 'R':
 
-    gaussian_fit_width = 5
+    gaussian_fit_width = 10
 
-    linelist_path = "./HR_R_linelist_P.npy"
+    linelist_path = "../HR_R_linelist_P.npy"
     arc = '/Users/daniel/Desktop/SALT_HRS_DATA/Red/2022/Super_Arcs/HR_Super_Arc_R20220701.fits'
     peak_wavelengths_ang = np.load(linelist_path,allow_pickle=True).item()
 
@@ -130,14 +140,17 @@ if arm == 'R':
 
     for ord in range(33):
         print("DOING ORDER",ord)
-        spectrum = O_data[ord] - np.nanmedian(O_data[ord])
-#        plt.plot(spectrum,'b')
+        spectrum = O_data[ord]
+        spectrum[np.isnan(spectrum)] = 0
+        spectrum -=np.median(spectrum)
+        spectrum/=(np.max(spectrum))
         
         lines = peak_wavelengths_ang[ord]['line_positions']
         waves = peak_wavelengths_ang[ord]['known_wavelengths_air']
-        plt.vlines(lines,0,100000,'r')
+        plt.vlines(lines,0,0.3,'r')
         
         for idx,line in enumerate(lines):
+            print("IN", line, idx, waves[idx])
             line +=2.5
             
             if(line - gaussian_fit_width)>1:
@@ -148,27 +161,39 @@ if arm == 'R':
                 last_fit_pixel = int(line + gaussian_fit_width)
             else:
                 last_fit_pixel = 4095
-            result, line_dict = fit_gaussian_integral(np.arange(first_fit_pixel,last_fit_pixel),spectrum[first_fit_pixel:last_fit_pixel])
             
-            if result is not None:
-                coefs = result
-                xs = np.floor(coefs[1]) - gaussian_fit_width + \
-                                np.linspace(
-                                    0,
-                                    2 * gaussian_fit_width,
-                                    2 * gaussian_fit_width
-                                )
-                ord_out.append(ord)
-                lines_out.append(coefs[1])
-                wave_out.append(waves[idx])
-                
-                gaussian_fit = integrate_gaussian(xs, coefs[0], coefs[1], coefs[2], coefs[3])
+            if np.isnan(np.sum(spectrum[first_fit_pixel:last_fit_pixel])):
+                pass
+            else:
+                #result, line_dict = fit_gaussian_integral(np.arange(first_fit_pixel,last_fit_pixel),spectrum[first_fit_pixel:last_fit_pixel])
+                result = gmod.fit(spectrum[first_fit_pixel:last_fit_pixel], x=np.arange(first_fit_pixel,last_fit_pixel), amp=Parameter('amp',value=np.max(spectrum[first_fit_pixel:last_fit_pixel])),cen=Parameter('cen',value=line),wid=Parameter('wid',value=2,min=1),offset=10)
+#            if result is not None:
+#                coefs = result
+#                xs = np.floor(coefs[1]) - gaussian_fit_width + \
+#                                np.linspace(
+#                                    0,
+#                                    2 * gaussian_fit_width,
+#                                    2 * gaussian_fit_width
+#                                )
+#                ord_out.append(ord)
+#                lines_out.append(coefs[1])
+#                wave_out.append(waves[idx])
+#                
+#                gaussian_fit = integrate_gaussian(xs, coefs[0], coefs[1], coefs[2], coefs[3])
+
+                if np.logical_and(result.params['cen'] > first_fit_pixel, result.params['cen'] <last_fit_pixel):
+                    if np.abs(line-result.params['cen'].value) < 2.:
+                        plt.plot(np.arange(first_fit_pixel,last_fit_pixel), result.best_fit,'g--')
+                        ord_out.append(ord)
+                        lines_out.append(result.params['cen'].value)
+                        wave_out.append(waves[idx])
+                        print("OUT", line, idx, waves[idx])
 
     lines_out = np.array(lines_out)
     ord_out=np.array(ord_out)
     wave_out=np.array(wave_out)
 #    plt.vlines(lines_out,0,100000,'g')
-#    plt.show()
+    plt.show()
 
     output = {}
 
@@ -179,17 +204,18 @@ if arm == 'R':
         output[ord]['known_wavelengths_air'] = wave_out[ii]
 
     #output=np.array([ord_out,lines_out,wave_out])
-    np.save("./HR_R_linelist_O",output)
+    np.save("./HR_R_linelist_O_TEST",output)
         
             
 
 
 if arm == 'H':
 
-    gaussian_fit_width = 5
+    gaussian_fit_width = 10
 
-    linelist_path = "./HR_H_linelist_P.npy"
+    linelist_path = "../HR_H_linelist_P_500s.npy"
     arc = '/Users/daniel/Desktop/SALT_HRS_DATA/Blu/2022/Super_Arcs/HR_Super_Arc_H20220701.fits'
+    arc = '/Users/daniel/Desktop/SALT_HRS_DATA/Blu/2022/0717/reduced/bgoH202207170027.fits'
     peak_wavelengths_ang = np.load(linelist_path,allow_pickle=True).item()
 
     hdul = fits.open(arc)
@@ -202,14 +228,18 @@ if arm == 'H':
 
     for ord in range(42):
         print("DOING ORDER",ord)
-        spectrum = O_data[ord] - np.nanmedian(O_data[ord])
-        plt.plot(spectrum,'b')
+        spectrum = O_data[ord]
+        spectrum[np.isnan(spectrum)] = 0
+        spectrum -=np.median(spectrum)
+        spectrum/=(np.max(spectrum))
+        #plt.plot(spectrum,'b')
         
         lines = peak_wavelengths_ang[ord]['line_positions']
         waves = peak_wavelengths_ang[ord]['known_wavelengths_air']
-        plt.vlines(lines,0,100000,'r')
+        plt.vlines(lines,0,0.4,'r')
         
         for idx,line in enumerate(lines):
+            print("IN", line, idx, waves[idx])
             line +=2.5
             
             if(line - gaussian_fit_width)>1:
@@ -220,26 +250,39 @@ if arm == 'H':
                 last_fit_pixel = int(line + gaussian_fit_width)
             else:
                 last_fit_pixel = 2047
-            result, line_dict = fit_gaussian_integral(np.arange(first_fit_pixel,last_fit_pixel),spectrum[first_fit_pixel:last_fit_pixel])
             
-            if result is not None:
-                coefs = result
-                xs = np.floor(coefs[1]) - gaussian_fit_width + \
-                                np.linspace(
-                                    0,
-                                    2 * gaussian_fit_width,
-                                    2 * gaussian_fit_width
-                                )
-                ord_out.append(ord)
-                lines_out.append(coefs[1])
-                wave_out.append(waves[idx])
-                
-                gaussian_fit = integrate_gaussian(xs, coefs[0], coefs[1], coefs[2], coefs[3])
-
+            if np.isnan(np.sum(spectrum[first_fit_pixel:last_fit_pixel])):
+                pass
+            else:
+                #result, line_dict = fit_gaussian_integral(np.arange(first_fit_pixel,last_fit_pixel),spectrum[first_fit_pixel:last_fit_pixel])
+                result = gmod.fit(spectrum[first_fit_pixel:last_fit_pixel], x=np.arange(first_fit_pixel,last_fit_pixel), amp=Parameter('amp',value=np.max(spectrum[first_fit_pixel:last_fit_pixel])),cen=Parameter('cen',value=line),wid=Parameter('wid',value=2,min=1),offset=10)
+                #plt.plot(np.arange(first_fit_pixel,last_fit_pixel),spectrum[first_fit_pixel:last_fit_pixel] )
+#                if result is not None:
+#                    coefs = result
+#                    xs = np.floor(coefs[1]) - gaussian_fit_width + \
+#                                np.linspace(
+#                                    0,
+#                                    2 * gaussian_fit_width,
+#                                    2 * gaussian_fit_width
+#                                )
+#                    ord_out.append(ord)
+#                    lines_out.append(coefs[1])
+#                    wave_out.append(waves[idx])
+#                
+#                    gaussian_fit = integrate_gaussian(xs, coefs[0], coefs[1], coefs[2], coefs[3])
+                if np.logical_and(result.params['cen'] > first_fit_pixel, result.params['cen'] <last_fit_pixel):
+                    if np.abs(line-result.params['cen'].value) < 2.:
+                        plt.plot(np.arange(first_fit_pixel,last_fit_pixel), result.best_fit,'g--')
+                        ord_out.append(ord)
+                        lines_out.append(result.params['cen'].value)
+                        wave_out.append(waves[idx])
+                        print("OUT", line, idx, waves[idx])
+                    
+        #plt.show()
     lines_out = np.array(lines_out)
     ord_out=np.array(ord_out)
     wave_out=np.array(wave_out)
-    plt.vlines(lines_out,0,100000,'g')
+    plt.vlines(lines_out,0,1,'g')
     plt.show()
 
     output = {}
@@ -251,6 +294,6 @@ if arm == 'H':
         output[ord]['known_wavelengths_air'] = wave_out[ii]
 
     #output=np.array([ord_out,lines_out,wave_out])
-    np.save("./HR_H_linelist_O",output)
+    np.save("./HR_H_linelist_O_500s_TEST",output)
         
             

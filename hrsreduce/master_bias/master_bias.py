@@ -260,6 +260,10 @@ class MasterBias():
             master_file = str(self.out_dir)+"Master_Bias_"+str(self.sarm)+str(self.night)+".fits"
             
             hdu.close
+            
+            #Remove the bias files that were gain and overscan corrected
+            for file in Bias_files:
+                os.remove(file)
         
         else:
             logger.info("Reading Master Bias frame "+master_file[0])
