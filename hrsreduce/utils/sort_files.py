@@ -88,11 +88,12 @@ def SortFiles(input_dir, logger, arm, mode):
                         arc_files.append(file)
                     elif hdr["OBSTYPE"] == "Science":
                         sci_files.append(file)
-                    elif hdr["OBSTYPE"] == "Comb":
+                    elif hdr["OBSTYPE"] == "Arc" and hdr["I2STAGE"] == "ThAr->Fibre O" :
                         lfc_files.append(file)
                     else:
                         logger.debug("File %s does not match an expected value in %s, %s, %s or %s", file,"Flat field","Arc","Science","Comb")
                 if mode == 'HS':
+                    sci_files = []
                     if np.logical_and(hdr["OBSTYPE"] == "Arc", (hdr["PROPID"] == "ENG_HRS" or hdr["PROPID"] == "CAL_STABLE")):
                         if hdr["I2STAGE"] == "Reference Fibre":
                             hs_arc_files.append(file)

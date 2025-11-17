@@ -7,6 +7,8 @@ import numpy as np
 import os.path
 from astropy.io import fits
 
+from astropy import units as u
+
 import barycorrpy
 from astropy.coordinates import SkyCoord
 from astropy.time import Time

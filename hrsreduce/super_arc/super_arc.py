@@ -132,6 +132,11 @@ class SuperArc():
                 except:
                     pass
             bias_files['bias'] = b_files
+            #Make the output dir
+            try:
+                os.mkdir(output_dir)
+            except Exception:
+                pass
             bias_files = L0Corrections(bias_files,bias_night,self.tn,input_dir,output_dir,self.base_dir,self.sarm).run()
             master_bias = MasterBias(bias_files["bias"],input_dir,output_dir,self.arm,yyyymmdd,plot).create_masterbias()
             

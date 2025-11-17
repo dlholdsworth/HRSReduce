@@ -35,7 +35,7 @@ class WaveCalAlg:
         self.save_diagnostics_dir = save_diagnostics
         self.red_skip_orders = None #configpull.get_config_value('red_skip_orders')
         self.green_skip_orders = None #configpull.get_config_value('green_skip_orders')
-        self.chi_2_threshold = 2 #configpull.get_config_value('chi_2_threshold')
+        self.chi_2_threshold = 2.1 #configpull.get_config_value('chi_2_threshold')
         self.skip_orders = None #configpull.get_config_value('skip_orders',None)
         self.quicklook_steps = 1 #configpull.get_config_value('quicklook_steps',10)
         self.min_wave = 3600 #configpull.get_config_value('min_wave',3800)
@@ -52,9 +52,144 @@ class WaveCalAlg:
         self.etalon_mask_in = None #configpull.get_config_value('master_etalon_file',None)
         self.plot = plot
         
-    def run_wavelength_cal_nonHS(self,all_obs,all_super,all_ref,linelist_path, nord, arm, atlas_wave,atlas_flux):
+    def reject_lines(self,m_x,m_ord,m_wave, nord, ncol, degree,threshold=100 ,plot=False):
+        """
+        Reject the largest outlier one by one until all residuals are lower than the threshold
+
+        Parameters
+        ----------
+        lines : recarray of shape (nlines,)
+            Line data with pixel position, and expected wavelength
+        threshold : float, optional
+            upper limit for the residual, by default 100
+        degree : tuple, optional
+            polynomial degree of the wavelength solution (pixel, column) (default: (6, 6))
+        plot : bool, optional
+            Wether to plot the results (default: False)
+
+        Returns
+        -------
+        lines : recarray of shape (nlines,)
+            Line data with updated flags
+        """
+
+        wave_solution = self.polyfit2d(m_x,m_ord,m_wave,degree)
+        residual = self.calculate_residual(wave_solution, m_x,m_ord,m_wave)
+        nbad = 0
+        while np.ma.any(np.abs(residual) > threshold):
+            m_x,m_ord,m_wave = self.reject_outlier(residual, m_x,m_ord,m_wave)
+            wave_solution = self.polyfit2d(m_x,m_ord,m_wave, degree)
+            residual = self.calculate_residual(wave_solution, m_x,m_ord,m_wave)
+            nbad += 1
+        self.logger.info("Discarding {} lines".format(nbad))
+
+        return m_x,m_ord,m_wave
+
+    def reject_outlier(self,residual, m_x,m_ord,m_wave):
+        """
+        Reject the strongest outlier
+
+        Parameters
+        ----------
+        residual : array of shape (nlines,)
+            residuals of all lines
+        lines : recarray of shape (nlines,)
+            line data
+
+        Returns
+        -------
+        lines : struct_array
+            line data with one more flagged line
+        residual : array of shape (nlines,)
+            residuals of each line, with outliers masked (including the new one)
+        """
+
+        # Strongest outlier
+        ibad = np.ma.argmax(np.abs(residual))
+        #lines["flag"][ibad] = False
+        m_x = np.delete(m_x, ibad)
+        m_wave = np.delete(m_wave, ibad)
+        m_ord = np.delete(m_ord, ibad)
+        return m_x,m_ord,m_wave
+
+    def calculate_residual(self,wave_solution, x,y,m_wave):
+        """
+        Calculate all residuals of all given lines
+
+        Residual = (Wavelength Solution - Expected Wavelength) / Expected Wavelength * speed of light
+
+        Parameters
+        ----------
+        wave_solution : array of shape (degree_x, degree_y)
+            polynomial coefficients of the wavelength solution (in numpy format)
+        lines : recarray of shape (nlines,)
+            contains the position of the line on the detector (posm), the order (order), and the expected wavelength (wll)
+
+        Returns
+        -------
+        residual : array of shape (nlines,)
+            Residual of each line in m/s
+        """
+    #    x = lines["posm"]
+    #    y = lines["order"]
+    #    mask = ~lines["flag"]
+
+        solution = self.evaluate_solution(x, y, wave_solution)
+
+        residual = (solution - m_wave) / m_wave * scipy.constants.c
+        #residual = np.ma.masked_array(residual, mask=mask)
+        return residual
+        
+    def auto_id(self,wave_img, obs,HRS_lines, line_list):
     
-        HRS_lines = np.loadtxt('./hrsreduce/wave_cal/New_Th_linelist_air.list',usecols=(0),unpack=True)
+        output = {}
+        new_lines = 0
+        #loop over all orders
+        for ord in range(obs.shape[0]):
+            line_pix = []
+            line_wave = []
+            output[ord] = {}
+            #Get data for a given order
+            data_obs = obs[ord]
+            data_obs = np.nan_to_num(data_obs,nan=0.0, posinf=0.0, neginf=0.0)
+            wave_obs = wave_img[ord]
+            threshold_of_peak_closeness = (np.diff(wave_obs) / wave_obs[:-1] * scipy.constants.c)
+            threshold_of_peak_closeness = np.max(threshold_of_peak_closeness)
+            wmin, wmax = wave_obs[0], wave_obs[-1]
+            #Find the HRS lines in the line list for this order
+            ii=np.where(np.logical_and(HRS_lines>wmin, HRS_lines<wmax))[0]
+            for line in HRS_lines[ii]:
+                #check if line already used in line list
+                diff = np.abs(line_list[ord]['known_wavelengths_air'] - line) / line * scipy.constants.c
+                if np.any(diff < threshold_of_peak_closeness):
+                    continue
+                else:
+                    #cut out the region in the spectrum and fit for the line
+                    if np.logical_and(line > wmin+1, line < wmax -1):
+                        cut_pix = np.where(np.logical_and(wave_obs>line-0.5,wave_obs<line+0.5))[0]
+                        cut_obs = data_obs[cut_pix]
+                        if len(cut_pix)>10:
+                            coef,_=self.fit_gaussian_integral(cut_pix,cut_obs,x0=int(np.mean(cut_pix)))
+                        else:
+                            coef = None
+                    
+                        if coef is not None:
+                            line_pix.append(coef[1])
+                            line_wave.append(line)
+                            new_lines +=1
+            for line in range(len(line_list[ord]['known_wavelengths_air'])):
+                line_pix.append(line_list[ord]['line_positions'][line])
+                line_wave.append(line_list[ord]['known_wavelengths_air'][line])
+        
+            output[ord]['line_positions'] = np.array(line_pix)
+            output[ord]['known_wavelengths_air'] = np.array(line_wave)
+        
+        self.logger.info("Auto ID added {} new lines.".format(new_lines))
+        
+        return output
+        
+        
+    def run_wavelength_cal_nonHS(self,all_obs,all_super,all_ref,linelist_path, nord, arm):
                 
         line_list = np.load(linelist_path,allow_pickle=True).item()
         
@@ -72,8 +207,26 @@ class WaveCalAlg:
         
         #Do a 2D CCF with the extracted arc and the reference arc (which the line list is based on). Then we get the rough pixel
         #offset between the two to align the reference list pixel locations to the observed arc.
-        dx, dy = self.compute_offset_fft_subpixel(all_ref[5:,10:-10], all_obs[5:,10:-10])
+        dx2 = []
+        shift_ord = []
+        for ord in range(10,nord-6,2):
+            dx1, dy1 = self.compute_offset_fft_subpixel(all_ref[ord:ord+1,10:-10], all_obs[ord:ord+1,10:-10])
+            dx2.append(dx1)
+            shift_ord.append(ord)
+        dx2 = np.array(dx2)
+        shift_ord = np.array(shift_ord)
+        dx_std = np.std(dx2)
+        if dx_std == 0.0 and np.mean(dx2) == 0.0:
+            coef = np.polyfit(shift_ord,dx2,1)
+            dx = np.polyval(coef,np.arange(nord))
+        else:
+            ii = np.where(np.logical_and((dx2-np.mean(dx2))> np.mean(dx2)-dx_std, (dx2+np.mean(dx2))< np.mean(dx2)+dx_std))[0]
+            dx2 = dx2[ii]
+            shift_ord = shift_ord[ii]
+            coef = np.polyfit(shift_ord,dx2,1)
+            dx = np.polyval(coef,np.arange(nord))
         
+
         for ord in range(nord):
             new_line_list[ord] = {}
             new_pix = []
@@ -105,30 +258,43 @@ class WaveCalAlg:
                 super /= np.nanmax(super)
                 ref = ref[ord][:-2]-np.nanmedian(ref[ord][4:-2])
                 ref /= np.nanmax(ref)
+            if arm == 'H':
+                degree = [5,5]
+                degree2 = [5,5]
+                reject_threshold = 200
+                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/Intermediate_files/HRS_ThAr_list_H.list", usecols=0, unpack=True)
+            if arm == 'R':
+                degree = [8,8]
+                degree2 = [8,8]
+                reject_threshold = 100
+                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/Intermediate_files/HRS_ThAr_list_R.list", usecols=0, unpack=True)
 
             
             obs[np.isnan(obs)] = 0
             super[np.isnan(super)] = 0
             
-            line_count = 0
-
-            #Update the line positions by fitting gaussians.
-            for old_pix in line_list[ord]['line_positions']:
-                old_pix -=dx
             
-                if np.logical_and(old_pix-10 > 0, old_pix+10 < len(obs)):
-                    
-                    cut_line = obs[int(old_pix)-10:int(old_pix)+10]
-                    cut_pix = np.arange(len(cut_line))+int(old_pix)-10
-                    coef,_=self.fit_gaussian_integral(cut_pix,cut_line,x0=old_pix)
-                    
-                    if coef is not None:
-                        new_pix.append(coef[1])
-                        new_wav.append(line_list[ord]['known_wavelengths_air'][line_count])
-
-                line_count += 1
-            new_line_list[ord]['line_positions'] = new_pix
-            new_line_list[ord]['known_wavelengths_air'] = new_wav
+            chi_plus=0
+            while len(new_pix) <1:
+                line_count = 0
+                #Update the line positions by fitting gaussians.
+                for old_pix in line_list[ord]['line_positions']:
+                    old_pix -=dx[ord]
+                    if np.logical_and(old_pix-10 > 0, old_pix+10 < len(obs)):
+                        
+                        cut_line = obs[int(old_pix)-10:int(old_pix)+10]
+                        cut_pix = np.arange(len(cut_line))+int(old_pix)-10
+                        coef,gauss_out=self.fit_gaussian_integral(cut_pix,cut_line,x0=old_pix,chi_plus=chi_plus)
+                        
+                        if coef is not None:
+                            new_pix.append(coef[1])
+                            new_wav.append(line_list[ord]['known_wavelengths_air'][line_count])
+                            
+                    line_count += 1
+                chi_plus += 0.1
+ 
+                new_line_list[ord]['line_positions'] = new_pix
+                new_line_list[ord]['known_wavelengths_air'] = new_wav
 
             new_pix = []
             new_wav = []
@@ -145,26 +311,70 @@ class WaveCalAlg:
                 m_wave.append(new_line_list[ord]['known_wavelengths_air'][line])
                 m_ord.append(ord)
                 
-        #Calcualte the 2D solution and return. Working with a 6x6 degree polynomial [column,order]
-        wave_solution = self.polyfit2d(m_pix, m_ord, m_wave, degree=[7,7], plot=False)
+        m_ord = np.array(m_ord)
+        m_wave = np.array(m_wave)
+        m_pix = np.array(m_pix)
+                
+        #Calcualte the 2D solution and return. Working with a AxB degree polynomial [column,order]
+        wave_solution = self.polyfit2d(m_pix, m_ord, m_wave, degree=degree, plot=False)
         wave_img = self.make_wave(wave_solution,nord,all_obs.shape[1])
         
+        m_pix,m_ord,m_wave = self.reject_lines(m_pix,m_ord,m_wave,nord,all_obs.shape[1],degree,threshold=reject_threshold)
+        
+        wave_solution = self.polyfit2d(m_pix, m_ord, m_wave, degree=degree, plot=False)
+        wave_img = self.make_wave(wave_solution,nord,all_obs.shape[1])
+        
+        auto_lines = self.auto_id(wave_img, all_obs,HRS_lines,new_line_list)
+        
+        m_pix = []
+        m_ord = []
+        m_wave = []
+        for ord in range(nord):
+            for line in range(len(auto_lines[ord]['line_positions'])):
+    
+                m_pix.append(auto_lines[ord]['line_positions'][line])
+                m_wave.append(auto_lines[ord]['known_wavelengths_air'][line])
+                m_ord.append(ord)
+                
+        #Calcualte the 2D solution and return. Working with a AxB degree polynomial [column,order]
+        wave_solution = self.polyfit2d(m_pix, m_ord, m_wave, degree=degree2, plot=False)
+        wave_img = self.make_wave(wave_solution,nord,all_obs.shape[1])
+        
+        m_pix,m_ord,m_wave = self.reject_lines(m_pix,m_ord,m_wave,nord,all_obs.shape[1],degree,threshold=reject_threshold)
+        wave_solution = self.polyfit2d(m_pix, m_ord, m_wave, degree=degree2, plot=False)
+        wave_img = self.make_wave(wave_solution,nord,all_obs.shape[1])
+        
+        final_line_list = {}
+        for ord in range(nord):
+            new_pix = []
+            new_wave = []
+            final_line_list[ord] = {}
+            ii=np.where(m_ord == ord)[0]
+            for line in ii:
+                new_pix.append(m_pix[line])
+                new_wave.append(m_wave[line])
+            
+            final_line_list[ord]['line_positions'] = new_pix
+            final_line_list[ord]['known_wavelengths_air'] = new_wave
+                
         
         order_precisions = []
         num_detected_peaks = []
         for ord in range(nord):
-
             leg_out = Legendre.fit(np.arange(all_obs.shape[1]), wave_img[ord], 9)
-            our_wls_peak_pos = leg_out(new_line_list[ord]['line_positions'])
+            our_wls_peak_pos = leg_out(final_line_list[ord]['line_positions'])
             # absolute/polynomial precision of order = difference between fundemental wavelengths
             # and our wavelength solution wavelengths for (fractional) peak pixels
-            abs_residual = ((our_wls_peak_pos - new_line_list[ord]['known_wavelengths_air']) * scipy.constants.c) / new_line_list[ord]['known_wavelengths_air']
-            abs_precision_m_s =  np.nanstd(abs_residual)/np.sqrt(len(new_line_list[ord]['line_positions']))
+            abs_residual = ((our_wls_peak_pos - final_line_list[ord]['known_wavelengths_air']) * scipy.constants.c) / final_line_list[ord]['known_wavelengths_air']
+            abs_precision_m_s =  np.nanstd(abs_residual)/np.sqrt(len(final_line_list[ord]['line_positions']))
             # the above line should use RMS not STD
-            if abs_precision_m_s != 0:
+            if abs_precision_m_s != 0 and abs_precision_m_s == abs_precision_m_s:
                 #print('Absolute standard error (this order {}): {:.2f} m/s'.format(ord, abs_precision_m_s))
                 order_precisions.append(abs_precision_m_s)
-                num_detected_peaks.append(len(new_line_list[ord]['line_positions']))
+                num_detected_peaks.append(len(final_line_list[ord]['line_positions']))
+            else:
+                order_precisions.append(999)
+                num_detected_peaks.append(1)
         squared_resids = (np.array(order_precisions) * num_detected_peaks)**2
         sum_of_squared_resids = np.sum(squared_resids)
         overall_std_error = (np.sqrt(sum_of_squared_resids) / np.sum(num_detected_peaks))
@@ -717,7 +927,7 @@ class WaveCalAlg:
 
         return linelist, coefs, lines_dict
 
-    def fit_gaussian_integral(self, x, y,x0=None,do_test=True,Silent=True):
+    def fit_gaussian_integral(self, x, y,x0=None,do_test=True,Silent=True,chi_plus = 0):
         """
         Fits a continuous Gaussian to a discrete set of x and y datapoints
         using scipy.curve_fit
@@ -763,7 +973,7 @@ class WaveCalAlg:
                     print('Amplitude is 0')
                 return(None, line_dict)
             
-            chi_squared_threshold = int(self.chi_2_threshold)
+            chi_squared_threshold = int(self.chi_2_threshold) + chi_plus
 
             # Calculate chi^2
             predicted_y = self.integrate_gaussian(x, *popt)

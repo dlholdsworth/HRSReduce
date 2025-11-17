@@ -78,8 +78,8 @@ class FlatNormalisation():
                     flat_n = flat / unnormalized_flat_mean                     # Normalize the master flat by the mean.
         #            flat_unc = unnormalized_flat_unc / unnormalized_flat_mean             # Normalize the uncertainties.
 
-                    # Reset flat to unity if flat < 0.1
-                    flat_n = np.where(flat_n < 0.1, 1.0, flat_n)
+                    # Reset flat to 0 if flat < 0.01
+                    flat_n = np.where(flat_n < 0.01, 0.0, flat_n)
 
                     #Insert the normalised orderback into the origial image
                     norm_flat[Y1:Y2,X1:X2] = flat_n

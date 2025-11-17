@@ -471,12 +471,14 @@ class OrderMerge():
             BLAZE_P = hdu['BLAZE_P'].data
             
 #        FIBRE_O += np.abs(np.min(FIBRE_O))
-        SIGMA_O = np.sqrt(FIBRE_O)
+        SIGMA_O = np.sqrt(BLAZE_O+1e-12)
 #        SIGMA_O[np.isnan(SIGMA_O)] = 1000
 #        
 #        FIBRE_P += np.abs(np.min(FIBRE_P))
-        SIGMA_P = np.sqrt(FIBRE_P)
+        SIGMA_P = np.sqrt(BLAZE_P+1e-12)
 #        SIGMA_P[np.isnan(SIGMA_P)] = 1000
+
+        starting_ord = 85
         
         if self.arm == 'H':
             BLAZE_O[20:,482:500] = np.nan
@@ -498,6 +500,8 @@ class OrderMerge():
             FIBRE_P[20:,482:500] = np.nan
             FIBRE_P[:,851:856] = np.nan
             FIBRE_P[37:,536:542] = np.nan
+            
+            starting_ord = 125
 
             
         #Create a sky subtracted spectrum, order by order. Must map onto the same wavelegth axis
@@ -530,8 +534,8 @@ class OrderMerge():
             flux_o[nans]= np.interp(x(nans), x(~nans), flux_o[~nans])
             flux_p[nans]= np.interp(x(nans), x(~nans), flux_o[~nans])
 
-            sigma_o = np.sqrt(flux_o)
-            sigma_p = np.sqrt(flux_p)
+            sigma_o = np.sqrt(blaze_o)
+            sigma_p = np.sqrt(blaze_p)
             SIGMA_O[ord] = sigma_o
             SIGMA_P[ord] = sigma_p
             
@@ -597,15 +601,6 @@ class OrderMerge():
         sub_blaze = np.asarray(sub_blaze)
         sub_sigma = np.asarray(sub_sigma)
         sub_flux = np.array(sub_flux)
-
-#        if self.arm == 'H':
-#            BLAZE_O[20:,482:500] = 0
-#            BLAZE_O[:,851:856] = 0
-#            BLAZE_O[37:,536:542] = 0
-#            
-#            BLAZE_P[20:,482:500] = 0
-#            BLAZE_P[:,851:856] = 0
-#            BLAZE_P[37:,536:542] = 0
             
         wave_O,spectrum_O = self.splice_orders(FIBRE_O,WAVE_O,BLAZE_O,SIGMA_O)
         diff = []
@@ -713,10 +708,10 @@ class OrderMerge():
                 col2 = fits.Column(name='Blaze', format='D',array=tmp_blaze_o)
                 coldefs = fits.ColDefs([col0,col1,col2])
                 try:
-                    HDU.pop("ORD"+str((ord*-1)+125)+"_O")
+                    HDU.pop("ORD"+str((ord*-1)+starting_ord)+"_O")
                 except:
                     pass
-                col_hdu_O = fits.BinTableHDU.from_columns(coldefs,name="ORD"+str((ord*-1)+125)+"_O")
+                col_hdu_O = fits.BinTableHDU.from_columns(coldefs,name="ORD"+str((ord*-1)+starting_ord)+"_O")
                 col_hdu_O.header['CRPIX1']  = (str(1), "Reference pixel")
                 col_hdu_O.header['CRVAL1']  = (str(np.min(tmp_wave_o)), "Coordinate at reference pixel")
                 col_hdu_O.header['CDELT1']  = (str(wave_step_O), "Coord. incr. per pixel (original value)")
@@ -733,10 +728,10 @@ class OrderMerge():
                 col2 = fits.Column(name='Blaze', format='D',array=tmp_blaze_p)
                 coldefs = fits.ColDefs([col0,col1,col2])
                 try:
-                    HDU.pop("ORD"+str((ord*-1)+125)+"_P")
+                    HDU.pop("ORD"+str((ord*-1)+starting_ord)+"_P")
                 except:
                     pass
-                col_hdu_P = fits.BinTableHDU.from_columns(coldefs,name="ORD"+str((ord*-1)+125)+"_P")
+                col_hdu_P = fits.BinTableHDU.from_columns(coldefs,name="ORD"+str((ord*-1)+starting_ord)+"_P")
                 col_hdu_P.header['CRPIX1']  = (str(1), "Reference pixel")
                 col_hdu_P.header['CRVAL1']  = (str(np.min(tmp_wave_p)), "Coordinate at reference pixel")
                 col_hdu_P.header['CDELT1']  = (str(wave_step_P), "Coord. incr. per pixel (original value)")

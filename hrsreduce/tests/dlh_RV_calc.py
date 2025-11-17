@@ -145,9 +145,10 @@ def compute_mask_line(mask_path, v_steps, zb_min, zb_max, mask_width=1., air_to_
 
         """
 
-        line_center, line_weight = np.loadtxt(mask_path, dtype=float, unpack=True)  # load mask file
+        line_center, line_weight = np.loadtxt(mask_path, dtype=float, unpack=True,skiprows=2,usecols=(0,1))  # load mask file
         #50 and 10000 work well generally
 #        line_weight = 1-line_weight
+
 #        ii=np.where(np.logical_and(line_weight > 0.01, line_weight< 10))[0]
 #        line_weight=1-line_weight[ii]
 #        line_center=line_center[ii]
@@ -317,7 +318,7 @@ def get_rv_config_value(prop, star_config=None, default=None):
     return val
 
         
-def cross_correlate_by_mask_shift(wave_cal, spectrum, vb,start_vel, step):
+def cross_correlate_by_mask_shift(wave_cal, spectrum, vb,start_vel, step,mask_name):
         """Cross correlation by the shifted mask line and the spectrum data of one order for each velocity step.
 
         Args:
@@ -338,8 +339,10 @@ def cross_correlate_by_mask_shift(wave_cal, spectrum, vb,start_vel, step):
         z_b = ((1.0/(1+zb)) - 1.0)
         v_b = z_b * LIGHT_SPEED # km/s
  
-        mask_path = "G8_espresso.txt"
-        #mask_path = "F9_espresso.txt"
+#        mask_path = "G8_espresso.txt"
+#        mask_path = "G2_espresso.txt"
+#        mask_path = "K2_espresso.txt"
+        mask_path = mask_name
         #mask_path = "test_list.list"
         #mask_path, air_to_vacuum = "test_VALD_new.list", False
         #mask_path = "thar_list.list"
@@ -359,7 +362,7 @@ def cross_correlate_by_mask_shift(wave_cal, spectrum, vb,start_vel, step):
 #
 #        plt.vlines(line['center'],-1,line['weight'],'g')
 #        plt.vlines(line['center'][line_index],0,line['weight'][line_index],'r')
-
+#
 #        plt.plot(wave_cal,spectrum)
 #        plt.show()
 
@@ -367,8 +370,7 @@ def cross_correlate_by_mask_shift(wave_cal, spectrum, vb,start_vel, step):
         #                       (line.get('bc_corr_start') < np.max(wave_cal)))[0]
         n_line_index = len(line_index)
         if n_line_index == 0 or wave_cal.size <= 2:
-            print("return early")
-            return ccf
+            return None, None
 
         n_pixel = np.shape(wave_cal)[0]
 
@@ -707,6 +709,36 @@ def fit_ccf(result_ccf, rv_guess, velocities, mask_method=None, velocity_cut=50.
         return g_fit, (0.0 if math.isnan(g_fit.mean.value) else g_fit.mean.value), g_x, g_y, rv_error
     else:
         return None, 0.0, None, None, 0.0
+        
+def normalize_continuum_poly(wave, flux, poly_order=3, niter=6, sigma_clip=3.0, min_fraction=0.2):
+    """
+    Iterative sigma-clipped polynomial continuum normalization.
+    Returns norm_flux, continuum, final_mask_used_for_fit.
+    """
+    x = wave.astype(float)
+    x_scaled = 2.0 * (x - x.min()) / (x.max() - x.min()) - 1.0
+    mask = np.ones_like(x, dtype=bool)
+    for _ in range(niter):
+        # fit polynomial
+        try:
+            coeffs = np.polyfit(x_scaled[mask], flux[mask], deg=poly_order)
+        except np.linalg.LinAlgError:
+            coeffs = np.polyfit(x_scaled[mask], flux[mask], deg=max(1, poly_order - 1))
+        fit = np.polyval(coeffs, x_scaled)
+        resid = flux - fit
+        std = np.std(resid[mask]) if np.any(mask) else np.std(resid)
+        new_mask = resid > -sigma_clip * (std if std > 0 else 1e-12)
+        if new_mask.sum() < max(int(min_fraction * len(flux)), 3):
+            break
+        if np.array_equal(new_mask, mask):
+            mask = new_mask
+            break
+        mask = new_mask
+    coeffs = np.polyfit(x_scaled[mask], flux[mask], deg=poly_order)
+    continuum = np.polyval(coeffs, x_scaled)
+    continuum = np.where(continuum <= 0, np.median(continuum), continuum)
+    norm_flux = flux / continuum
+    return norm_flux, continuum, mask
 
 
 #files = sorted(glob.glob("/Users/daniel/Desktop/SALT_HRS_DATA/Blu/2024/0108/reduced/HRS_E_W_bogH20240108004?.fits"))
@@ -717,186 +749,61 @@ def fit_ccf(result_ccf, rv_guess, velocities, mask_method=None, velocity_cut=50.
 #data1=hdu[0].data
 #hdu.close
  
-def execute(header,data_wave,data_spec,blaze,known_val):
+def execute(header,data_wave,data_spec,blaze,known_val,BCV,BJD,good_ord,mask_name):
 
-    lat = -32.3722685109
-    lon = 20.806403441
-    lat = -32.37591964736582
-    lon = 20.810749689805718
-    alt = header["SITEELEV"]
-    object = header["OBJECT"]
-
-    obs_date = header["DATE-OBS"]
-    ut = header["TIME-OBS"]
-
-    if obs_date is not None and ut is not None:
-        obs_date = f"{obs_date}T{ut}"
-    fwmt = header["EXP-MID"]
-    et = header["EXPTIME"]
-
-#    if fwmt > 0.:
-#        mid = float(fwmt)/86400.
-#    else:
-#        mid =  float(float(et)/2./86400.)
-    mid =  float(float(et)/2./86400.)
-
-    jd = Time(obs_date,scale='utc',format='isot').jd + mid
-
-    BJD = barycorrpy.JDUTC_to_BJDTDB(jd, starname = object, lat=lat, longi=lon, alt=alt)
-    BCV =barycorrpy.get_BC_vel(JDUTC=jd,starname = object, lat=lat, longi=lon, alt=alt, leap_update=True)
-        
-    good_ord=[4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40]
-    #good_ord=[6,7,8,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39]
-    #good_ord=[4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37]
     
     rv = []
     rv_err=[]
-    plt_ord = []
-    counter = 0
-    vb=BCV[0]
+    vb=BCV
     step=0.525
-    #known_val = -16597 #m/s FOR TAU CETI
-    #known_val = 72416 #m/s
     start_vel=-50+(known_val/1000.) #this should be -80+known val to get the trough of the CCF roughly in the centre of the fit.
     
-    lines2,weights2 = np.loadtxt("G8_espresso.txt",unpack=True)
-    ii = np.where(np.logical_and(weights2 > 0, weights2 < 10))[0]
-#
-    lines2 = lines2[ii]
-    weights2 = weights2[ii]
-    
-    def vac2air(wl_air):
-        """
-        Convert wavelengths vacuum to air wavelength
-        Author: Nikolai Piskunov
-        """
-        wl_vac = np.copy(wl_air)
-        ii = np.where(wl_air > 1999.352)
-
-        sigma2 = (1e4 / wl_air[ii]) ** 2  # Compute wavenumbers squared
-        fact = (
-            1e0
-            + 8.336624212083e-5
-            + 2.408926869968e-2 / (1.301065924522e2 - sigma2)
-            + 1.599740894897e-4 / (3.892568793293e1 - sigma2)
-        )
-        wl_vac[ii] = wl_air[ii] / fact  # Convert to vacuum wavelength
-        return wl_vac
-
-    def air2vac2(wl_air):
-        
-        """
-        Convert wavelengths in air to vacuum wavelength
-        Author: Nikolai Piskunov
-        """
-        wl_vac = np.copy(wl_air)
-        ii = np.where(wl_air > 1999.352)
-
-        sigma2 = (1e4 / wl_air[ii]) ** 2  # Compute wavenumbers squared
-        fact = (
-            1e0
-            + 8.336624212083e-5
-            + 2.408926869968e-2 / (1.301065924522e2 - sigma2)
-            + 1.599740894897e-4 / (3.892568793293e1 - sigma2)
-        )
-        wl_vac[ii] = wl_air[ii] * fact  # Convert to vacuum wavelength
-        return wl_vac
-    
-    #lines2 = air2vac2(lines2)
     np.seterr(divide='ignore', invalid='ignore')
+    
+    line_center, line_weight = np.loadtxt('G8_espresso.txt', dtype=float, unpack=True)
 
     for order in good_ord:
 
-        #print("Calculating CCF for order", order)
-        order_wave = vac2air( data_wave[order][50:-50])
+        order_wave = data_wave[order][50:-50]
         order_spec = data_spec[order][50:-50] / blaze[order][50:-50]
-        #where_are_NaNs = np.isnan(order_spec)
-        #order_spec[where_are_NaNs] = 0
-        #order_spec /= np.max(order_spec)
-        #tmp = order_wave
-        #wmin = np.min(tmp)
-        #wmax = np.max(tmp)
-        #dwave = np.abs(tmp[tmp.size // 2] - tmp[tmp.size // 2 - 1]) * 0.5
-        #nwave = np.ceil((wmax - wmin) / dwave) + 1
-        #new_wave = np.linspace(wmin, wmax, int(nwave), endpoint=True)
-#        print(((new_wave[100]-new_wave[99])/new_wave[100])*conts.c)
-        #new_spec = np.interp(new_wave, order_wave, order_spec)
+        order_spec = np.nan_to_num(order_spec, nan=1.,posinf=1., neginf=1.)
+#        plt.plot(order_wave,order_spec,alpha=0.5)
+        order_spec, cont, cont_mask = normalize_continuum_poly(order_wave, order_spec, poly_order=3, niter=6, sigma_clip=3)
         
-#        np.savetxt("order_"+str(order),np.array([order_wave,order_spec,order_spec]).T)
-        
-        #order_spec /= np.max(order_spec)
-        #wavezzz=fits.getdata("./test.fits")
-        #order_wave = wavezzz[0][order][100:-100]
-#        bc_wave = ((order_wave)*(1.0+((vb)/conts.c)))
-        #bc_wave = ((bc_wave)*(1.0+((known_val+10000)/conts.c)))
-        
-#        fit=np.polyfit(order_wave,order_spec,3)
-#        line=np.polyval(fit,order_wave)
 #        plt.plot(order_wave,order_spec)
-#        plt.vlines(lines2,1,1-weights2,'r')
-#        plt.plot(order_wave,line)
-#        plt.plot(order_wave,order_spec/line)
+#        plt.vlines(line_center,1,line_weight,'r')
+#        plt.title(str(order))
 #        plt.show()
-#        ii=np.where(np.logical_and(lines2 > np.min(bc_wave)-2, lines2 < np.max(bc_wave)+2))[0]
-#        plt.vlines(lines2[ii],1,1-weights2[ii],'r')
-
-#        plt.title("ORDER "+str(order))
-#        plt.show()
-#        order_spec /= line
-#        ii=np.where(line < 0)[0]
-#        line[ii] = 0.0001
-#        order_spec /= line
-
-        plt.plot(order_wave,order_spec)
-        plt.show()
-        result_ccf, velocities = cross_correlate_by_mask_shift(order_wave, order_spec,vb, start_vel, step)
-#        result_ccf, velocities = cross_correlate_by_mask_shift(new_wave, new_spec,vb, start_vel, step)
-#        plt.plot(order_wave,order_spec)
-#        plt.show()
-        vels = np.asarray(velocities)
-        ccf = np.asarray(result_ccf)
-        peak_pos= np.where(ccf == np.min(ccf))
-
-        middle = int((len(order_wave)/2))
-        vel_span_pixel = ((order_wave[middle]-order_wave[middle-1])/order_wave[middle])*conts.c / 1000.
-        #vel_span_pixel = 3.3 #km/s
-        
-        g_fit,rv_ord,_,_,rv_err_ord = fit_ccf(ccf,known_val/1000.,vels,vel_span_pixel=vel_span_pixel)
-        
-        plt.plot(vels,g_fit(vels))
-        plt.plot(vels,ccf)
-        plt.show()
  
+        result_ccf, velocities = cross_correlate_by_mask_shift(order_wave, order_spec,vb, start_vel, step,mask_name)
+        if result_ccf is not None:
+            vels = np.asarray(velocities)
+            ccf = np.asarray(result_ccf)
+            peak_pos= np.where(ccf == np.min(ccf))
 
-        
-        if rv_err_ord > 0.:
-        #print("RV ORD",rv_ord*1000., rv_err_ord*1000.)
-            rv.append(rv_ord*1000.)
-            rv_err.append(rv_err_ord*1000.)
-            plt_ord.append(order)
+            middle = int((len(order_wave)/2))
+            vel_span_pixel = ((order_wave[middle]-order_wave[middle-1])/order_wave[middle])*conts.c / 1000.
+            #vel_span_pixel = 3.3 #km/s
+            
+            g_fit,rv_ord,_,_,rv_err_ord = fit_ccf(ccf,known_val/1000.,vels,vel_span_pixel=vel_span_pixel)
+            
+#            plt.plot(vels,g_fit(vels))
+#            plt.plot(vels,ccf)
+#            plt.show()
+
+            if rv_err_ord > 0.:
+                rv.append(rv_ord)
+                rv_err.append(rv_err_ord)
 
     rv = np.array(rv)
     rv_err = np.array(rv_err)
-    plt_ord = np.array(plt_ord)
 
-    rv_mean = np.average(rv,weights=(1/rv_err**2),returned=True)
+    rv_mean = np.average(rv,weights=(1/rv_err),returned=True)
     
-    #plt.xlabel("Time (BJD)")
-    #plt.ylabel("RV (m/s)")
-    #plt.show()
-     
-
-    plt.errorbar(plt_ord , rv,yerr=rv_err,fmt='o')
-    plt.axhline(y = known_val, color = 'r', linestyle = '-')
-    plt.axhline(y = rv_mean[0], color = 'b', linestyle = '--')
-
-#    y=rv
-#    rms = np.sqrt(np.mean((rv_mean[0]-y)**2))
-#    plt.axhline(y = rv_mean[0]+rms, color = 'b', linestyle = ':')
-#    plt.axhline(y = rv_mean[0]-rms, color = 'b', linestyle = ':')
-    plt.show()
+    chunk_std = np.std(rv, ddof=1)
+    chunk_err = chunk_std / np.sqrt(rv.size)  # standard error of the mean
     
-    return rv_mean[0],np.sqrt(1/rv_mean[1]),vb[0],BJD[0]
+    return rv_mean[0]*1000.,chunk_err*1000.
 
 
  

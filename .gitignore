@@ -2,3 +2,11 @@
 hrsreduce/__pycache__/__init__.cpython-313.pyc
 hrsreduce/__pycache__/__init__.cpython-313.pyc
 hrsreduce/__pycache__/__init__.cpython-313.pyc
+MIDAS_Reductions/*
+hrsreduce/wave_cal/Intermediate_files/
+test_codes/
+hrsreduce/tests/
+hrsreduce/ccf/
+hrsreduce/wave_cal/HR_Super_Arc_H_Reference.fits
+hrsreduce/wave_cal/HR_Super_Arc_R_Reference.fits
+

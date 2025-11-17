@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class WavelengthCalibration():
 
-    def __init__(self, arc_file,super_arc,sarm,mode,base_dir,cal_type,thar_line_list,plot=False):
+    def __init__(self, arc_file,super_arc,sarm,mode,base_dir,cal_type,plot=False):
     
         self.file = arc_file
         self.super = super_arc
@@ -30,7 +30,6 @@ class WavelengthCalibration():
         # start a logger
         self.logger.info('Started WavelengthCalibration')
         self.cal_type = cal_type
-        self.thar_line_list = thar_line_list
         
         with fits.open(self.file) as hdul:
             self.nord = hdul['Fibre_P'].header['NORDS']
@@ -73,6 +72,8 @@ class WavelengthCalibration():
             try:
                 test = hdul['WAVE_P']
                 wave_cal_done = True
+#                hdul.pop('WAVE_P')
+#                hdul.pop('WAVE_O')
             except:
                 wave_cal_done = False
                 
@@ -151,9 +152,6 @@ class WavelengthCalibration():
                     
                         #Run a simplier wavelength solution for the non-specialised modes that takes the super arc, calculates the shift between local arc and super arc, applies the offset and uses that for the wavelength solution.
                         
-                        tmp = np.loadtxt(self.thar_line_list,usecols=[0,1])
-                        atlas_wave, atlas_flux = tmp[:,0], tmp[:,1]
-                        
                         P_fluxs = hdul['Fibre_P'].data
                         O_fluxs = hdul['Fibre_O'].data
 
@@ -169,10 +167,10 @@ class WavelengthCalibration():
                             Su_O_fluxes = np.nan_to_num(Shdu['Fibre_O'].data)
                             
                         
-                        wl_soln_P, order_precisions_P,absolute_precision_P  = self.alg.run_wavelength_cal_nonHS(P_fluxs,Su_P_fluxes,ref_P_fluxes,self.linelist_path_P,self.nord, self.arm, atlas_wave,atlas_flux)
+                        wl_soln_P, order_precisions_P,absolute_precision_P  = self.alg.run_wavelength_cal_nonHS(P_fluxs,Su_P_fluxes,ref_P_fluxes,self.linelist_path_P,self.nord, self.arm)
                         self.logger.info("Overall absolute precision (all orders P): {} m/s".format(absolute_precision_P))
                         
-                        wl_soln_O, order_precisions_O, absolute_precision_O = self.alg.run_wavelength_cal_nonHS(O_fluxs,Su_O_fluxes,ref_O_fluxes,self.linelist_path_O,self.nord, self.arm, atlas_wave,atlas_flux)
+                        wl_soln_O, order_precisions_O, absolute_precision_O = self.alg.run_wavelength_cal_nonHS(O_fluxs,Su_O_fluxes,ref_O_fluxes,self.linelist_path_O,self.nord, self.arm)
                         self.logger.info("Overall absolute precision (all orders O): {} m/s".format(absolute_precision_O))
                         
                     #Save the wavelength solution to a new fits extension
