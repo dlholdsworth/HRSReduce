@@ -65,11 +65,11 @@ def main(
 
     Parameters
     ----------
-    night : str
+    night : str, list[str]
         the observation night to reduce, as named in the folder structure.
-    modes : str, list[str], dict[{instrument}:list], None, optional
+    modes : str, list[str]
         the instrument modes to use, if None will use all known modes for the current instrument. See instruments for possible options
-    arm : str, list[str]
+    arm : str
         the spectrograph arm to reduce, if None will use all known modes for the current instrument
     base_dir : str, optional
         base data directory that HRSReduce should work in, is prefixxed on input_dir and output_dir (default: use settings_pyreduce.json)
@@ -99,7 +99,7 @@ def main(
     input_dir = arm_colour+"/"+year+"/"+mmdd+"/raw/"
     output_dir = arm_colour+"/"+year+"/"+mmdd+"/reduced/"
 
-    logger.info(f"Version %s",__version__)
+    logger.info(f"\n\n Version %s\n\n",__version__)
     
     output = []
 
@@ -245,15 +245,15 @@ def main(
         del files
         files = files_out
         
-        #Clean the files of CRs
-        _ = CosmicRayMasking(files,arm)
-        
         #Calcualte the master flat
         master_flat = MasterFlat(files["flat"],nights,input_dir,output_dir,base_dir,arm_colour,yyyymmdd,m,plot).create_masterflat()
         
         #Remove the intermediate files
         for ff in files["flat"]:
             os.remove(ff)
+            
+        #Clean the files of CRs
+        _ = CosmicRayMasking(files,arm)
             
         #Find the appropriate Super Flat file for the order tracing, this must be the closest PREVIOUS frame in case of tank openings etc.
         super_flat = []
@@ -262,16 +262,19 @@ def main(
             prev_night = arrow.get(prev_night).shift(days=-1).format('YYYYMMDD')
             prev_year=prev_night[0:4]
             prev_mmdd=prev_night[4:8]
-            prev_data_location = os.path.join(base_dir, arm_colour+'/'+prev_year+'/Super_Flats/')
+            prev_data_location = os.path.join(base_dir, arm_colour+'/????/Super_Flats/')
             super_flats = glob.glob(prev_data_location+m+'_Super_Flat_'+arm[0]+'*.fits')
             s_difference = []
+            sup_files = []
             for sfiles in super_flats:
                 s_date=(os.path.basename(sfiles)[-13:-5])
-                s_difference.append((arrow.get(int(yyyymmdd[0:4]),int(yyyymmdd[4:6]),int(yyyymmdd[6:8])) - arrow.get(int(s_date[0:4]),int(s_date[4:6]),int(s_date[6:8]))).days)
-                
+                tmp = ((arrow.get(int(yyyymmdd[0:4]),int(yyyymmdd[4:6]),int(yyyymmdd[6:8])) - arrow.get(int(s_date[0:4]),int(s_date[4:6]),int(s_date[6:8]))).days)
+                if tmp > 0:
+                    s_difference.append(tmp)
+                    sup_files.append(sfiles)
             index_of_closest = (np.abs(s_difference)).argmin()
             if s_difference[index_of_closest] < 365:
-                super_flat = super_flats[index_of_closest]
+                super_flat = sup_files[index_of_closest]
                 logger.info("Using Super Flat file: {}".format(super_flat))
             else:
                 super_flat = super_flats[index_of_closest]
@@ -288,15 +291,21 @@ def main(
             prev_night = arrow.get(prev_night).shift(days=-1).format('YYYYMMDD')
             prev_year=prev_night[0:4]
             prev_mmdd=prev_night[4:8]
-            prev_data_location = os.path.join(base_dir, arm_colour+'/'+prev_year+'/Super_Arcs/')
+            prev_data_location = os.path.join(base_dir, arm_colour+'/????/Super_Arcs/')
             super_arcs = glob.glob(prev_data_location+m+'_Super_Arc_'+arm[0]+'*.fits')
             s_difference = []
+            sup_files = []
             for sfiles in super_arcs:
                 s_date=(os.path.basename(sfiles)[-13:-5])
-                s_difference.append((arrow.get(int(yyyymmdd[0:4]),int(yyyymmdd[4:6]),int(yyyymmdd[6:8])) - arrow.get(int(s_date[0:4]),int(s_date[4:6]),int(s_date[6:8]))).days)
-            index_of_closest = (np.abs(s_difference)).argmin()
+                tmp = ((arrow.get(int(yyyymmdd[0:4]),int(yyyymmdd[4:6]),int(yyyymmdd[6:8])) - arrow.get(int(s_date[0:4]),int(s_date[4:6]),int(s_date[6:8]))).days)
+                if tmp > 0:
+                    s_difference.append(tmp)
+                    sup_files.append(sfiles)
+            s_difference = np.array(s_difference)
+            ii = np.where(s_difference > 0)[0]
+            index_of_closest = (np.abs(s_difference[ii])).argmin()
             if s_difference[index_of_closest] < 365:
-                super_arc = super_arcs[index_of_closest]
+                super_arc = sup_files[index_of_closest]
                 logger.info("Using Super Arc file: {}".format(super_arc))
             else:
                 super_arc = super_arcs[index_of_closest]
@@ -306,8 +315,7 @@ def main(
         order_file_rect = OrderRectification(super_arc,super_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
         SlitCorrection(super_arc,header_ext,order_file_rect,arm[0],m,base_dir,yyyymmdd,plot=plot,super_arc=super_arc).correct()
         VarExts(super_arc,master_bias,master_flat).run()
-        
-        #Rectify and tilt correct the the flat as this needs only doing once
+        #Rectify and tilt correct the master flat as this needs only doing once
         _ = OrderRectification(master_flat,master_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
         SlitCorrection(master_flat,'RECT', order_file_rect, arm[0],m, base_dir,yyyymmdd,plot=False,super_arc=super_arc).correct()
         
@@ -316,7 +324,6 @@ def main(
         #Calculate the Varience image, extract the frames
         for arc_file in files['arc']:
             cal_type = 'ThAr'
-            cal_line_list = './hrsreduce/wave_cal/thar_best.txt'
             VarExts(arc_file,master_bias,master_flat).run()
             _ = OrderRectification(arc_file,master_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
             SlitCorrection(arc_file,header_ext,order_file_rect,arm[0],m,base_dir,yyyymmdd,plot=plot,super_arc=super_arc).correct()
@@ -328,10 +335,21 @@ def main(
         VarExts(master_flat,master_bias,master_flat).run()
         SpectralExtraction(master_flat, master_flat,files['arc'][0],order_file_rect,arm_colour,m,base_dir).extraction()
         
-        #Calculate the Varience image, extract the frames and calculate the wave solution
+        #Calculate the Varience image, rectify the orders, perform slit tilt calculation and correction and extract the frames
+        for lfc_file in files['lfc']:
+            logger.info("Processing file: {}".format(lfc_file))
+            VarExts(lfc_file,master_bias,master_flat).run()
+            _ = OrderRectification(lfc_file,master_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
+            header_ext = 'RECT'
+            SlitCorrection(lfc_file,header_ext, order_file_rect, arm[0],m, base_dir,yyyymmdd,plot=plot,super_arc=super_arc).correct()
+            SpectralExtraction(lfc_file, master_flat,files['arc'][0],order_file_rect,arm_colour,m,base_dir).extraction()
+ #           OrderMerge(sci_file,master_flat,arm,plot=False).execute()
+ 
+        #Calculate the extract the frames and calculate the wave solution
         for arc_file in files['arc']:
             SpectralExtraction(arc_file, master_flat,arc_file,order_file_rect,arm_colour,m,base_dir).extraction()
-            WavelengthCalibration(arc_file, super_arc, arm, m, base_dir,cal_type,cal_line_list,plot).execute()
+            WavelengthCalibration(arc_file, super_arc, arm, m, base_dir,cal_type,plot).execute()
+            
             
         #Calculate the Varience image, rectify the orders, perform slit tilt calculation and correction and extract the frames
         for sci_file in files['sci']:
@@ -348,5 +366,7 @@ def main(
                 for file in files[type]:
                     try:
                         os.remove(file)
+                    except:
+                        pass
     return output
 

@@ -21,10 +21,10 @@ with fits.open(file_blu) as hdu:
     Fibre_O_Blu = hdu['FIBRE_O'].data
     Wave_O_Blu = hdu['WAVE_O'].data
 
-#This holds the science spectrum and arc
-file_blu = ("/Users/daniel/Desktop/SALT_HRS_DATA/Blu/2022/Super_Arcs/HR_Super_Arc_H20220701.fits")
-with fits.open(file_blu) as hdu:
-    Fibre_O_Blu = hdu['FIBRE_O'].data
+##This holds the science spectrum and arc
+#file_blu = ("/Users/daniel/Desktop/SALT_HRS_DATA/Blu/2022/Super_Arcs/HR_Super_Arc_H20220701.fits")
+#with fits.open(file_blu) as hdu:
+#    Fibre_O_Blu = hdu['FIBRE_O'].data
 
 
 gmod = Model(gaussian)
@@ -110,6 +110,7 @@ yfit2=np.polyval(P,wave2)
 
 axs[1].plot(wave2,wave2/yfit2,linestyle='-',color='blue',label='HRSReduce',lw=5)
 axs[0].plot(wave2,yfit2,linestyle='-',color='blue',label='HRSReduce',lw=5)
+print("MIN MAX of Blue HRS Reduce",np.min(yfit2),np.max(yfit2))
 
 #Comapre with Alexei
 
@@ -173,6 +174,7 @@ yfit2=np.polyval(P,wave2)
 #axs[1].plot(all_ave_wav,yfit,'k')
 axs[1].plot(wave2,wave2/yfit2,'b',label='MIDAS Blu')
 axs[0].plot(wave2,yfit2,'b',label='MIDAS Blu')
+print("MIN MAX of Blue MIDAS ",np.min(yfit2),np.max(yfit2))
 axs[0].legend()
 axs[1].legend()
 
@@ -184,9 +186,9 @@ file_red = ("/Users/daniel/Desktop/SALT_HRS_DATA/Red/2022/0729/reduced/bgoR20220
 with fits.open(file_red) as hdu:
     Fibre_O_Red = hdu['FIBRE_O'].data
     Wave_O_Red = hdu['WAVE_O'].data
-file_red = ("/Users/daniel/Desktop/SALT_HRS_DATA/Red/2022/Super_Arcs/HR_Super_Arc_R20220701.fits")
-with fits.open(file_red) as hdu:
-    Fibre_O_Red = hdu['FIBRE_O'].data
+#file_red = ("/Users/daniel/Desktop/SALT_HRS_DATA/Red/2022/Super_Arcs/HR_Super_Arc_R20220701.fits")
+#with fits.open(file_red) as hdu:
+#    Fibre_O_Red = hdu['FIBRE_O'].data
 
 colour=0
 
@@ -260,7 +262,7 @@ yfit2=np.polyval(P,wave2)
 
 axs[1].plot(wave2,wave2/yfit2,linestyle='-',color='red',label='HRSReduce',lw=5)
 axs[0].plot(wave2,yfit2,linestyle='-',color='red',label='HRSReduce',lw=5)
-
+print("MIN MAX of Red HRS Reduce",np.min(yfit2),np.max(yfit2))
 #Comapre with Alexei
 
 #This holds the science spectrum and arc
@@ -323,10 +325,12 @@ yfit2=np.polyval(P,wave2)
 #axs[1].plot(all_ave_wav,yfit,'k')
 axs[1].plot(wave2,wave2/yfit2,'r',label='MIDAS Red')
 axs[0].plot(wave2,yfit2,'r',label='MIDAS Red')
+print("MIN MAX of Red MIDAS",np.min(yfit2),np.max(yfit2))
+
 axs[0].legend()
 axs[1].legend()
 
-plt.savefig('Resolution_Super.png', dpi=900)
+plt.savefig('Resolution_2.png', dpi=900)
 plt.show()
 
 
