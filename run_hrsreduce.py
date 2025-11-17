@@ -7,139 +7,44 @@ Loads a HRS dataset, and runs the full extraction
 import os.path
 import hrsreduce
 from hrsreduce import reduce
+import argparse
 
 if __name__ == '__main__':
 
-
-
-#CAL_RVST with 1/2 HR exposures
-    nights=[#'2021-11-06',
-# '2021-11-13',
-# '2021-11-21',
-# '2021-11-30',
-# '2021-12-20',
-# '2021-12-28',
-# '2022-03-04',
-# '2022-03-12',
-# '2022-03-26',
-# '2022-04-02',
-# '2022-04-10',
-# '2022-04-24',
-# '2022-05-10',
-# '2022-06-01',
-# '2022-06-03',
-# '2022-08-28',
-# '2022-09-20',
-# '2022-09-25',
-# '2022-09-26',
-# '2022-09-30',
-# '2022-10-03',
-# '2022-11-22',
-# '2022-11-28',
-# '2022-12-06',
-# '2022-12-20',
-# '2023-01-01',
-# '2023-01-09',
-# '2023-01-12',
-# '2023-01-20',
-# '2023-01-25',
-# '2023-02-03',
-# '2023-02-09',
-# '2023-02-22',
-# '2023-03-22',
-# '2023-05-20',
-# '2023-06-05',
-# '2023-06-10',
-# '2023-06-20',
-# '2023-07-10',
-# '2023-08-15',
-# '2023-08-20',
-# '2023-09-03',
-# '2023-09-18',
-# '2023-10-13',
-# '2023-11-06',
-# '2023-11-16',
-# '2023-11-24',
-# '2023-12-02',
-# '2023-12-17',
-# '2024-01-01',
-# '2024-01-30',
-# '2024-02-04',
-# '2024-02-10',
-# '2024-02-20',
-# '2024-02-24',
-# '2024-03-05',
-# '2024-03-16',
-# '2024-03-25',
-# '2024-03-28',
-# '2024-04-12',
-# '2024-04-19',
-# '2024-05-05',
-# '2024-05-22',
-# '2024-06-11',
-# '2024-06-13',
-# '2024-06-22',
-# '2024-07-01',
-# '2024-07-06',
-# '2024-07-21',
-# '2024-09-01',
-# '2024-09-09',
-# '2024-09-25',
-# '2024-10-02',
-# '2024-10-14',
-# '2024-10-25',
-# '2024-11-03',
-# '2024-11-05',
-# '2024-11-09',
-# '2024-11-27',
-# '2024-12-05',
-# '2025-01-05',
-# '2025-01-19',
-# '2025-01-26',
-# '2025-02-02',
-# '2025-02-23',
-# '2025-03-02',
-# '2025-03-10',
-# '2025-03-23',
-# '2025-07-08',
-# '2025-07-13',
-# '2025-08-04',
-# '2025-08-24',
-# '2025-08-29',
-# '2025-09-08',
-# '2025-09-22',
-# '2025-10-14',
-# '2025-10-23',
- '2025-10-30']
-
-
-#"2023-07-01" HD 90131 -- mag splitting file 29
-#2022-07-16 very faint file 27
-
-#    nights = ['2022-01-13',
-#'2022-07-12',
-#'2022-07-16',
-#'2023-01-01',
-#'2023-07-02',
-#'2024-01-01',
-#'2024-07-01',
-#'2025-01-05',
-#'2025-07-08',
-#'2025-08-16',
-#'2025-10-23',
-#]
-    # define parameters
-#    nights = ['2022-01-13']
-    nights = ['2010-07-12']
+    parser = argparse.ArgumentParser(prog="run_hrsreduce.py",
+                                     description="----------------- HRSReduce Pipeline -----------------",
+                                     epilog="run_hrsreduce.py is the call script to invoke the full HRSReduce pipeline\n"
+                                            "(D.L.Holdsworth). \n")
+    parser.add_argument('-d', '--date', nargs='+',
+                        help="Date for which to reduce data, can be many strings of CCYYMMDD, e.g., 20140101 20140102 [no comma or quotes]")
+    parser.add_argument('-m','--modes', nargs='+',default ='ALL',
+                        help="A list of strings with the instrument modes to reduce. Default = 'ALL', options HR MR LR or combinations thereof [no comma or quotes].")
+    parser.add_argument('-l','--location', type=str, default='work',
+                        help="Location of the data to reduce. Default = 'work', can be 'archive'")
+                        
+    args = parser.parse_args()
+    
+    nights = args.date
+    mode = args.modes
+    loc = args.location
+    arms = ['Blue','Red']
+    
+    if mode[0] == 'ALL':
+        mode = ["HR"] #Update to ["HR","MR","LR"]
+ 
     for night in nights:
-        mode = "HR"
-        arm = "H"
-        
-        #Run the code
-        hrsreduce.reduce.main(
+        mode = mode
+        #Run the code for BLUE data
+        exit_code = hrsreduce.reduce.main(
             night,
             mode,
-            arm,
-            clean=False,
-            plot=False
+            "H",
+            loc
+        )
+        #Run the code for RED data
+        exit_code = hrsreduce.reduce.main(
+            night,
+            mode,
+            "R",
+            loc
         )

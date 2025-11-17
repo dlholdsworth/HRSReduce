@@ -49,6 +49,7 @@ def main(
     night=None,
     modes=None,
     arm=None,
+    loc=None,
     base_dir=None,
     input_dir=None,
     output_dir=None,
@@ -72,17 +73,19 @@ def main(
     arm : str
         the spectrograph arm to reduce, if None will use all known modes for the current instrument
     base_dir : str, optional
-        base data directory that HRSReduce should work in, is prefixxed on input_dir and output_dir (default: use settings_pyreduce.json)
+        base data directory that HRSReduce should work in, is prefixed on input_dir and output_dir (default: use settings_pyreduce.json)
     input_dir : str, optional
         input directory containing raw files. If relative will use base_dir as root (default: use settings_pyreduce.json)
     output_dir : str, optional
         output directory for intermediary and final results. If relative will use base_dir as root (default: use settings_pyreduce.json)
     """
 
+    logger.info(f"\n\n Version %s\n\n",__version__)
+
     if night is None or np.isscalar(night):
-        night = [night]
-        year = night[0].split('-')[0]
-        mmdd = night[0].split('-')[1]+night[0].split('-')[2]
+        #night = [night]
+        year = night[0:4]
+        mmdd = night[4:8]
         yyyymmdd=year+mmdd
         
     if arm == "H":
@@ -95,11 +98,22 @@ def main(
         
     header_ext = 'RECT'
 
+    if loc =='work':
+        base_dir = ("/home/sa/"+str(yyyymmdd)+"/hrs")
+        input_dir = ("/home/sa/"+str(yyyymmdd)+"/hrs/raw/")
+        output_dir = ("/home/sa/"+str(yyyymmdd)+"/hrs/product")
+    elif loc == 'archive':
+        base_dir = ("/salt/data/"+str(year)+"/"+str(mmdd)+"/hrs")
+        input_dir = ("/salt/data/"+str(year)+"/"+str(mmdd)+"/hrs/raw/")
+        output_dir = ("/salt/data/"+str(year)+"/"+str(mmdd)+"/hrs/reduced/")
+    else:
+        logging.error("Location unknown. Exiting.")
+        return 2
+        exit()
+        
     base_dir = ("/Users/daniel/Desktop/SALT_HRS_DATA/")
     input_dir = arm_colour+"/"+year+"/"+mmdd+"/raw/"
     output_dir = arm_colour+"/"+year+"/"+mmdd+"/reduced/"
-
-    logger.info(f"\n\n Version %s\n\n",__version__)
     
     output = []
 
@@ -110,13 +124,18 @@ def main(
         arm = [arm]
 
     input_dir = join(base_dir, input_dir)
+    #Test if input director exists
+    exists = os.path.isdir(input_dir)
+    if not exists:
+        logger.error("Input directory {}does not exist. Exiting".format(input_dir))
+        return 2
+        exit()
     output_dir = join(base_dir, output_dir)
 
     try:
         os.mkdir(output_dir)
     except Exception:
         pass
-    
     for n, m in product(night, modes):
         log_file = join(base_dir.format(mode=modes),"logs/%s_%s_%s.log" %(arm_colour,m, n))
         
@@ -125,7 +144,6 @@ def main(
         files = {}
         nights = {}
         types = ["sci", "arc", "lfc", "flat","bias"]
-        
         files["bias"],files["flat"],files["arc"],files["lfc"],files["sci"] = SortFiles(input_dir,logger,arm,mode=m)
         
         #List the nights where the data come from. Is updated below if files are not found in the suggested night.
