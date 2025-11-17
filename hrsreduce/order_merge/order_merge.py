@@ -460,53 +460,53 @@ class OrderMerge():
     
         #Open the science file
         with fits.open(self.spec) as hdu:
-            FIBRE_O = hdu['FIBRE_O'].data
-            WAVE_O = hdu['WAVE_O'].data
+            FIBRE_L = hdu['FIBRE_L'].data
+            WAVE_L = hdu['WAVE_L'].data
             
-            FIBRE_P = hdu['FIBRE_P'].data
-            WAVE_P = hdu['WAVE_P'].data
+            FIBRE_U = hdu['FIBRE_U'].data
+            WAVE_U = hdu['WAVE_U'].data
         
         with fits.open(self.flat) as hdu:
-            BLAZE_O = hdu['BLAZE_O'].data
-            BLAZE_P = hdu['BLAZE_P'].data
+            BLAZE_L = hdu['BLAZE_L'].data
+            BLAZE_U = hdu['BLAZE_U'].data
             
-#        FIBRE_O += np.abs(np.min(FIBRE_O))
-        SIGMA_O = np.sqrt(BLAZE_O+1e-12)
-#        SIGMA_O[np.isnan(SIGMA_O)] = 1000
+#        FIBRE_L += np.abs(np.min(FIBRE_L))
+        SIGMA_L = np.sqrt(BLAZE_L+1e-12)
+#        SIGMA_L[np.isnan(SIGMA_L)] = 1000
 #        
-#        FIBRE_P += np.abs(np.min(FIBRE_P))
-        SIGMA_P = np.sqrt(BLAZE_P+1e-12)
-#        SIGMA_P[np.isnan(SIGMA_P)] = 1000
+#        FIBRE_U += np.abs(np.min(FIBRE_U))
+        SIGMA_U = np.sqrt(BLAZE_U+1e-12)
+#        SIGMA_U[np.isnan(SIGMA_U)] = 1000
 
         starting_ord = 85
         
         if self.arm == 'H':
-            BLAZE_O[20:,482:500] = np.nan
-            BLAZE_O[:,851:856] = np.nan
-            BLAZE_O[37:,536:542] = np.nan
-            BLAZE_O[:,0]= np.nan
-            BLAZE_O[:,-1]= np.nan
+            BLAZE_L[20:,482:500] = np.nan
+            BLAZE_L[:,851:856] = np.nan
+            BLAZE_L[37:,536:542] = np.nan
+            BLAZE_L[:,0]= np.nan
+            BLAZE_L[:,-1]= np.nan
             
-            FIBRE_O[20:,482:500] = np.nan
-            FIBRE_O[:,851:856] = np.nan
-            FIBRE_O[37:,536:542] = np.nan
+            FIBRE_L[20:,482:500] = np.nan
+            FIBRE_L[:,851:856] = np.nan
+            FIBRE_L[37:,536:542] = np.nan
             
-            BLAZE_P[20:,482:500] = np.nan
-            BLAZE_P[:,851:856] = np.nan
-            BLAZE_P[37:,536:542] = np.nan
-            BLAZE_P[:,0]= np.nan
-            BLAZE_P[:,-1]= np.nan
+            BLAZE_U[20:,482:500] = np.nan
+            BLAZE_U[:,851:856] = np.nan
+            BLAZE_U[37:,536:542] = np.nan
+            BLAZE_U[:,0]= np.nan
+            BLAZE_U[:,-1]= np.nan
             
-            FIBRE_P[20:,482:500] = np.nan
-            FIBRE_P[:,851:856] = np.nan
-            FIBRE_P[37:,536:542] = np.nan
+            FIBRE_U[20:,482:500] = np.nan
+            FIBRE_U[:,851:856] = np.nan
+            FIBRE_U[37:,536:542] = np.nan
             
             starting_ord = 125
 
             
         #Create a sky subtracted spectrum, order by order. Must map onto the same wavelegth axis
         
-        nord,ncol = FIBRE_O.shape[0],FIBRE_O.shape[1]
+        nord,ncol = FIBRE_L.shape[0],FIBRE_L.shape[1]
         sub_flux = []
         sub_wave = []
         sub_blaze = []
@@ -514,12 +514,12 @@ class OrderMerge():
         min_length = 100000
         for ord in range(nord):
         
-            wave_o = WAVE_O[ord]
-            wave_p = WAVE_P[ord]
-            flux_o = FIBRE_O[ord]
-            flux_p = FIBRE_P[ord]
-            blaze_o = BLAZE_O[ord]
-            blaze_p = BLAZE_P[ord]
+            wave_o = WAVE_L[ord]
+            wave_p = WAVE_U[ord]
+            flux_o = FIBRE_L[ord]
+            flux_p = FIBRE_U[ord]
+            blaze_o = BLAZE_L[ord]
+            blaze_p = BLAZE_U[ord]
 
             
             def nan_helper(y):
@@ -536,8 +536,8 @@ class OrderMerge():
 
             sigma_o = np.sqrt(blaze_o)
             sigma_p = np.sqrt(blaze_p)
-            SIGMA_O[ord] = sigma_o
-            SIGMA_P[ord] = sigma_p
+            SIGMA_L[ord] = sigma_o
+            SIGMA_U[ord] = sigma_p
             
             mins = []
             mins.append(np.min(wave_o))
@@ -602,17 +602,17 @@ class OrderMerge():
         sub_sigma = np.asarray(sub_sigma)
         sub_flux = np.array(sub_flux)
             
-        wave_O,spectrum_O = self.splice_orders(FIBRE_O,WAVE_O,BLAZE_O,SIGMA_O)
+        wave_L,spectrum_L = self.splice_orders(FIBRE_L,WAVE_L,BLAZE_L,SIGMA_L)
         diff = []
-        for i in range(len(wave_O)-1):
-            diff.append(wave_O[i+1]-wave_O[i])
-        wave_step_O = np.median(diff)
+        for i in range(len(wave_L)-1):
+            diff.append(wave_L[i+1]-wave_L[i])
+        wave_step_L = np.median(diff)
             
-        wave_P,spectrum_P = self.splice_orders(FIBRE_P,WAVE_P,BLAZE_P,SIGMA_P)
+        wave_U,spectrum_U = self.splice_orders(FIBRE_U,WAVE_U,BLAZE_U,SIGMA_U)
         diff = []
-        for i in range(len(wave_P)-1):
-            diff.append(wave_P[i+1]-wave_P[i])
-        wave_step_P = np.median(diff)
+        for i in range(len(wave_U)-1):
+            diff.append(wave_U[i+1]-wave_U[i])
+        wave_step_U = np.median(diff)
         
         wave_sub,spectrum_sub = self.splice_orders(sub_flux,sub_wave,sub_blaze,sub_sigma)
         diff = []
@@ -625,37 +625,37 @@ class OrderMerge():
         with fits.open(self.spec) as HDU:
         
             try:
-                HDU.pop('FIBRE_O_SPEC_MERGED')
-                HDU.pop('FIBRE_P_SPEC_MERGED')
+                HDU.pop('FIBRE_L_SPEC_MERGED')
+                HDU.pop('FIBRE_U_SPEC_MERGED')
                 HDU.pop('SKY_SUBTRACTED_SPEC_MERGED')
             except:
                 pass
                 
             HDU[0].header['MSTRFLAT'] = (str(os.path.basename(self.flat)),"Master Flat File")
         
-            FIBRE_O_SPEC_hdu = fits.ImageHDU(data=spectrum_O,name="FIBRE_O_SPEC_MERGED")
-            FIBRE_O_SPEC_hdu.header.insert(8,('COMMENT','Reduced FIBRE O Merged Spectrum'))
-            FIBRE_O_SPEC_hdu.header['CRPIX1']  = (str(1), "Reference pixel")
-            FIBRE_O_SPEC_hdu.header['CRVAL1']  = (str(np.min(wave_O)), "Coordinate at reference pixel")
-            FIBRE_O_SPEC_hdu.header['CDELT1']  = (str(wave_step_O), "Coord. incr. per pixel (original value)")
-            FIBRE_O_SPEC_hdu.header['CTYPE1']  = (str('WAVELENGTH'), "Units of coordinate (Angstrom)")
-            FIBRE_O_SPEC_hdu.header['BUNIT']  = (str('FLUX'), "Units of data values")
-            FIBRE_O_SPEC_hdu.header['DATAMAX']  = (str(np.max(spectrum_O)), "Maximum data value")
-            FIBRE_O_SPEC_hdu.header['DATAMIN']  = (str(np.min(spectrum_O)), "Minimum data value")
-            HDU.append(FIBRE_O_SPEC_hdu)
+            FIBRE_L_SPEC_hdu = fits.ImageHDU(data=spectrum_L,name="FIBRE_L_SPEC_MERGED")
+            FIBRE_L_SPEC_hdu.header.insert(8,('COMMENT','Reduced FIBRE O Merged Spectrum'))
+            FIBRE_L_SPEC_hdu.header['CRPIX1']  = (str(1), "Reference pixel")
+            FIBRE_L_SPEC_hdu.header['CRVAL1']  = (str(np.min(wave_L)), "Coordinate at reference pixel")
+            FIBRE_L_SPEC_hdu.header['CDELT1']  = (str(wave_step_L), "Coord. incr. per pixel (original value)")
+            FIBRE_L_SPEC_hdu.header['CTYPE1']  = (str('WAVELENGTH'), "Units of coordinate (Angstrom)")
+            FIBRE_L_SPEC_hdu.header['BUNIT']  = (str('FLUX'), "Units of data values")
+            FIBRE_L_SPEC_hdu.header['DATAMAX']  = (str(np.max(spectrum_L)), "Maximum data value")
+            FIBRE_L_SPEC_hdu.header['DATAMIN']  = (str(np.min(spectrum_L)), "Minimum data value")
+            HDU.append(FIBRE_L_SPEC_hdu)
             
-            FIBRE_P_SPEC_hdu = fits.ImageHDU(data=spectrum_P,name="FIBRE_P_SPEC_MERGED")
-            FIBRE_P_SPEC_hdu.header.insert(8,('COMMENT','Reduced FIBRE P Merged Spectrum'))
-            FIBRE_P_SPEC_hdu.header['CRPIX1']  = (str(1), "Reference pixel")
-            FIBRE_P_SPEC_hdu.header['CRVAL1']  = (str(np.min(wave_P)), "Coordinate at reference pixel")
-            FIBRE_P_SPEC_hdu.header['CDELT1']  = (str(wave_step_P), "Coord. incr. per pixel (original value)")
-            FIBRE_P_SPEC_hdu.header['CTYPE1']  = (str('WAVELENGTH'), "Units of coordinate (Angstrom)")
-            FIBRE_P_SPEC_hdu.header['BUNIT']  = (str('FLUX'), "Units of data values")
-            FIBRE_P_SPEC_hdu.header['DATAMAX']  = (str(np.max(spectrum_P)), "Maximum data value")
-            FIBRE_P_SPEC_hdu.header['DATAMIN']  = (str(np.min(spectrum_P)), "Minimum data value")
-            HDU.append(FIBRE_P_SPEC_hdu)
+            FIBRE_U_SPEC_hdu = fits.ImageHDU(data=spectrum_U,name="FIBRE_U_SPEC_MERGED")
+            FIBRE_U_SPEC_hdu.header.insert(8,('COMMENT','Reduced FIBRE P Merged Spectrum'))
+            FIBRE_U_SPEC_hdu.header['CRPIX1']  = (str(1), "Reference pixel")
+            FIBRE_U_SPEC_hdu.header['CRVAL1']  = (str(np.min(wave_U)), "Coordinate at reference pixel")
+            FIBRE_U_SPEC_hdu.header['CDELT1']  = (str(wave_step_U), "Coord. incr. per pixel (original value)")
+            FIBRE_U_SPEC_hdu.header['CTYPE1']  = (str('WAVELENGTH'), "Units of coordinate (Angstrom)")
+            FIBRE_U_SPEC_hdu.header['BUNIT']  = (str('FLUX'), "Units of data values")
+            FIBRE_U_SPEC_hdu.header['DATAMAX']  = (str(np.max(spectrum_U)), "Maximum data value")
+            FIBRE_U_SPEC_hdu.header['DATAMIN']  = (str(np.min(spectrum_U)), "Minimum data value")
+            HDU.append(FIBRE_U_SPEC_hdu)
             
-            SKY_SUBTRACTED_SPEC_hdu = fits.ImageHDU(data=spectrum_P,name="SKY_SUBTRACTED_SPEC_MERGED")
+            SKY_SUBTRACTED_SPEC_hdu = fits.ImageHDU(data=spectrum_U,name="SKY_SUBTRACTED_SPEC_MERGED")
             SKY_SUBTRACTED_SPEC_hdu.header.insert(8,('COMMENT','Reduced Merged Spectrum Target - Sky'))
             SKY_SUBTRACTED_SPEC_hdu.header['CRPIX1']  = (str(1), "Reference pixel")
             SKY_SUBTRACTED_SPEC_hdu.header['CRVAL1']  = (str(np.min(wave_sub)), "Coordinate at reference pixel")
@@ -670,15 +670,15 @@ class OrderMerge():
             
             #Open the science file
             with fits.open(self.spec) as hdu:
-                FIBRE_O = hdu['FIBRE_O'].data
-                WAVE_O = hdu['WAVE_O'].data
+                FIBRE_L = hdu['FIBRE_L'].data
+                WAVE_L = hdu['WAVE_L'].data
             
-                FIBRE_P = hdu['FIBRE_P'].data
-                WAVE_P = hdu['WAVE_P'].data
+                FIBRE_U = hdu['FIBRE_U'].data
+                WAVE_U = hdu['WAVE_U'].data
         
             with fits.open(self.flat) as hdu:
-                BLAZE_O = hdu['BLAZE_O'].data
-                BLAZE_P = hdu['BLAZE_P'].data
+                BLAZE_L = hdu['BLAZE_L'].data
+                BLAZE_U = hdu['BLAZE_U'].data
             
             uni_wave_o = []
             uni_wave_p = []
@@ -690,16 +690,16 @@ class OrderMerge():
             uni_sigma_p = []
             
             for ord in range(nord):
-                wave_o = WAVE_O[ord]
-                wave_p = WAVE_P[ord]
-                flux_o = FIBRE_O[ord]
-                flux_p = FIBRE_P[ord]
-                blaze_o = BLAZE_O[ord]
-                blaze_p = BLAZE_P[ord]
-                sigma_o = SIGMA_O[ord]
-                sigma_p = SIGMA_P[ord]
+                wave_o = WAVE_L[ord]
+                wave_p = WAVE_U[ord]
+                flux_o = FIBRE_L[ord]
+                flux_p = FIBRE_U[ord]
+                blaze_o = BLAZE_L[ord]
+                blaze_p = BLAZE_U[ord]
+                sigma_o = SIGMA_L[ord]
+                sigma_p = SIGMA_U[ord]
                 
-                tmp_wave_o = (np.arange(np.min(wave_o), np.max(wave_o),wave_step_O))
+                tmp_wave_o = (np.arange(np.min(wave_o), np.max(wave_o),wave_step_L))
                 tmp_flux_o = (np.interp(tmp_wave_o, wave_o, flux_o))
                 tmp_blaze_o = (np.interp(tmp_wave_o, wave_o, blaze_o))
                 
@@ -708,18 +708,18 @@ class OrderMerge():
                 col2 = fits.Column(name='Blaze', format='D',array=tmp_blaze_o)
                 coldefs = fits.ColDefs([col0,col1,col2])
                 try:
-                    HDU.pop("ORD"+str((ord*-1)+starting_ord)+"_O")
+                    HDU.pop("ORD"+str((ord*-1)+starting_ord)+"_L")
                 except:
                     pass
-                col_hdu_O = fits.BinTableHDU.from_columns(coldefs,name="ORD"+str((ord*-1)+starting_ord)+"_O")
-                col_hdu_O.header['CRPIX1']  = (str(1), "Reference pixel")
-                col_hdu_O.header['CRVAL1']  = (str(np.min(tmp_wave_o)), "Coordinate at reference pixel")
-                col_hdu_O.header['CDELT1']  = (str(wave_step_O), "Coord. incr. per pixel (original value)")
-                col_hdu_O.header['CTYPE1']  = (str('WAVELENGTH'), "Units of coordinate (Angstrom)")
-                col_hdu_O.header['BUNIT']  = (str('COUNTS'), "Units of data values")
-                HDU.append(col_hdu_O)
+                col_hdu_L = fits.BinTableHDU.from_columns(coldefs,name="ORD"+str((ord*-1)+starting_ord)+"_L")
+                col_hdu_L.header['CRPIX1']  = (str(1), "Reference pixel")
+                col_hdu_L.header['CRVAL1']  = (str(np.min(tmp_wave_o)), "Coordinate at reference pixel")
+                col_hdu_L.header['CDELT1']  = (str(wave_step_L), "Coord. incr. per pixel (original value)")
+                col_hdu_L.header['CTYPE1']  = (str('WAVELENGTH'), "Units of coordinate (Angstrom)")
+                col_hdu_L.header['BUNIT']  = (str('COUNTS'), "Units of data values")
+                HDU.append(col_hdu_L)
                 
-                tmp_wave_p = (np.arange(np.min(wave_p), np.max(wave_p),wave_step_P))
+                tmp_wave_p = (np.arange(np.min(wave_p), np.max(wave_p),wave_step_U))
                 tmp_flux_p = (np.interp(tmp_wave_p, wave_p, flux_p))
                 tmp_blaze_p = (np.interp(tmp_wave_p, wave_p, blaze_p))
                 
@@ -728,16 +728,16 @@ class OrderMerge():
                 col2 = fits.Column(name='Blaze', format='D',array=tmp_blaze_p)
                 coldefs = fits.ColDefs([col0,col1,col2])
                 try:
-                    HDU.pop("ORD"+str((ord*-1)+starting_ord)+"_P")
+                    HDU.pop("ORD"+str((ord*-1)+starting_ord)+"_U")
                 except:
                     pass
-                col_hdu_P = fits.BinTableHDU.from_columns(coldefs,name="ORD"+str((ord*-1)+starting_ord)+"_P")
-                col_hdu_P.header['CRPIX1']  = (str(1), "Reference pixel")
-                col_hdu_P.header['CRVAL1']  = (str(np.min(tmp_wave_p)), "Coordinate at reference pixel")
-                col_hdu_P.header['CDELT1']  = (str(wave_step_P), "Coord. incr. per pixel (original value)")
-                col_hdu_P.header['CTYPE1']  = (str('WAVELENGTH'), "Units of coordinate (Angstrom)")
-                col_hdu_P.header['BUNIT']  = (str('COUNTS'), "Units of data values")
-                HDU.append(col_hdu_P)
+                col_hdu_U = fits.BinTableHDU.from_columns(coldefs,name="ORD"+str((ord*-1)+starting_ord)+"_U")
+                col_hdu_U.header['CRPIX1']  = (str(1), "Reference pixel")
+                col_hdu_U.header['CRVAL1']  = (str(np.min(tmp_wave_p)), "Coordinate at reference pixel")
+                col_hdu_U.header['CDELT1']  = (str(wave_step_U), "Coord. incr. per pixel (original value)")
+                col_hdu_U.header['CTYPE1']  = (str('WAVELENGTH'), "Units of coordinate (Angstrom)")
+                col_hdu_U.header['BUNIT']  = (str('COUNTS'), "Units of data values")
+                HDU.append(col_hdu_U)
                 
             HDU.writeto(self.spec,overwrite='True')
     
@@ -746,8 +746,8 @@ class OrderMerge():
                 short_HDU.pop('VAR')
                 short_HDU.pop('RECT')
                 short_HDU.pop('STRAIGHT')
-                short_HDU.pop('FIBRE_P_VAR')
-                short_HDU.pop('FIBRE_O_VAR')
+                short_HDU.pop('FIBRE_U_VAR')
+                short_HDU.pop('FIBRE_L_VAR')
             except:
                 pass
             short_HDU[0].data = [0,0]
@@ -757,6 +757,6 @@ class OrderMerge():
             out_file = str(out_file_path+"/"+(os.path.splitext(out_file_file)[0][3:]+"_product.fits"))
             short_HDU.writeto(out_file,overwrite='True')
 
-        return wave_O, spectrum_O
+        return wave_L, spectrum_L
 
 
