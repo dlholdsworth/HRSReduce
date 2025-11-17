@@ -64,26 +64,26 @@ class ContNorm():
             self.logger.info("Continuum Normalization: Extracting SCIWAVE & SCIFLUX extensions")
             
         with fits.open(self.sci) as hdul:
-            sciflux_P = hdul['FIBRE_P'].data
-            sciflux_O = hdul['FIBRE_O'].data
-            sciwave_P = hdul['WAVE_P'].data
-            sciwave_O = hdul['WAVE_O'].data
-            flatflux_P = hdul['BLAZE_P'].data
-            flatflux_O = hdul['BLAZE_O'].data
+            sciflux_U = hdul['FIBRE_U'].data
+            sciflux_L = hdul['FIBRE_L'].data
+            sciwave_U = hdul['WAVE_U'].data
+            sciwave_L = hdul['WAVE_L'].data
+            flatflux_U = hdul['BLAZE_U'].data
+            flatflux_L = hdul['BLAZE_L'].data
         
 
 
         #run continuum normalization
         if self.logger:
             self.logger.info("Continuum Normalization: Extracting wavelength and flux data")
-        norm_P, full_wave_P, full_spec_P,full_cont_P = self.alg.run_cont_norm(sciwave_P,sciflux_P,flatflux_P)
+        norm_U, full_wave_U, full_spec_U,full_cont_U = self.alg.run_cont_norm(sciwave_U,sciflux_U,flatflux_U)
         
-        plt.plot(full_wave_P,full_spec_P/full_cont_P,'r')
+        plt.plot(full_wave_U,full_spec_U/full_cont_U,'r')
         for i in range(42):
-            plt.plot(sciwave_P[i],norm_P[i])
+            plt.plot(sciwave_U[i],norm_U[i])
         plt.show()
         
-        norm_O, full_wave_O, full_spec_O,full_cont_O = self.alg.run_cont_norm(sciwave_O,sciflux_O,flatflux_O)
+        norm_L, full_wave_L, full_spec_L,full_cont_L = self.alg.run_cont_norm(sciwave_L,sciflux_L,flatflux_L)
         
         
         
@@ -92,20 +92,20 @@ class ContNorm():
         if self.logger:
             self.logger.info("Continuum Normalization: Adding data to SCIENCE FITS file")
         with fits.open(self.sci) as hdul:
-            Ext_norm_P = fits.ImageHDU(data=norm_P, name="NORM_P")
-            hdul.append(Ext_norm_P)
-            merged_P = np.array([full_wave_P,full_spec_P,full_cont_P])
-            Ext_merg_P = fits.ImageHDU(data=merged_P, name="MERGED_P")
-            Ext_merg_P.header["WAVE"] =  (0,"Column of Wave data")
-            Ext_merg_P.header["SPEC"] =  (1,"Column of Spectrum data")
-            Ext_merg_P.header["CONT"] =  (2,"Column of Continuum data")
-            hdul.append(Ext_merg_P)
-            Ext_norm_O = fits.ImageHDU(data=norm_O, name="NORM_O")
-            hdul.append(Ext_norm_O)
-            merged_O = np.array([full_wave_O,full_spec_O,full_cont_O])
-            Ext_merg_O = fits.ImageHDU(data=merged_O, name="MERGED_O")
-            Ext_merg_O.header["WAVE"] =  (0,"Column of Wave data")
-            Ext_merg_O.header["SPEC"] =  (1,"Column of Spectrum data")
-            Ext_merg_O.header["CONT"] =  (2,"Column of Continuum data")
-            hdul.append(Ext_merg_O)
+            Ext_norm_U = fits.ImageHDU(data=norm_U, name="NORM_U")
+            hdul.append(Ext_norm_U)
+            merged_U = np.array([full_wave_U,full_spec_U,full_cont_U])
+            Ext_merg_U = fits.ImageHDU(data=merged_U, name="MERGED_U")
+            Ext_merg_U.header["WAVE"] =  (0,"Column of Wave data")
+            Ext_merg_U.header["SPEC"] =  (1,"Column of Spectrum data")
+            Ext_merg_U.header["CONT"] =  (2,"Column of Continuum data")
+            hdul.append(Ext_merg_U)
+            Ext_norm_L = fits.ImageHDU(data=norm_L, name="NORM_L")
+            hdul.append(Ext_norm_L)
+            merged_L = np.array([full_wave_L,full_spec_L,full_cont_L])
+            Ext_merg_L = fits.ImageHDU(data=merged_L, name="MERGED_L")
+            Ext_merg_L.header["WAVE"] =  (0,"Column of Wave data")
+            Ext_merg_L.header["SPEC"] =  (1,"Column of Spectrum data")
+            Ext_merg_L.header["CONT"] =  (2,"Column of Continuum data")
+            hdul.append(Ext_merg_L)
             hdul.writeto(self.sci,overwrite='True')

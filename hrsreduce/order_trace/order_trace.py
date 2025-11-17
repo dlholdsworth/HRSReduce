@@ -207,14 +207,14 @@ class OrderTrace():
 
             for n in range(1,max_cluster_no,2):
 
-                s_x_O = int(cluster_coeffs[n, self.poly_degree + 1])
-                s_x_P = int(cluster_coeffs[n+1, self.poly_degree + 1])
+                s_x_L = int(cluster_coeffs[n, self.poly_degree + 1])
+                s_x_U = int(cluster_coeffs[n+1, self.poly_degree + 1])
 
-                if s_x_O != s_x_P:
-                    if s_x_O < s_x_P:
+                if s_x_L != s_x_U:
+                    if s_x_L < s_x_U:
                         cluster_coeffs[n+1, self.poly_degree + 1] = cluster_coeffs[n, self.poly_degree + 1]
                     else:
-                        cluster_coeffs[n+1, self.poly_degree + 1] = s_x_O
+                        cluster_coeffs[n+1, self.poly_degree + 1] = s_x_L
                 if int(cluster_coeffs[n+1, self.poly_degree + 2])/ img_edge > 0.95:
                     cluster_coeffs[n+1, self.poly_degree + 2] = img_edge
                     cluster_coeffs[n, self.poly_degree + 2] = img_edge

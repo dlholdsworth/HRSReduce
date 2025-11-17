@@ -71,13 +71,13 @@ class SpectralExtraction():
             
             if data_type == 'Science' or data_type == 'Arc':
                 try:
-                    test = hdl['FIBRE_P']
+                    test = hdl['FIBRE_U']
                     self.Done_Extraction = True
                 except:
                     self.Done_Extraction = False
             elif data_type == 'Flat':
                 try:
-                    test = hdl['BLAZE_P']
+                    test = hdl['BLAZE_U']
                     self.Done_Extraction = True
                 except:
                     self.Done_Extraction = False
@@ -166,13 +166,13 @@ class SpectralExtraction():
 
 
             data_df = pd.DataFrame.from_dict(return_dict[0]['spectral_extraction_result'])
-            data_P = pd.DataFrame(columns=data_df.columns)
-            data_O = pd.DataFrame(columns=data_df.columns)
+            data_U = pd.DataFrame(columns=data_df.columns)
+            data_L = pd.DataFrame(columns=data_df.columns)
             for i in range(0,n_ord):
                 data_df = pd.concat([data_df,pd.DataFrame.from_dict(return_dict[i]['spectral_extraction_result'])],ignore_index=True)
                 tmp = pd.DataFrame.from_dict(return_dict[i]['spectral_extraction_result'])
-                data_P = pd.concat([data_P, tmp.iloc[[1]]],axis=0,ignore_index=True)
-                data_O = pd.concat([data_O, tmp.iloc[[0]]],axis=0,ignore_index=True)
+                data_U = pd.concat([data_U, tmp.iloc[[1]]],axis=0,ignore_index=True)
+                data_L = pd.concat([data_L, tmp.iloc[[0]]],axis=0,ignore_index=True)
 
 
             good_result = good_result and data_df is not None
@@ -186,25 +186,25 @@ class SpectralExtraction():
     #            out_file=os.path.splitext(str(os.path.dirname(self.input_spectrum))+"/HRS_E_"+str(os.path.basename(self.input_spectrum)))[0]+'.csv'
     #            data_df.to_csv(out_file)
                 
-                data_P_np=data_P.to_numpy()
-                data_O_np=data_O.to_numpy()
-                P_VAR = np.array(data_P_np)
-                P_VAR = np.absolute(P_VAR)
-                O_VAR = np.array(data_O_np)
-                O_VAR = np.absolute(O_VAR)
+                data_U_np=data_U.to_numpy()
+                data_L_np=data_L.to_numpy()
+                U_VAR = np.array(data_U_np)
+                U_VAR = np.absolute(U_VAR)
+                L_VAR = np.array(data_L_np)
+                L_VAR = np.absolute(L_VAR)
                 
                 try:
                     with fits.open(self.arc_frame) as hdul:
-                        sciwave_P = hdul['WAVE_P'].data
-                        sciwave_O = hdul['WAVE_O'].data
+                        sciwave_U = hdul['WAVE_U'].data
+                        sciwave_L = hdul['WAVE_L'].data
                     wave = True
                 except:
                     wave = False
 
                 try:
                     with fits.open(self.input_flat) as hdul:
-                        Blaze_P = hdul['BLAZE_P'].data
-                        Blaze_O = hdul['BLAZE_O'].data
+                        Blaze_U = hdul['BLAZE_U'].data
+                        Blaze_L = hdul['BLAZE_L'].data
                     blaze = True
                 except:
                     blaze = False
@@ -213,48 +213,48 @@ class SpectralExtraction():
                    
                 with fits.open(self.input_spectrum) as hdul:
                     if hdul[0].header["OBJECT"] == "Master_Flat":
-                        Ext_ords_P = fits.ImageHDU(data=data_P, name="BLAZE_P")
+                        Ext_ords_U = fits.ImageHDU(data=data_U, name="BLAZE_U")
                     else:
-                        Ext_ords_P = fits.ImageHDU(data=data_P, name="FIBRE_P")
-                    Ext_ords_P.header["NORDS"] =  ((data_P.shape[0]),"Number of extracted orders")
-                    Ext_ords_P.header["E_MTHD"] = ((self.extraction_method),"Extraction Method. 0: optimal, 1: sum")
-                    Ext_ords_P.header["R_MTHD"] = ((self.rectification_method), "Rectification Method. 0: Norm, 1: Vert, 2: None")
-                    Ext_ords_P.header["FLATFILE"] = (str(os.path.basename(self.input_flat)),"Input flat for extraction")
-                    Ext_ords_P.header["ORDFILE"] = (str(os.path.basename(self.order_trace_file)),"Order trace file")
-                    hdul.append(Ext_ords_P)
+                        Ext_ords_U = fits.ImageHDU(data=data_U, name="FIBRE_U")
+                    Ext_ords_U.header["NORDS"] =  ((data_U.shape[0]),"Number of extracted orders")
+                    Ext_ords_U.header["E_MTHD"] = ((self.extraction_method),"Extraction Method. 0: optimal, 1: sum")
+                    Ext_ords_U.header["R_MTHD"] = ((self.rectification_method), "Rectification Method. 0: Norm, 1: Vert, 2: None")
+                    Ext_ords_U.header["FLATFILE"] = (str(os.path.basename(self.input_flat)),"Input flat for extraction")
+                    Ext_ords_U.header["ORDFILE"] = (str(os.path.basename(self.order_trace_file)),"Order trace file")
+                    hdul.append(Ext_ords_U)
                     if hdul[0].header["OBJECT"] == "Master_Flat":
-                        Ext_ords_P_VAR = fits.ImageHDU(data=P_VAR, name="BLAZE_P_VAR")
+                        Ext_ords_U_VAR = fits.ImageHDU(data=U_VAR, name="BLAZE_U_VAR")
                     else:
-                        Ext_ords_P_VAR = fits.ImageHDU(data=P_VAR, name="FIBRE_P_VAR")
-                    hdul.append(Ext_ords_P_VAR)
+                        Ext_ords_U_VAR = fits.ImageHDU(data=U_VAR, name="FIBRE_U_VAR")
+                    hdul.append(Ext_ords_U_VAR)
                     if hdul[0].header["OBJECT"] == "Master_Flat":
-                        Ext_ords_O = fits.ImageHDU(data=data_O, name="BLAZE_O")
+                        Ext_ords_L = fits.ImageHDU(data=data_L, name="BLAZE_L")
                     else:
-                        Ext_ords_O = fits.ImageHDU(data=data_O, name="FIBRE_O")
-                    Ext_ords_O.header["NORDS"] =  ((data_O.shape[0]),"Number of extracted orders")
-                    Ext_ords_O.header["E_MTHD"] = ((self.extraction_method),"Extraction Method. 0: optimal, 1: sum")
-                    Ext_ords_O.header["R_MTHD"] = ((self.rectification_method), "Rectification Method. 0: Norm, 1: Vert, 2: None")
-                    Ext_ords_O.header["FLATFILE"] = (str(os.path.basename(self.input_flat)),"Input flat for extraction")
-                    Ext_ords_O.header["ORDFILE"] = (str(os.path.basename(self.order_trace_file)),"Order trace file")
-                    hdul.append(Ext_ords_O)
+                        Ext_ords_L = fits.ImageHDU(data=data_L, name="FIBRE_L")
+                    Ext_ords_L.header["NORDS"] =  ((data_L.shape[0]),"Number of extracted orders")
+                    Ext_ords_L.header["E_MTHD"] = ((self.extraction_method),"Extraction Method. 0: optimal, 1: sum")
+                    Ext_ords_L.header["R_MTHD"] = ((self.rectification_method), "Rectification Method. 0: Norm, 1: Vert, 2: None")
+                    Ext_ords_L.header["FLATFILE"] = (str(os.path.basename(self.input_flat)),"Input flat for extraction")
+                    Ext_ords_L.header["ORDFILE"] = (str(os.path.basename(self.order_trace_file)),"Order trace file")
+                    hdul.append(Ext_ords_L)
                     if hdul[0].header["OBJECT"] == "Master_Flat":
-                        Ext_ords_O_VAR = fits.ImageHDU(data=O_VAR, name="BLAZE_O_VAR")
+                        Ext_ords_L_VAR = fits.ImageHDU(data=L_VAR, name="BLAZE_L_VAR")
                     else:
-                        Ext_ords_O_VAR = fits.ImageHDU(data=O_VAR, name="FIBRE_O_VAR")
-                    hdul.append(Ext_ords_O_VAR)
+                        Ext_ords_L_VAR = fits.ImageHDU(data=L_VAR, name="FIBRE_L_VAR")
+                    hdul.append(Ext_ords_L_VAR)
                     
                     if wave:
-                        Ext_wave_P = fits.ImageHDU(data=sciwave_P, name="WAVE_P")
-                        hdul.append(Ext_wave_P)
-                        Ext_wave_O = fits.ImageHDU(data=sciwave_O, name="WAVE_O")
-                        hdul.append(Ext_wave_O)
+                        Ext_wave_U = fits.ImageHDU(data=sciwave_U, name="WAVE_U")
+                        hdul.append(Ext_wave_U)
+                        Ext_wave_L = fits.ImageHDU(data=sciwave_L, name="WAVE_L")
+                        hdul.append(Ext_wave_L)
                         hdul[0].header['MSTRWAVE'] = (str(os.path.basename(self.arc_frame)),"Arc file")
                     
                     if blaze:
-                        Ext_ords_P_BLZ = fits.ImageHDU(data=Blaze_P, name="BLAZE_P")
-                        hdul.append(Ext_ords_P_BLZ)
-                        Ext_ords_O_BLZ = fits.ImageHDU(data=Blaze_O, name="BLAZE_O")
-                        hdul.append(Ext_ords_O_BLZ)
+                        Ext_ords_U_BLZ = fits.ImageHDU(data=Blaze_U, name="BLAZE_U")
+                        hdul.append(Ext_ords_U_BLZ)
+                        Ext_ords_L_BLZ = fits.ImageHDU(data=Blaze_L, name="BLAZE_L")
+                        hdul.append(Ext_ords_L_BLZ)
                         
                     if hdul[0].header["CCDTYPE"] == 'Science':
                         
