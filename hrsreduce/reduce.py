@@ -130,14 +130,16 @@ def main(
         logger.error("Input directory {}does not exist. Exiting".format(input_dir))
         return 2
         exit()
+        
     output_dir = join(base_dir, output_dir)
 
     try:
         os.mkdir(output_dir)
     except Exception:
         pass
-    for n, m in product(night, modes):
-        log_file = join(base_dir.format(mode=modes),"logs/%s_%s_%s.log" %(arm_colour,m, n))
+        
+    for m in modes:
+        log_file = join(base_dir.format(mode=modes),"logs/%s_%s_%s.log" %(arm_colour,m, yyyymmdd))
         
         util.start_logging(log_file)
         # find input files and sort them by type
@@ -156,7 +158,7 @@ def main(
         if not files["bias"]:
             logger.warning(
                 f"No BIAS files found for instrument: night: %s in folder: %s \n    Looking elsewhere...\n",
-                n,
+                yyyymmdd,
                 input_dir,
             )
             #Now search to find a night with the files
@@ -172,7 +174,7 @@ def main(
         if not files["flat"]:
             logger.warning(
                 f"No FLAT files found for instrument: night: %s in folder: %s \n    Looking elsewhere...\n",
-                n,
+                yyyymmdd,
                 input_dir,
             )
             
@@ -188,7 +190,7 @@ def main(
         if not files["arc"]:
             logger.warning(
                 f"No ARC files found for instrument: night: %s in folder: %s \n    Looking elsewhere...\n",
-                n,
+                yyyymmdd,
                 input_dir,
             )
             #Now search to find a night with the files
@@ -203,7 +205,7 @@ def main(
         if not files["sci"]:
             logger.warning(
                 f"No SCI files found for instrument: night: %s in folder: %s \n",
-                n,
+                yyyymmdd,
                 input_dir,
             )
             pass
@@ -211,7 +213,7 @@ def main(
         if not files["lfc"]:
             logger.warning(
                 f"No LFC files found for instrument: night: %s in folder: %s SKIPPING STEP FOR NOW\n",
-                n,
+                yyyymmdd,
                 input_dir,
             )
             pass #TODO: Fix this when the LFC is on board
@@ -238,6 +240,10 @@ def main(
         #Calcualte the master bias
         master_bias = MasterBias(files["bias"],input_dir,output_dir,arm_colour,yyyymmdd,plot).create_masterbias()
         
+        #Remove any intermediate bias frames
+        for redundant in files["bias"]:
+            os.remove(redundant)
+        
         #Subtract the bias from all other frames
         #Loop over the files dict for the different types to make sure the correct bias file is subtracted (e.g., if the Flats are from a different night)
         files_out = {}
@@ -260,6 +266,11 @@ def main(
                 
                 master_bias_tmp = MasterBias(files_tmp2["bias"],input_dir_tmp,output_dir_tmp,arm_colour,nights[type],plot).create_masterbias()
                 files_out[type] = SubtractBias(master_bias_tmp,files_type,base_dir,arm_colour,nights[type],type).subtract()
+                
+                #Remove any intermediate bias frames
+                for redundant in files_tmp2["bias"]:
+                    os.remove(redundant)
+                
         del files
         files = files_out
         
