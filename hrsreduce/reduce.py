@@ -270,6 +270,7 @@ def main(
                 #Remove any intermediate bias frames
                 for redundant in files_tmp2["bias"]:
                     os.remove(redundant)
+                    
                 
         del files
         files = files_out
