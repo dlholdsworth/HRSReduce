@@ -136,8 +136,8 @@ def main(
         os.mkdir(output_dir)
     except Exception:
         pass
-    for n, m in product(night, modes):
-        log_file = join(base_dir.format(mode=modes),"logs/%s_%s_%s.log" %(arm_colour,m, n))
+    for m in modes:
+        log_file = join(base_dir.format(mode=modes),"logs/%s_%s_%s.log" %(arm_colour,m, yyyymmdd))
         
         util.start_logging(log_file)
         # find input files and sort them by type
@@ -156,7 +156,7 @@ def main(
         if not files["bias"]:
             logger.warning(
                 f"No BIAS files found for instrument: night: %s in folder: %s \n    Looking elsewhere...\n",
-                n,
+                yyyymmdd,
                 input_dir,
             )
             #Now search to find a night with the files
@@ -172,7 +172,7 @@ def main(
         if not files["flat"]:
             logger.warning(
                 f"No FLAT files found for instrument: night: %s in folder: %s \n    Looking elsewhere...\n",
-                n,
+                yyyymmdd,
                 input_dir,
             )
             
@@ -188,7 +188,7 @@ def main(
         if not files["arc"]:
             logger.warning(
                 f"No ARC files found for instrument: night: %s in folder: %s \n    Looking elsewhere...\n",
-                n,
+                yyyymmdd,
                 input_dir,
             )
             #Now search to find a night with the files
@@ -203,7 +203,7 @@ def main(
         if not files["sci"]:
             logger.warning(
                 f"No SCI files found for instrument: night: %s in folder: %s \n",
-                n,
+                yyyymmdd,
                 input_dir,
             )
             pass
@@ -211,7 +211,7 @@ def main(
         if not files["lfc"]:
             logger.warning(
                 f"No LFC files found for instrument: night: %s in folder: %s SKIPPING STEP FOR NOW\n",
-                n,
+                yyyymmdd,
                 input_dir,
             )
             pass #TODO: Fix this when the LFC is on board
