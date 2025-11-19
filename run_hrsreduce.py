@@ -31,7 +31,7 @@ if __name__ == '__main__':
     
     if mode[0] == 'ALL':
         mode = ["HR"] #Update to ["HR","MR","LR"]
- 
+        
     for night in nights:
         mode = mode
         #Run the code for BLUE data
