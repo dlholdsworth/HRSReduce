@@ -263,7 +263,6 @@ class MasterBias():
             
             #Remove the bias files that were gain and overscan corrected
             for file in Bias_files:
-                print("BIAS FILE=",file)
                 os.remove(file)
         
         else:
