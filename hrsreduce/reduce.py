@@ -260,6 +260,11 @@ def main(
                 
                 master_bias_tmp = MasterBias(files_tmp2["bias"],input_dir_tmp,output_dir_tmp,arm_colour,nights[type],plot).create_masterbias()
                 files_out[type] = SubtractBias(master_bias_tmp,files_type,base_dir,arm_colour,nights[type],type).subtract()
+
+                #Remove any intermediate bias frames
+                for redundant in files_tmp2["bias"]:
+                    os.remove(redundant)
+                    
         del files
         files = files_out
         
