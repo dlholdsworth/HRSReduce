@@ -238,10 +238,6 @@ def main(
         #Calcualte the master bias
         master_bias = MasterBias(files["bias"],input_dir,output_dir,arm_colour,yyyymmdd,plot).create_masterbias()
         
-        #remove redundant files
-        for redundant in files["bias"]:
-            os.remove(redundant)
-        
         #Subtract the bias from all other frames
         #Loop over the files dict for the different types to make sure the correct bias file is subtracted (e.g., if the Flats are from a different night)
         files_out = {}
@@ -264,11 +260,11 @@ def main(
                 
                 master_bias_tmp = MasterBias(files_tmp2["bias"],input_dir_tmp,output_dir_tmp,arm_colour,nights[type],plot).create_masterbias()
                 files_out[type] = SubtractBias(master_bias_tmp,files_type,base_dir,arm_colour,nights[type],type).subtract()
-                
-        #remove redundant files
-        for redundant in files_tmp2["bias"]:
-            os.remove(redundant)
-            
+
+                #Remove any intermediate bias frames
+                for redundant in files_tmp2["bias"]:
+                    os.remove(redundant)
+                    
         del files
         files = files_out
         
