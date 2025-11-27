@@ -77,6 +77,7 @@ from astropy.io import fits
 import multiprocessing as mp
 import os.path
 import matplotlib.pyplot as plt
+import glob #DLH UPDATE
 
 import hrsreduce.utils.background_subtraction as BkgAlg
 
@@ -125,11 +126,13 @@ class OrderRectification():
 
         self.logger = logger
         if self.arm == 'Blu':
+            self.sarm = 'H' #DLH UPDATE
             mask_file = './hrsreduce/utils/BPM_H.fits'
             with fits.open(mask_file) as M_hdu:
                 mask = M_hdu[0].data
                 mask = mask.astype(bool)
         elif self.arm == 'Red':
+            self.sarm = 'R' #DLH UPDATE
             mask_file = './hrsreduce/utils/BPM_R.fits'
             with fits.open(mask_file) as M_hdu:
                 mask = M_hdu[0].data
@@ -147,19 +150,16 @@ class OrderRectification():
             data_type = hdul[0].header['OBSTYPE']
             
         # Calculate and subtract the background
-        order_trace_npz = self.order_trace_file.replace(".csv",".npz")
-        if data_type == "Sci":
-            spec_data,_ = BkgAlg.BkgAlg(spec_data,order_trace_npz,self.logger)
-
+        #DLH UPDATE
+        if data_type == "Science":
+            spec_data,_ = BkgAlg.BkgAlg(spec_data,self.order_trace_file,self.arm,self.mode,self.logger)
+        #DLH UPDATE
         with fits.open(self.input_flat) as hdul:
             flat_data = hdul[0].data
             flat_data = np.ma.masked_array(flat_data, mask=mask)
             flat_header = hdul[0].header
 #            if data_type == 'Arc':
 #                flat_data /=flat_data
-        
-        # Calculate and subtract the background
-        #flat_data,bkg = BkgAlg.BkgAlg(flat_data,order_trace_npz,self.logger)
 
         self.order_trace_data = None
         if order_trace_file:
@@ -208,11 +208,25 @@ class OrderRectification():
 
         try:
             hdul=fits.open(self.input_spectrum)
+            data_type = hdul[0].header['OBSTYPE'] #DLH UPDATE
             rectified = hdul['RECT']
             hdul.close
             rect_done = True
         except:
             rect_done = False
+            
+        #DLH UPDATE
+        hdul=fits.open(self.input_spectrum)
+        hdul.close
+        if data_type == 'Arc':
+            #Test if there is a Master_Wave file associated with the Arc
+            path = os.path.dirname(self.input_spectrum)
+            obs_date=(os.path.basename(self.input_spectrum)[-17:-5])
+            dst = (path +"/"+str(self.mode)+"_Master_Wave_"+str(self.sarm)+str(obs_date)+".fits")
+            master_wave = glob.glob(dst)
+            if len(master_wave) != 0:
+                rect_done = True
+        #DLH UPDATE
                 
         if rect_done:
             if self.logger:

@@ -17,7 +17,7 @@ class OrderMerge():
     
         self.spec = spec_file
         self.flat = flat_file
-        self.arm = arm
+        self.arm = arm[0] #DLH UPDATE
  
         self.scaling = scaling
         self.plot = plot
@@ -478,8 +478,6 @@ class OrderMerge():
         SIGMA_U = np.sqrt(BLAZE_U+1e-12)
 #        SIGMA_U[np.isnan(SIGMA_U)] = 1000
 
-        starting_ord = 85
-        
         if self.arm == 'H':
             BLAZE_L[20:,482:500] = np.nan
             BLAZE_L[:,851:856] = np.nan
@@ -502,7 +500,10 @@ class OrderMerge():
             FIBRE_U[37:,536:542] = np.nan
             
             starting_ord = 125
-
+#DLH UPDATE
+        if self.arm == 'R':
+            starting_ord = 85
+#DLH UPDATE
             
         #Create a sky subtracted spectrum, order by order. Must map onto the same wavelegth axis
         

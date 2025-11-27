@@ -137,9 +137,10 @@ def main(
     except Exception:
         pass
     for m in modes:
+    
         log_file = join(base_dir.format(mode=modes),"logs/%s_%s_%s.log" %(arm_colour,m, yyyymmdd))
-        
         util.start_logging(log_file)
+        
         # find input files and sort them by type
         files = {}
         nights = {}
@@ -238,9 +239,14 @@ def main(
         #Calcualte the master bias
         master_bias = MasterBias(files["bias"],input_dir,output_dir,arm_colour,yyyymmdd,plot).create_masterbias()
         
+        #DLH UPDATE
         #Remove any intermediate bias frames
         for redundant in files["bias"]:
-            os.remove(redundant)
+            try:
+                os.remove(redundant)
+            except:
+                pass
+        #DLH UPDATE
         
         #Subtract the bias from all other frames
         #Loop over the files dict for the different types to make sure the correct bias file is subtracted (e.g., if the Flats are from a different night)
@@ -265,20 +271,31 @@ def main(
                 master_bias_tmp = MasterBias(files_tmp2["bias"],input_dir_tmp,output_dir_tmp,arm_colour,nights[type],plot).create_masterbias()
                 files_out[type] = SubtractBias(master_bias_tmp,files_type,base_dir,arm_colour,nights[type],type).subtract()
 
+
+                #DLH UPDATE
                 #Remove any intermediate bias frames
                 for redundant in files_tmp2["bias"]:
-                    os.remove(redundant)
+                    try:
+                        os.remove(redundant)
+                    except:
+                        pass
+                #DLH UPDATE
                     
         del files
         files = files_out
         
         #Calcualte the master flat
         master_flat = MasterFlat(files["flat"],nights,input_dir,output_dir,base_dir,arm_colour,yyyymmdd,m,plot).create_masterflat()
-        
+      
+        #DLH UPDATE
         #Remove the intermediate files
         for ff in files["flat"]:
-            os.remove(ff)
-            
+            try:
+                os.remove(ff)
+            except:
+                pass
+        #DLH UPDATE
+                
         #Clean the files of CRs
         _ = CosmicRayMasking(files,arm)
             
@@ -339,9 +356,11 @@ def main(
                 logger.warning("Please update the Super Arc files, currently using potentially outdated file: {}".format(super_arc))
                 
         #Fully process the Super Arc and Flat in the right order
+        logger.info("Processing Super arc file: {}".format(super_arc)) # DLH UPDATE
         order_file_rect = OrderRectification(super_arc,super_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
         SlitCorrection(super_arc,header_ext,order_file_rect,arm[0],m,base_dir,yyyymmdd,plot=plot,super_arc=super_arc).correct()
         VarExts(super_arc,master_bias,master_flat).run()
+        logger.info("Processing Master Flat file: {}".format(master_flat)) # DLH UPDATE
         #Rectify and tilt correct the master flat as this needs only doing once
         _ = OrderRectification(master_flat,master_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
         SlitCorrection(master_flat,'RECT', order_file_rect, arm[0],m, base_dir,yyyymmdd,plot=False,super_arc=super_arc).correct()
@@ -350,11 +369,21 @@ def main(
         
         #Calculate the Varience image, extract the frames
         for arc_file in files['arc']:
+            logger.info("Processing arc file: {}".format(arc_file)) # DLH UPDATE
             cal_type = 'ThAr'
-            VarExts(arc_file,master_bias,master_flat).run()
-            _ = OrderRectification(arc_file,master_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
-            SlitCorrection(arc_file,header_ext,order_file_rect,arm[0],m,base_dir,yyyymmdd,plot=plot,super_arc=super_arc).correct()
-        
+            #DLH UPDATE
+            #Test to see if Master_wave exsists as can skip this
+            path = os.path.dirname(arc_file)
+            obs_date=(os.path.basename(arc_file)[-17:-5])
+            dst = (path +"/"+str(m)+"_Master_Wave_"+str(arm[0])+str(obs_date)+".fits")
+            master_wave = glob.glob(dst)
+            if len(master_wave) == 0:
+                VarExts(arc_file,master_bias,master_flat).run()
+                _ = OrderRectification(arc_file,master_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
+                SlitCorrection(arc_file,header_ext,order_file_rect,arm[0],m,base_dir,yyyymmdd,plot=plot,super_arc=super_arc).correct()
+            else:
+                logger.info("Arc file already processed")
+            #DLH UPDATE
         #Create the normalised flat
         FlatNormalisation(master_flat, order_file_rect).normalise()
         
@@ -364,7 +393,7 @@ def main(
         
         #Calculate the Varience image, rectify the orders, perform slit tilt calculation and correction and extract the frames
         for lfc_file in files['lfc']:
-            logger.info("Processing file: {}".format(lfc_file))
+            logger.info("Processing LFC file: {}".format(lfc_file)) #DLH UPDATE
             VarExts(lfc_file,master_bias,master_flat).run()
             _ = OrderRectification(lfc_file,master_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
             header_ext = 'RECT'
@@ -374,18 +403,30 @@ def main(
  
         #Calculate the extract the frames and calculate the wave solution
         for arc_file in files['arc']:
-            SpectralExtraction(arc_file, master_flat,arc_file,order_file_rect,arm_colour,m,base_dir).extraction()
-            WavelengthCalibration(arc_file, super_arc, arm, m, base_dir,cal_type,plot).execute()
+            #DLH UPDATE
+            #Test to see if Master_wave exsists as can skip this
+            path = os.path.dirname(arc_file)
+            obs_date=(os.path.basename(arc_file)[-17:-5])
+            dst = (path +"/"+str(m)+"_Master_Wave_"+str(arm[0])+str(obs_date)+".fits")
+            master_wave = glob.glob(dst)
+            if len(master_wave) == 0:
+                SpectralExtraction(arc_file, master_flat,arc_file,order_file_rect,arm_colour,m,base_dir).extraction()
+                MasterWave = WavelengthCalibration(arc_file, super_arc, arm, m, base_dir,cal_type,plot).execute()
+            else:
+                MasterWave = master_wave[0] #DLH UPDATE
+                logger.info("Arc file already processed")
+            #DLH UPDATE
+
             
             
         #Calculate the Varience image, rectify the orders, perform slit tilt calculation and correction and extract the frames
         for sci_file in files['sci']:
-            logger.info("Processing file: {}".format(sci_file))
+            logger.info("Processing Science file: {}".format(sci_file)) #DLH UPDATE
             VarExts(sci_file,master_bias,master_flat).run()
             _ = OrderRectification(sci_file,master_flat,order_file,arm_colour,m,base_dir,super_arc=super_arc).perform()
             header_ext = 'RECT'
             SlitCorrection(sci_file,header_ext, order_file_rect, arm[0],m, base_dir,yyyymmdd,plot=plot,super_arc=super_arc).correct()
-            SpectralExtraction(sci_file, master_flat,files['arc'][0],order_file_rect,arm_colour,m,base_dir).extraction()
+            SpectralExtraction(sci_file, master_flat,MasterWave,order_file_rect,arm_colour,m,base_dir).extraction() #DLH UPDATE
             OrderMerge(sci_file,master_flat,arm,plot=False).execute()
         
         if clean:
@@ -395,5 +436,6 @@ def main(
                         os.remove(file)
                     except:
                         pass
-    return output
 
+    return output
+    

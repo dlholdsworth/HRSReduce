@@ -3,8 +3,8 @@ import hrsreduce
 
 from hrsreduce.super_arc.super_arc import SuperArc
 
-modes = ['HR']
-arms = ['Blu']
+modes = ['HR','MR','LR']
+arms = ['Blu','Red']
 
 for mode in modes:
     for arm in arms:

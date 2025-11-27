@@ -28,6 +28,7 @@ def start_logging(log_file="log.log"):
         filename=log_file,
         level=logging.DEBUG,
         format="%(asctime)-15s - %(levelname)s - %(name)-8s - %(message)s",
+        force=True,
     )
     logging.captureWarnings(True)
     log_version()

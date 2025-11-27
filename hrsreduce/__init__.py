@@ -4,7 +4,7 @@ from ._version import get_versions
 
 __version__ = get_versions()["version"]
 
-__version__ = "1.0.1 2025-11-17"
+__version__ = "1.0.3 2025-11-28"
 del get_versions
 
 # add logger to console
@@ -53,4 +53,4 @@ del logging
 # do not del tqdm, it is needed in the Log Handler
 
 # Load externally available modules
-from . import reduce #,configuration, util
+from . import reduce 
