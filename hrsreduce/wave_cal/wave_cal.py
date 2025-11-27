@@ -5,8 +5,8 @@ from astropy import constants as cst, units as u
 from astropy.io import fits
 import datetime
 import os
-import shutil #DLH UPDATE
-import glob #DLH UPDATE
+import shutil
+import glob
 
 import matplotlib.pyplot as plt
 
@@ -70,7 +70,6 @@ class WavelengthCalibration():
             
     def execute(self):
     
-        #DLH UPDATE
         #Test if the Master_wave file exisits for the night. If so, skip.
         path = os.path.dirname(self.file)
         obs_date=(os.path.basename(self.file)[-17:-5])
@@ -79,7 +78,6 @@ class WavelengthCalibration():
         master_wave = glob.glob(dst)
         if len(master_wave) == 0:
             with fits.open(self.file) as hdul:
-        #DLH UPDATE
                 if self.arm =='R':
                     ref_arc = "./hrsreduce/wave_cal/HR_Super_Arc_R_Reference.fits"
                 if self.arm =='H':
@@ -187,20 +185,16 @@ class WavelengthCalibration():
                     
                         
                     hdul.writeto(self.file,overwrite='True')
-                    #DLH UPDATE
                     #Copy the file and name it for mode and arm so it is kept.
                     path = os.path.dirname(self.file)
                     obs_date=(os.path.basename(self.file)[-17:-5])
                     dst = (path +"/"+str(self.mode)+"_Master_Wave_"+str(self.arm)+str(obs_date)+".fits")
                     shutil.copyfile(self.file, dst)
-                    #DLH UPDATE
 
                 else:
                     raise ValueError('cal_type {} not recognized. Available options are LFC or ThAr'.format(self.cal_type))
     
-    #DLH UPDATE
                 return dst
         else:
             self.logger.info('Wavelength Calibration already done')
             return dst
-    #DLH UPDATE

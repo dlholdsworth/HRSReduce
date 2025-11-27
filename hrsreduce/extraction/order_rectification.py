@@ -77,7 +77,7 @@ from astropy.io import fits
 import multiprocessing as mp
 import os.path
 import matplotlib.pyplot as plt
-import glob #DLH UPDATE
+import glob
 
 import hrsreduce.utils.background_subtraction as BkgAlg
 
@@ -126,13 +126,13 @@ class OrderRectification():
 
         self.logger = logger
         if self.arm == 'Blu':
-            self.sarm = 'H' #DLH UPDATE
+            self.sarm = 'H'
             mask_file = './hrsreduce/utils/BPM_H.fits'
             with fits.open(mask_file) as M_hdu:
                 mask = M_hdu[0].data
                 mask = mask.astype(bool)
         elif self.arm == 'Red':
-            self.sarm = 'R' #DLH UPDATE
+            self.sarm = 'R'
             mask_file = './hrsreduce/utils/BPM_R.fits'
             with fits.open(mask_file) as M_hdu:
                 mask = M_hdu[0].data
@@ -150,10 +150,8 @@ class OrderRectification():
             data_type = hdul[0].header['OBSTYPE']
             
         # Calculate and subtract the background
-        #DLH UPDATE
         if data_type == "Science":
             spec_data,_ = BkgAlg.BkgAlg(spec_data,self.order_trace_file,self.arm,self.mode,self.logger)
-        #DLH UPDATE
         with fits.open(self.input_flat) as hdul:
             flat_data = hdul[0].data
             flat_data = np.ma.masked_array(flat_data, mask=mask)
@@ -208,14 +206,13 @@ class OrderRectification():
 
         try:
             hdul=fits.open(self.input_spectrum)
-            data_type = hdul[0].header['OBSTYPE'] #DLH UPDATE
+            data_type = hdul[0].header['OBSTYPE']
             rectified = hdul['RECT']
             hdul.close
             rect_done = True
         except:
             rect_done = False
             
-        #DLH UPDATE
         hdul=fits.open(self.input_spectrum)
         hdul.close
         if data_type == 'Arc':
@@ -226,7 +223,6 @@ class OrderRectification():
             master_wave = glob.glob(dst)
             if len(master_wave) != 0:
                 rect_done = True
-        #DLH UPDATE
                 
         if rect_done:
             if self.logger:
