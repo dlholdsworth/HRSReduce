@@ -1,88 +1,146 @@
-# Standard dependencies
 """
-    This module defines class OrderRectification which inherits from `KPF0_Primitive` and provides methods to perform
-    the event on order rectification in the recipe.
+Order rectification wrapper for the extraction pipeline.
 
-    Description:
-        * Method `__init__`:
+This module defines the ``OrderRectification`` class, which prepares science and
+flat-frame data, loads order-trace information, and calls
+``SpectralExtractionAlg`` to rectify curved echelle orders onto a straightened
+2D representation.
 
-            OrderRectification constructor, the following arguments are passed to `__init__`,
+Overview
+--------
+The class is responsible for:
 
-                - `action (keckdrpframework.models.action.Action)`: `action.args` contains positional arguments and
-                  keyword arguments passed by the `OrderRectification` event issued in the recipe:
+    1. Loading the science and flat FITS frames.
+    2. Applying a bad-pixel mask appropriate to the selected spectrograph arm.
+    3. Optionally subtracting the background from science data.
+    4. Loading the order-trace definition from a CSV trace file.
+    5. Constructing a ``SpectralExtractionAlg`` instance configured for
+       rectification-only mode.
+    6. Running order rectification, optionally in parallel, and writing the
+       rectified order definition table to disk.
 
-                    - `action.args[0] (kpfpipe.models.level0.KPF0)`: Instance of `KPF0` containing spectrum data for
-                      spectral extraction.
-                    - `action.args[1] (kpfpipe.models.level0.KPF0)`: Instance of `KPF0` containing flat data and order
-                      trace result.
-                    - `action.args['order_name'] (str|list, optional)`: Name or list of names of the order to be
-                      processed. Defaults to 'SCI'.
-                    - `action.args['start_order'] (int, optional)`: Index of the first order to be processed.
-                      Defaults to 0.
-                    - `action.args['max_result_order'] (int, optional)`: Total orders to be processed, Defaults to -1.
-                    - `action.args['rectification_method'] (str, optional)`: Rectification method, '`norect`',
-                      '`vertial`', or '`normal`', to rectify the curved order trace. Defaults to '`norect`',
-                      meaning no rectification.
-                    - `action.args['data_extension']: (str, optional)`: the name of the extension in spectrum containing data.
-                    - `action.args['flat_extension']: (str, optional)`: the name of the extension in flat containing data.
-                    - `action.args['clip_file'] (str, optional)`:  Prefix of clip file path. Defaults to None.
-                      Clip file is used to store the polygon clip data for the rectification method
-                      which is not NoRECT.
+Notes
+-----
+- In this implementation, the extraction algorithm is configured for
+  rectification only:
 
-                - `context (keckdrpframework.models.processing_context.ProcessingContext)`: `context.config_path`
-                  contains the path of the config file defined for the module of spectral extraction in the master
-                  config file associated with the recipe.
+      * ``rectification_method = 0``  -> normal-to-trace rectification
 
-            and the following attributes are defined to initialize the object,
+- The rectified image is written into a ``RECT`` extension in the input
+  spectrum FITS file.
+- A CSV file describing the rectified order locations is written alongside the
+  associated output file base name.
 
-                - `input_spectrum (kpfpipe.models.level0.KPF0)`: Instance of `KPF0`, assigned by `actions.args[0]`.
-                - `input_flat (kpfpipe.models.level0.KPF0)`:  Instance of `KPF0`, assigned by `actions.args[1]`.
-                - `order_name (str)`: Name of the order to be processed.
-                - `start_order (int)`: Index of the first order to be processed.
-                - `max_result_order (int)`: Total orders to be processed.
-                - `rectification_method (int)`: Rectification method code as defined in `SpectralExtractionAlg`.
-                - `extraction_method (str)`: Extraction method code as defined in `SpectralExtractionAlg`.
-                - `config_path (str)`: Path of config file for spectral extraction.
-                - `config (configparser.ConfigParser)`: Config context per the file defined by `config_path`.
-                - `logger (logging.Logger)`: Instance of logging.Logger.
-                - `clip_file (str)`: Prefix of clip file path.
-                - `alg (modules.order_trace.src.alg.SpectralExtractionAlg)`: Instance of `SpectralExtractionAlg` which
-                  has operation codes for the computation of spectral extraction.
+Class
+-----
+``OrderRectification``
 
-        * Method `__perform`:
+Constructor
+-----------
+``__init__(sci_frame, flat_frame, order_trace_file, sarm, mode, base_dir,
+super_arc=None)``
 
-            OrderRectification returns the result in `Arguments` object which contains a level 0 data object (`KPF0`)
-            with the rectification results replacing the raw image.
+Parameters
+----------
+sci_frame : str
+    Path to the input science FITS frame.
+flat_frame : str
+    Path to the input flat-field FITS frame.
+order_trace_file : str
+    Path to the CSV file containing traced order polynomial coefficients and
+    associated order geometry.
+sarm : str
+    Spectrograph arm identifier, typically ``'Blu'`` or ``'Red'``.
+mode : str
+    Instrument mode used when naming associated calibration products.
+base_dir : str
+    Base working directory for the reduction.
+super_arc : str, optional
+    Associated arc frame or reference file used to define the output file base
+    name.
 
-    Usage:
-        For the recipe, the spectral extraction event is issued like::
+Primary attributes set during initialisation
+--------------------------------------------
+input_spectrum : str
+    Input science FITS filename.
+input_flat : str
+    Input flat FITS filename.
+order_trace_file : str
+    Input order-trace CSV filename.
+rectification_method : int
+    Rectification mode code passed to ``SpectralExtractionAlg``.
+extraction_method : int
+    Extraction mode code passed to ``SpectralExtractionAlg``.
+arm : str
+    Original arm label, e.g. ``'Blu'`` or ``'Red'``.
+sarm : str
+    Short arm label used in filenames, e.g. ``'H'`` or ``'R'``.
+mode : str
+    Instrument mode.
+base_dir : str
+    Working directory.
+logger : logging.Logger
+    Module logger.
+order_trace_data : pandas.DataFrame
+    Table of order-trace coefficients and metadata loaded from CSV.
+alg : SpectralExtractionAlg
+    Configured extraction/rectification algorithm instance.
 
-            :
-            lev0_data = kpf0_from_fits(input_lev0_file, data_type=data_type)
-            op_data = OrderRectification(lev0_data, lev0_flat_data,
-                                        order_name=order_name,
-                                        rectification_method=rect_method,
-                                        clip_file="/clip/file/folder/fileprefix")
-            :
+Main method
+-----------
+``perform()``
 
-        where `op_data` is KPF0 object wrapped in `Arguments` class object.
+This method:
+
+    - checks whether rectification has already been completed;
+    - creates a ``RECT`` FITS extension if needed;
+    - rectifies all traced orders, using multiprocessing over order pairs;
+    - collects the rectification metadata returned by each worker; and
+    - writes the final order definition table to
+      ``<file_base>_Orders_Rect.csv``.
+
+Returns
+-------
+str
+    Filename of the CSV file containing the rectified order definitions.
+
+Example
+-------
+Typical usage is:
+
+    rectifier = OrderRectification(
+        sci_frame,
+        flat_frame,
+        order_trace_file,
+        sarm,
+        mode,
+        base_dir,
+        super_arc=super_arc,
+    )
+    rect_file = rectifier.perform()
+
+Output
+------
+The main output is a CSV table containing, for each rectified order:
+
+    - order index
+    - rectified central row coefficient
+    - bottom edge
+    - top edge
+    - x-range of the rectified order
 """
 
-
-import configparser
 import pandas as pd
 import numpy as np
 import logging
 from astropy.io import fits
 import multiprocessing as mp
 import os.path
-import matplotlib.pyplot as plt
 import glob
-
-import hrsreduce.utils.background_subtraction as BkgAlg
 
 # Local dependencies
 from hrsreduce.extraction.alg import SpectralExtractionAlg
+import hrsreduce.utils.background_subtraction as BkgAlg
 
 logger = logging.getLogger(__name__)
 

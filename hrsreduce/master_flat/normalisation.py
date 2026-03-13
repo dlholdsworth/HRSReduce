@@ -11,6 +11,40 @@ logger = logging.getLogger (__name__)
 
 class FlatNormalisation():
 
+    """
+    Normalise a straightened master flat on an order-by-order basis.
+
+    This class uses an order-trace table to identify the spatial extent of
+    each straightened echelle order in a flat-field image and then normalises
+    each order independently. The normalised result is written back into the
+    FITS file as a new extension for use in later flat-field correction steps.
+
+    The normalisation is performed only within the traced order regions. For
+    each order, the method extracts the corresponding subsection of the
+    straightened flat, estimates a representative mean value from illuminated
+    pixels, divides the order by that mean, and suppresses very low residual
+    values.
+
+    Parameters
+    ----------
+    flat : str
+        Path to the FITS file containing the straightened flat-field image.
+    orders : str
+        Path to the CSV file containing traced-order geometry information.
+
+    Attributes
+    ----------
+    flat : str
+        Path to the flat-field FITS file to be normalised.
+    order_file : str
+        Path to the order-trace CSV file.
+    logger : logging.Logger
+        Logger used for status and debug messages.
+    order_trace_data : pandas.DataFrame
+        Reduced order-geometry table containing the trace centre, upper and
+        lower order widths, and x-range for each straightened order.
+    """
+    
     def __init__(self,flat,orders):
     
         self.flat = flat
@@ -33,6 +67,30 @@ class FlatNormalisation():
             self.order_trace_data = pd.DataFrame(df_result_out)
         
     def normalise(self):
+        """
+        Normalise each traced order in the straightened flat image.
+
+        This method opens the flat-field FITS file and checks whether a
+        `NORMALISED` extension already exists. If so, no further action is taken.
+        Otherwise, it reads the `STRAIGHT` image extension and processes each
+        traced order region independently.
+
+        For each order, the method:
+            1. extracts the rectangular subsection defined by the trace table
+            2. identifies illuminated pixels above a fixed threshold
+            3. computes the mean level of the unmasked order pixels
+            4. divides the order by this mean to produce a locally normalised flat
+            5. sets very small values to zero to suppress poorly illuminated
+               regions
+
+        The fully reconstructed normalised image is then appended to the FITS file
+        as a new `NORMALISED` extension.
+
+        Returns
+        -------
+        None
+            The method updates the input FITS file in place.
+        """
     
         with fits.open(self.flat) as hdu:
             self.logger.info("Running Flat normalisation...")

@@ -16,6 +16,61 @@ def is_empty_ary(ary: np.ndarray):
 
 class OrderTraceAlg():
 
+    """
+    Detect, clean, merge, and parameterise echelle order traces in an HRS flat.
+
+    This class implements the order-tracing stage of the HRS reduction
+    pipeline. Starting from a 2D flat-field image, it identifies candidate
+    order pixels, groups them into connected clusters, removes noise and
+    problematic structures, fits polynomial traces to the surviving orders,
+    estimates upper and lower order widths, and prepares the results for
+    export to a trace table.
+
+    The tracing behaviour depends on both spectrograph arm and observing mode,
+    with arm- and mode-specific parameters controlling smoothing, order-edge
+    finding, cluster cleaning, polynomial degree, and width estimation.
+
+    Parameters
+    ----------
+    data : numpy.ndarray
+        Two-dimensional flat-field image used for order tracing.
+    mode : str
+        Observing mode, e.g. "LR", "MR", "HR", or "HS".
+    arm : str
+        Spectrograph arm identifier, typically "H" or "R".
+    poly_degree : int, optional
+        Polynomial degree used when fitting order traces.
+    expected_traces : int, optional
+        Expected number of traces, mainly for validation or regression tests.
+    orders_ccd : int, optional
+        Number of orders expected on the CCD.
+    do_post : bool, optional
+        If True, apply additional post-processing to the traced orders.
+    config : dict, optional
+        Optional external configuration object.
+    logger : logging.Logger, optional
+        Logger used for status and debug messages.
+
+    Attributes
+    ----------
+    flat_data : numpy.ndarray
+        Input flat-field image used for tracing.
+    data_range : list
+        Active image range used for tracing.
+    original_size : list
+        Original image dimensions.
+    poly_degree : int
+        Polynomial degree used for trace fitting.
+    expected_traces : int
+        Expected number of traces.
+    orders_ccd : int
+        Expected number of orders on the detector.
+    do_post : bool
+        Flag controlling optional post-processing.
+    logger : logging.Logger
+        Logger instance.
+    """
+    
     UPPER = 1
     LOWER = 0
     name = 'OrderTrace'
@@ -137,13 +192,13 @@ class OrderTraceAlg():
                 self.pixel_range = 35
                 self.top_edge = 20
                 self.bottom_edge = 20
-                self.fit_degree = 7
-                self.pix_ext = 3
+                self.fit_degree = 9
+                self.pix_ext = 2
                 self.img_sigma = 4
-                self.rejection_limit = 2
+                self.rejection_limit = 1
                 self.mn_cut = 0.05
                 self.smooth_sigma = 5
-                self.ord_pix_range = 4
+                self.ord_pix_range = 3
                 self.ord_adj = 0
                 
             if self.sarm == "H":
@@ -189,21 +244,16 @@ class OrderTraceAlg():
         
         
     def get_spectral_data(self):
-        """Get spectral information including data and dimension.
-
-        Returns:
-            tuple: Information of spectral data,
-
-                * (*numpy.ndarray*): 2D spectral data.
-                * **nx** (*int*): Width of the data.
-                * **ny** (*int*): Height of the data.
-
         """
-        """
-        try:
-            assert self.flat_data.all()
-        except AssertionError:
-            return None
+        Return the tracing image and its dimensions.
+
+        Returns
+        -------
+        tuple
+            Three-element tuple containing:
+                - the 2D tracing image
+                - image width in pixels
+                - image height in pixels
         """
         ny, nx = np.shape(self.flat_data)
 
@@ -235,21 +285,33 @@ class OrderTraceAlg():
         
     @staticmethod
     def merge_two_clusters(cluster_nos: np.ndarray,  x: np.ndarray, y: np.ndarray, index: np.ndarray, power: int):
-        """ Calculate the polynomial fitting error and distance in case two clusters are merged.
+        """
+        Estimate the polynomial fit and fit error for a hypothetical merged cluster.
 
-        Parameters:
-            cluster_nos (numpy.ndarray): Two cluster id included and the first is the cluster located leftmost.
-            x (numpy.ndarray): Array of x coordinates of cluster pixels.
-            y (numpy.ndarray): Array of y coordinates of cluster pixels.
-            index (numpy.ndarray): Array of cluster id on cluster pixels.
-            power (int): Degree of polynomial to fit two clusters.
+        This method combines the pixels from two clusters, fits a polynomial of the
+        requested degree to the merged pixel set, and returns both the polynomial
+        description and the RMS fitting error. It is used when deciding whether two
+        neighbouring clusters should be merged into one order trace.
 
-        Returns:
-            tuple: Information of polynomial fit to two clusters,
+        Parameters
+        ----------
+        cluster_nos : numpy.ndarray
+            Two cluster identifiers to test for merging.
+        x : numpy.ndarray
+            X coordinates of all cluster pixels.
+        y : numpy.ndarray
+            Y coordinates of all cluster pixels.
+        index : numpy.ndarray
+            Cluster identifier for each pixel.
+        power : int
+            Polynomial degree used for the test fit.
 
-                * **poly_info** (*numpy.ndarray*): Array contains coefficients of fitting polynomial and area of
-                  the cluster after the merge.
-                * **errors** (*float*): Least square error of polynomial fitting.
+        Returns
+        -------
+        tuple
+            Two-element tuple containing:
+                - polynomial coefficients and cluster area information
+                - RMS fitting error of the merged cluster
         """
 
         poly_info = np.zeros(power+5)
@@ -300,31 +362,20 @@ class OrderTraceAlg():
         
     @staticmethod
     def get_segments_from_index_list(id_list: np.ndarray,  loc: np.ndarray):
-        """Find horizontal segments at some y location.
+        """
+        Identify continuous horizontal pixel segments from an index list.
 
-        Horizontal segment means a segment containing continuous cluster pixels at the same y position.
-        The finding is based on index list associated with an array of x coordinates.
+        Parameters
+        ----------
+        id_list : numpy.ndarray
+            Indices into `loc` defining the selected pixels.
+        loc : numpy.ndarray
+            Coordinate array used to test continuity.
 
-        Args:
-            id_list (numpy.ndarray): Array of index for the array of `loc`.
-            loc (numpy.ndarray): Array of x coordinates of cluster pixels.
-
-        Returns:
-            list: List of horizontal segments, like::
-
-                [[<start_idx>_i, <end_idx>_i], ..., [<start_idx>_n, <end_idx>_n]]
-                '''
-                where
-                    <start_idx>_i and <end_idx>_i represent the starting and ending index
-                    of the i-th segment and the index is associated with parameter loc.
-
-                ex. [[1, 3], [7, 10], ..., [150, 160]] means the following segments are
-                    included,
-                    1st segment is from loc[1] to loc[3] along x-axis.
-                    2nd segment is from loc[7] to loc[10] along x-axis.
-                    last segment is from loc[150] to loc[160] along x-axis.
-                '''
-
+        Returns
+        -------
+        list
+            List of `[start_idx, end_idx]` pairs describing continuous segments.
         """
         segments = list()
 
@@ -347,23 +398,28 @@ class OrderTraceAlg():
         
     @staticmethod
     def distance_between_clusters(cluster_nos: np.ndarray, x: np.ndarray, y: np.ndarray, index: np.ndarray):
-        """Find the horizontal and vertical distance between the clusters, the first cluster has smaller x position.
-
-        Args:
-            cluster_nos (numpy.ndarray): Array contains the cluster id of two clusters.
-            x (numpy.ndarray): Array of x coordinates of cluster pixels.
-            y (numpy.ndarray): Array of y coordinates of cluster pixels.
-            index (numpy.ndarray): Array of cluster id on cluster pixels.
-
-        Returns:
-            tuple: tuple containing:
-
-                * **dist_x** (*float*): The horizontal gap between two clusters.
-                  The distance is 0 if there is horizontal overlap between two clusters.
-                * **dist_y** (*float*): The vertical gap between two clusters.
-                  The distance is 0 if there is vertical overlap between two clusters.
-
         """
+        Compute the horizontal and vertical separation between two clusters.
+
+        Parameters
+        ----------
+        cluster_nos : numpy.ndarray
+            Identifiers of the two clusters to compare.
+        x : numpy.ndarray
+            X coordinates of all cluster pixels.
+        y : numpy.ndarray
+            Y coordinates of all cluster pixels.
+        index : numpy.ndarray
+            Cluster identifier for each pixel.
+
+        Returns
+        -------
+        tuple
+            Two-element tuple containing:
+                - horizontal gap between the clusters
+                - vertical gap between the clusters
+        """
+        
         end_x = np.zeros(2)
         end_y = np.zeros(2)
 
@@ -770,8 +826,8 @@ class OrderTraceAlg():
         in vertical, horizontal or in diagonal direction.
 
         Args:
-            img_rows_to_reset (list, optional): collection of rows to be reest.
-            img_cols_to_reset (list, optional): collection of columns to be reest.
+            img_rows_to_reset (list, optional): collection of rows to be reset.
+            img_cols_to_reset (list, optional): collection of columns to be reset.
 
         Returns:
             dict: result of formed clusters, like::
@@ -3241,32 +3297,21 @@ class OrderTraceAlg():
         return new_coeffs, new_widths
 
     def write_cluster_info_to_dataframe(self, cluster_widths: list, cluster_coeffs: np.ndarray):
-        """Write the coefficients of polynomial fit, area and top/bottom widths of order trace to DataFrame object.
+        """
+        Convert fitted trace coefficients and widths into a pandas DataFrame.
 
-        Args:
-            cluster_widths (list): Array contains the top and bottom widths of clusters, like::
+        Parameters
+        ----------
+        cluster_widths : list
+            Width information for each traced order.
+        cluster_coeffs : numpy.ndarray
+            Polynomial coefficients and area metadata for the traced orders.
 
-                [
-                    {
-                        'top edge': float,     # top width of first cluster
-                        'bottom edge': float   # bottom width of first cluster
-                    }, ....,
-                    {
-                        'top edge': float,     # top width of last cluster
-                        'bottom edge': float   # bottom width of last cluster
-                    }
-                ]
-
-            cluster_coeffs (numpy.ndarray): Array contains coefficients of polynomial fit and the area of the clusters.
-
-        Returns:
-            Pandas.DataFrame: Instance of DataFrame containing columns (for polynomial of degree 3) like,
-
-                *Coeff0*, *Coeff1*, *Coeff2*, *Coeff3*, *BottomEdge*, *TopEdge*, *X1*, *X2*
-
-                to contain coefficients of polynomial fit from lower order to higher, bottom and top widths, and the
-                left and right boundary of the orders.
-
+        Returns
+        -------
+        pandas.DataFrame
+            Trace table containing polynomial coefficients, order widths, and x
+            limits.
         """
         if cluster_widths is None or cluster_coeffs is None:
             return None
@@ -3288,7 +3333,7 @@ class OrderTraceAlg():
                 continue
             trace_table['BottomEdge'][i] = self.float_to_string(cluster_widths[i]['bottom_edge'])
             trace_table['TopEdge'][i] = self.float_to_string(cluster_widths[i]['top_edge'])
-        trace_table['X1'] = cluster_coeffs[1:, power+1].astype(int)
+        trace_table['X1'] =  0 #cluster_coeffs[1:, power+1].astype(int)
         trace_table['X2'] = cluster_coeffs[1:, power+2].astype(int)
 
         df = pd.DataFrame(trace_table)
@@ -3301,6 +3346,27 @@ class OrderTraceAlg():
 
 
     def HRS_clean(self, x,y,index):
+        """
+        Apply final HRS-specific filtering to traced orders.
+
+        This method keeps only clusters consistent with the expected geometry of
+        HRS orders for the selected arm and mode, and verifies that the expected
+        number of orders has been found.
+
+        Parameters
+        ----------
+        x : numpy.ndarray
+            X coordinates of cluster pixels.
+        y : numpy.ndarray
+            Y coordinates of cluster pixels.
+        index : numpy.ndarray
+            Cluster identifier for each pixel.
+
+        Returns
+        -------
+        tuple
+            Filtered x, y, and cluster-index arrays.
+        """
     
         if self.sarm == "H":
             expected_ords = 84

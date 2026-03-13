@@ -18,6 +18,67 @@ logger = logging.getLogger(__name__)
 
 class MasterBias():
 
+    """
+    Create a master bias frame from Level-0-corrected HRS bias exposures.
+
+    This class identifies suitable bias frames, combines them into a master
+    bias image, and writes the result to disk together with variance, count,
+    and uncertainty extensions. If no valid bias frames are available for the
+    requested night, the class searches for the nearest suitable calibration
+    night, applies Level-0 corrections to those files, and uses them instead.
+
+    The master bias is constructed from frames with zero exposure time and
+    appropriate calibration metadata. During creation, the input frames are
+    stacked to produce:
+        - the combined master bias image
+        - a variance image
+        - a per-pixel frame-count image
+        - an uncertainty image
+
+    Summary statistics from the input files, including detector overscan,
+    temperatures, pressures, and mean Julian date, are propagated into the
+    output FITS header. An estimate of the detector readout noise is also
+    recorded.
+
+    Parameters
+    ----------
+    files : list
+        List of candidate input FITS files.
+    in_dir : str
+        Input directory for the current observing night.
+    out_dir : str
+        Output directory for reduced products.
+    arm : str
+        Arm name used in the directory structure, typically "Blu" or "Red".
+    night : str
+        Observing night in YYYYMMDD format.
+    plot : bool
+        If True, save a diagnostic image of the master bias frame.
+
+    Attributes
+    ----------
+    EXPTIME : float
+        Required exposure time for valid bias frames.
+    propid : str
+        Expected project identifier for calibration bias frames.
+    propid2 : str
+        Secondary project identifier retained for instrument context.
+    files : list
+        Candidate input files to inspect.
+    out_dir : str
+        Output directory for the master bias product.
+    in_dir : str
+        Input directory for raw or intermediate files.
+    plot : bool
+        Flag controlling diagnostic plot creation.
+    arm : str
+        Full arm label used in the reduction directory tree.
+    sarm : str
+        Short arm label used in filenames ("H" or "R").
+    night : str
+        Observing night associated with the requested master bias.
+    """
+
     def __init__(self,files,in_dir,out_dir,arm,night,plot):
     
         self.EXPTIME = 0.
@@ -39,6 +100,37 @@ class MasterBias():
         
         
     def create_masterbias(self):
+    
+        """
+        Create or load the master bias frame for the requested night.
+
+        This method first checks whether a master bias file already exists in the
+        output directory. If it does, that file is returned immediately. Otherwise,
+        the method searches the available files for valid bias exposures, combines
+        them using the frame-stacking routine, and writes a new master bias FITS
+        file with associated variance, count, and uncertainty extensions.
+
+        If no suitable bias files are found for the requested night, the method
+        searches for the nearest night containing valid bias frames, applies
+        Level-0 corrections to those files, and uses them to build the master
+        bias.
+
+        The output FITS header includes:
+            - representative instrument and telescope metadata
+            - mean environmental quantities from the input frames
+            - the mean input overscan level
+            - the average master-bias level
+            - an estimate of the readout noise
+            - the number and list of files used
+
+        If diagnostic plotting is enabled, a PNG image of the master bias frame is
+        also written to disk.
+
+        Returns
+        -------
+        str
+            Path to the existing or newly created master bias FITS file.
+        """
 
         #Test if Master Bias exists
         master_file = glob.glob(self.out_dir+"Master_Bias_"+self.sarm+self.night+".fits")
@@ -284,6 +376,50 @@ class MasterBias():
 
 class SubtractBias():
 
+    """
+    Subtract a master bias frame from reduced HRS exposures.
+
+    This class applies bias subtraction to a set of Level-0-corrected science
+    or calibration files using a previously generated master bias frame. Before
+    subtraction, the master bias is scaled by the ratio of the target frame
+    overscan level to the master-bias overscan level in order to account for
+    short-timescale bias level variations.
+
+    The bias-subtracted files are written back to the reduction directory with
+    a filename prefix indicating that bias subtraction has been applied. The
+    original intermediate input files are removed after successful processing.
+
+    Parameters
+    ----------
+    master_file : str
+        Path to the master bias FITS file.
+    files : dict
+        Dictionary of files grouped by frame type.
+    base_dir : str
+        Base reduction directory.
+    arm : str
+        Arm label used in the directory tree.
+    date : str
+        Observing date in YYYYMMDD format.
+    type : str
+        File group to process, e.g. 'sci', 'arc', 'lfc', or 'flat'.
+
+    Attributes
+    ----------
+    master_bias : str
+        Path to the master bias FITS file.
+    files : dict
+        Dictionary of input files grouped by type.
+    base_dir : str
+        Base reduction directory.
+    arm : str
+        Arm label used in paths.
+    date : str
+        Observing date associated with the files.
+    type : str
+        File type to be bias-subtracted.
+    """
+
     def __init__(self,master_file,files,base_dir,arm, date,type):
         self.master_bias = master_file
         self.files = files
@@ -296,6 +432,28 @@ class SubtractBias():
         
         
     def subtract(self):
+    
+        """
+        Subtract the scaled master bias from all files of the selected type.
+
+        This method reads the master bias image and its header, then processes each
+        file in the requested file group. For each exposure, the master bias is
+        scaled using the ratio of the file overscan mean to the master-bias
+        overscan mean before subtraction. This compensates for frame-to-frame bias
+        level variations not captured by a simple fixed master bias.
+
+        The method updates each output header with:
+            - the name of the master bias file used
+            - the readout-noise estimate from the master bias
+
+        The corrected files are written to disk with a leading `b` prefix and the
+        original input intermediate files are deleted after successful writing.
+
+        Returns
+        -------
+        list
+            List of output file paths for the bias-subtracted files.
+        """
     
         #Subtract the bias from Sci, Arc, Flat and LFC frames
         f_types = ['sci', 'arc', 'lfc','flat']

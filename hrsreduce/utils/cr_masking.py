@@ -8,8 +8,37 @@ import matplotlib.pyplot as plt
 logger = logging.getLogger(__name__)
 
 def CosmicRayMasking(all_files, arm, verbose=True):
-    """Masks cosmic rays from input file.
     """
+    Apply cosmic-ray rejection to science frames using the Astro-SCRAPPY algorithm.
+
+    This routine scans a set of science exposures and applies the Laplacian
+    cosmic-ray detection algorithm implemented in `astroscrappy.detect_cosmics`.
+    Detected cosmic-ray pixels are replaced with cleaned values and the modified
+    image is written back to the original FITS file.
+
+    To avoid corrupting bright stellar spectra or saturated regions, the routine
+    first estimates the mean signal level in the central detector column. If the
+    mean count level exceeds a fixed threshold, the cosmic-ray cleaning step is
+    skipped because strong stellar flux can cause false detections along order
+    edges.
+
+    Parameters
+    ----------
+    all_files : dict
+        Dictionary containing lists of files grouped by frame type. The routine
+        currently processes entries under the key `'sci'`.
+    arm : str
+        Spectrograph arm identifier ("H" or "R"). Used to select a default
+        read-noise value if the header keyword is missing.
+    verbose : bool, optional
+        If True, report the number of detected cosmic-ray pixels for each frame.
+
+    Returns
+    -------
+    list
+        List of processed science files.
+    """
+    
     sigclip = 10.
     sigfrac = 0.3
     f_types = ['sci']
@@ -45,6 +74,7 @@ def CosmicRayMasking(all_files, arm, verbose=True):
                         sigfrac=sigfrac
                     )
                     hdu[0].data = clean_img
+                    hdu[0].header['CRCLEAN'] = ("True", "Cosmic Ray cleaning applied")
 
                     if verbose:
                         N = recov_mask.sum()
@@ -52,5 +82,7 @@ def CosmicRayMasking(all_files, arm, verbose=True):
                     
                     hdu.flush()
                 else:
+                    hdu[0].header['CRCLEAN'] = ("False", "Cosmic Ray cleaning applied")
                     logger.info('CR process skipped, likely to interfere with science for file {}'.format(file))
+                    hdu.flush()
     return files

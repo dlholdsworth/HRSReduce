@@ -19,19 +19,22 @@ def vac2air(wl_vac):
     return wl_air
 
 
-data, intent = np.loadtxt("New_Th_linelist_vac.list", usecols=(0,1),unpack=True)
-print(data)
-intent = intent.astype(int)
-air_data = vac2air(data)
-print(air_data)
+data_NIST = np.loadtxt("./Intermediate_files/Th_linelist_NIST_air.list", usecols=(0),unpack=True)
 
-out_data = np.array([air_data,intent])
+Redman = np.loadtxt("Intermediate_files/Redman_line_list.list",usecols=(2),unpack=True)
 
-np.savetxt("New_Th_linelist_air.list",out_data.T,fmt='%16.8f %5i')
+#intent = intent.astype(int)
+air_Redman = vac2air(Redman)
 
-plt.vlines(air_data,0,intent)
+#out_data = np.array([air_data,intent])
+
+#np.savetxt("New_Th_linelist_air.list",out_data.T,fmt='%16.8f %5i')
+
+#plt.vlines(air_data,0,intent)
 
 data = np.loadtxt("thar_list_orig.txt",usecols=0,unpack=True)
 plt.vlines(data,0,100,'r')
+plt.vlines(data_NIST,0,50,'b')
+plt.xlim(3700,9000)
 
 plt.show()

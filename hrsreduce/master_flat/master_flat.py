@@ -13,6 +13,77 @@ logger = logging.getLogger(__name__)
 
 class MasterFlat():
 
+    """
+    Create a master flat frame from reduced HRS flat-field exposures.
+
+    This class identifies suitable flat-field frames, rejects obviously bad
+    inputs, normalises each accepted frame by exposure time, and combines the
+    stack into a master flat image. The final product is written to disk with
+    associated count and uncertainty extensions for later use in spectral
+    extraction and blaze correction workflows.
+
+    The class supports both standard nightly master flats and optional
+    "super-flat" products. The output location and filename convention depend
+    on whether a normal master flat or a super-flat is being generated.
+
+    During processing, the class:
+        - selects files with the expected flat-field calibration metadata
+        - rejects frames with too little structure or dynamic range
+        - records environmental and detector metadata from the input files
+        - normalises each frame by exposure time
+        - combines the frames using the frame-stacking routine
+        - writes the stacked master flat and associated metadata to FITS
+
+    Parameters
+    ----------
+    files : list
+        List of candidate flat-field FITS files.
+    nights : dict
+        Dictionary giving the observing night associated with each file group.
+    in_dir : str
+        Input directory for the current data set.
+    out_dir : str
+        Output directory for reduced products.
+    base_dir : str
+        Base reduction directory.
+    arm : str
+        Arm label used in the directory structure, typically "Blu" or "Red".
+    night : str
+        Target observing night in YYYYMMDD format.
+    mode : str
+        Instrument or observing mode used in output filenames.
+    plot : bool
+        If True, save a diagnostic image of the master flat frame.
+    super : bool, optional
+        If True, create a super-flat product instead of a standard nightly
+        master flat.
+
+    Attributes
+    ----------
+    propid : str
+        Expected project identifier for flat-field calibration frames.
+    files : list
+        Candidate input files to inspect.
+    nights : dict
+        Observing-night mapping for each file group.
+    tn : str
+        Target observing night.
+    base_dir : str
+        Base reduction directory.
+    plot : bool
+        Flag controlling diagnostic plot creation.
+    arm : str
+        Full arm label used in the directory tree.
+    mode : str
+        Instrument or observing mode.
+    sarm : str
+        Short arm label used in filenames ("H" or "R").
+    super : bool
+        Flag indicating whether to build a super-flat.
+    low_light_limit : float
+        Threshold intended for identifying low-illumination regions.
+    """
+
     def __init__(self,files,nights,in_dir,out_dir,base_dir,arm,night,mode,plot,super=False):
     
         self.propid = "CAL_FLAT"
@@ -34,6 +105,39 @@ class MasterFlat():
         
         
     def create_masterflat(self):
+    
+        """
+        Create or load the master flat frame for the selected night and mode.
+
+        This method first determines the correct output directory from the flat
+        night recorded in `self.nights`. It then checks whether the requested
+        master flat already exists on disk. If so, the existing file is returned.
+
+        If no master flat is present, the method:
+            1. selects flat-field exposures with the expected calibration metadata
+            2. rejects poor-quality files with insufficient image variation
+            3. normalises each accepted frame by its exposure time
+            4. combines the stack into a master flat using the frame-stacking
+               routine
+            5. writes the result to a FITS file with count and uncertainty
+               extensions
+
+        The output primary header is populated with representative instrument,
+        telescope, and environmental metadata, along with summary information such
+        as the mean Julian date and the number of files used.
+
+        If `self.super` is True, the combined product is written as a super-flat
+        in the dedicated super-flat directory. Otherwise, a standard nightly
+        master flat is written to the reduced-data directory.
+
+        If diagnostic plotting is enabled, a PNG image of the final master flat is
+        also saved.
+
+        Returns
+        -------
+        str
+            Path to the existing or newly created master flat FITS file.
+        """
         
         #Set the night for the master flat data
         yyyymmdd = str(self.nights['flat'][0:4])+str(self.nights['flat'][4:8])

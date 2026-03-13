@@ -4,7 +4,7 @@ from ._version import get_versions
 
 __version__ = get_versions()["version"]
 
-__version__ = "1.0.3 2025-11-28"
+__version__ = "1.1.0 2026-03-11"
 del get_versions
 
 # add logger to console

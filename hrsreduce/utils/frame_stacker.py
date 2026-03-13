@@ -2,23 +2,44 @@ import numpy as np
 import numpy.ma as ma
 
 class FrameStacker:
-
     """
-    Description:
-        This class stacks frames via averaging after clipping data
-        some number sigmas +/- the median on a pixel-by-pixel basis.
-        Sigma is a robust estimator of data dispersion along the
-        z-axis of the input stack at a given pixel position.
+    Combine a stack of image frames using robust pixel-by-pixel statistics.
 
-    Arguments:
-        frames_data (numpy array): 3-D stack of images.
-        n_sigma (float): Number of sigmas for data clipping (default = 2.5).
+    This class is used to create master calibration products from multiple
+    input frames. It operates on a three-dimensional image stack and combines
+    the frames on a pixel-by-pixel basis after rejecting outliers using
+    sigma clipping. The output includes the stacked image, the corresponding
+    variance, the number of contributing frames per pixel, and the estimated
+    uncertainty.
 
-    Attributes:
-        frames_data (numpy array) of image stack.
-        n_sigma (float): Number of sigmas for data clipping (default = 2.5).
-        
-    Origin : KPF DRP
+    The clipping threshold is defined relative to a robust estimate of the
+    pixel dispersion, computed from the 16th and 84th percentiles of the
+    values in the stack. Because clipping artificially reduces the measured
+    variance, the class also estimates and applies a correction factor using
+    Monte Carlo simulations of normally distributed data.
+
+    Parameters
+    ----------
+    frames_data : numpy.ndarray
+        Three-dimensional image stack with shape
+        `(n_frames, n_rows, n_cols)`.
+    n_sigma : float, optional
+        Sigma-clipping threshold applied about the per-pixel median.
+    logger : logging.Logger, optional
+        Logger used for status and debug messages.
+
+    Attributes
+    ----------
+    frames_data : numpy.ndarray
+        Input stack of image frames.
+    n_sigma : float
+        Sigma-clipping threshold.
+    logger : logging.Logger or None
+        Logger used for status and debug output.
+
+    Notes
+    -----
+    Origin: KPF DRP
     """
 
     __version__ = '1.0.1'
@@ -37,10 +58,18 @@ class FrameStacker:
     def compute_clip_corr(self):
 
         """
-        Compute a correction factor to properly reinflate the variance after it is
-        naturally diminished via data-clipping.  Employ a simple Monte Carlo method
-        and standard normal deviates to simulate the data-clipping and obtain the
-        correction factor.
+        Estimate the variance correction factor introduced by sigma clipping.
+
+        Sigma clipping suppresses outliers but also reduces the measured variance
+        of the retained sample. This method uses Monte Carlo simulations of
+        standard normal random values to estimate how much the variance is
+        systematically reduced for the chosen clipping threshold, and returns the
+        factor needed to restore the expected variance.
+
+        Returns
+        -------
+        float
+            Multiplicative correction factor applied to clipped variances.
         """
 
         n_sigma = self.n_sigma
@@ -78,10 +107,24 @@ class FrameStacker:
     def compute(self):
 
         """
-        Perform n-sigma data clipping and subsequent stack-averaging,
-        using data from class attributes.
+        Compute a sigma-clipped mean stack and its associated statistics.
 
-        Return the data-clipped-mean image.
+        This method performs pixel-by-pixel sigma clipping across the input frame
+        stack, computes the mean of the retained values, and returns the stacked
+        image together with a variance estimate, the number of contributing frames
+        per pixel, and the propagated uncertainty.
+
+        The variance is corrected using the factor returned by
+        `compute_clip_corr()` to account for the bias introduced by clipping.
+
+        Returns
+        -------
+        tuple
+            Four-element tuple containing:
+                - `avg` : sigma-clipped mean image
+                - `var` : corrected variance image
+                - `cnt` : number of contributing frames per pixel
+                - `unc` : uncertainty image
         """
 
         cf = self.compute_clip_corr()
@@ -128,12 +171,22 @@ class FrameStacker:
 #
 
     def compute_stack_median(self):
-
         """
-        Compute median of stack.
-        Data dispersion is based on the median absolute deviation.
+        Compute the median stack and associated statistics.
 
-        Returns the stack median image.
+        This alternative stacking method is intended for situations where too few
+        frames are available for reliable sigma-clipped averaging. It computes the
+        pixel-by-pixel median of the stack and estimates the variance from the
+        median absolute deviation.
+
+        Returns
+        -------
+        tuple
+            Four-element tuple containing:
+                - `med` : median-stacked image
+                - `var` : variance estimate from the median absolute deviation
+                - `cnt` : number of input frames contributing to each pixel
+                - `unc` : uncertainty image
         """
 
         a = self.frames_data

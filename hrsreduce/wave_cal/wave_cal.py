@@ -18,9 +18,92 @@ from hrsreduce.wave_cal.build_wavemodel import BuildWaveModel
 logger = logging.getLogger(__name__)
 
 class WavelengthCalibration():
+    """
+    Manage wavelength calibration for a single extracted arc frame.
 
+    This class acts as the high-level controller for generating wavelength
+    solutions from HRS calibration exposures. It determines which calibration
+    strategy to use based on the observing mode and calibration type, loads
+    the required reference data, runs the wavelength solution, and saves the
+    resulting calibrated wavelength arrays back into the FITS file.
+
+    Parameters
+    ----------
+    arc_file : str
+        Path to the extracted arc FITS file to be calibrated.
+    super_arc : str
+        Path to the super-arc FITS file used for non-HS calibration modes.
+    sarm : str
+        Spectrograph arm identifier. Only the first character is used
+        internally, typically 'H' or 'R'.
+    mode : str
+        Instrument mode, e.g. 'HS', 'HR', 'MR', or 'LR'.
+    base_dir : str
+        Base working directory for the reduction.
+    cal_type : str
+        Calibration source type, typically 'LFC' or 'ThAr'.
+    plot : bool, optional
+        If True, generate diagnostic plots during wavelength calibration.
+
+    Attributes
+    ----------
+    file : str
+        Path to the arc file being calibrated.
+    super : str
+        Path to the super-arc file.
+    arm : str
+        Single-character arm identifier.
+    mode : str
+        Instrument mode.
+    base_dir : str
+        Reduction base directory.
+    cal_type : str
+        Calibration source type.
+    nord : int
+        Number of orders in the extracted spectrum, read from the FITS header.
+    alg : WaveCalAlg
+        Algorithm object used to perform the wavelength calibration.
+    linelist_path_U : str
+        Path to the line list for Fibre_U.
+    linelist_path_L : str
+        Path to the line list for Fibre_L.
+    rough_wls : ndarray or None
+        Placeholder for rough wavelength solutions, if used.
+    plot : bool
+        Diagnostic plotting toggle.
+    save_diagnostics : str
+        Directory where diagnostic outputs should be written.
+    save_wl_pixel_toggle : bool
+        Toggle controlling whether wavelength-pixel products are saved.
+    """
     def __init__(self, arc_file,super_arc,sarm,mode,base_dir,cal_type,plot=False):
     
+        """
+        Initialise the wavelength calibration object.
+
+        This sets up file paths, logging, calibration configuration, and
+        mode-dependent reference line lists. It also reads the number of
+        spectral orders from the extracted arc FITS file and constructs the
+        lower-level wavelength calibration algorithm object.
+
+        Parameters
+        ----------
+        arc_file : str
+            Path to the extracted arc FITS file.
+        super_arc : str
+            Path to the super-arc FITS file.
+        sarm : str
+            Spectrograph arm identifier.
+        mode : str
+            Instrument mode.
+        base_dir : str
+            Base reduction directory.
+        cal_type : str
+            Calibration type, e.g. 'LFC' or 'ThAr'.
+        plot : bool, optional
+            If True, enable diagnostic plotting.
+        """
+        
         self.file = arc_file
         self.super = super_arc
         self.arm = sarm[0]
@@ -44,23 +127,23 @@ class WavelengthCalibration():
             self.linelist_path_U = "./hrsreduce/wave_cal/HS_R_linelist_U.npy"
             self.linelist_path_L = "./hrsreduce/wave_cal/HS_R_linelist_L.npy"
         if self.mode == 'HR' and self.arm == 'H':
-            self.linelist_path_U = "./hrsreduce/wave_cal/HR_H_linelist_U.npy"
-            self.linelist_path_L = "./hrsreduce/wave_cal/HR_H_linelist_L.npy"
+            self.linelist_path_U = "./hrsreduce/wave_cal/HR_H_linelist_U_2026.npy"
+            self.linelist_path_L = "./hrsreduce/wave_cal/HR_H_linelist_L_2026.npy"
         if self.mode == 'HR' and self.arm == 'R':
-            self.linelist_path_U = "./hrsreduce/wave_cal/HR_R_linelist_U.npy"
-            self.linelist_path_L = "./hrsreduce/wave_cal/HR_R_linelist_L.npy"
+            self.linelist_path_U = "./hrsreduce/wave_cal/HR_R_linelist_U_2026.npy"
+            self.linelist_path_L = "./hrsreduce/wave_cal/HR_R_linelist_L_2026.npy"
         if self.mode == 'MR' and self.arm == 'H':
-            self.linelist_path_U = "./hrsreduce/wave_cal/New_MR_H_linelist_U_clean.npy"
-            self.linelist_path_L = "./hrsreduce/wave_cal/New_MR_H_linelist_L_clean.npy"
+            self.linelist_path_U = "./hrsreduce/wave_cal/MR_H_linelist_U_2026.npy"
+            self.linelist_path_L = "./hrsreduce/wave_cal/MR_H_linelist_L_2026.npy"
         if self.mode == 'MR' and self.arm == 'R':
-            self.linelist_path_U = "./hrsreduce/wave_cal/New_MR_R_linelist_U_clean.npy"
-            self.linelist_path_L = "./hrsreduce/wave_cal/New_MR_R_linelist_L_clean.npy"
+            self.linelist_path_U = "./hrsreduce/wave_cal/MR_R_linelist_U_2026.npy"
+            self.linelist_path_L = "./hrsreduce/wave_cal/MR_R_linelist_L_2026.npy"
         if self.mode == 'LR' and self.arm == 'H':
-            self.linelist_path_U = "./hrsreduce/wave_cal/New_LR_H_linelist_U_clean.npy"
-            self.linelist_path_L = "./hrsreduce/wave_cal/New_LR_H_linelist_L_clean.npy"
+            self.linelist_path_U = "./hrsreduce/wave_cal/LR_H_linelist_U_2026.npy"
+            self.linelist_path_L = "./hrsreduce/wave_cal/LR_H_linelist_L_2026.npy"
         if self.mode == 'LR' and self.arm == 'R':
-            self.linelist_path_U = "./hrsreduce/wave_cal/New_LR_R_linelist_U_clean.npy"
-            self.linelist_path_L = "./hrsreduce/wave_cal/New_LR_R_linelist_L_clean.npy"
+            self.linelist_path_U = "./hrsreduce/wave_cal/LR_R_linelist_U_2026.npy"
+            self.linelist_path_L = "./hrsreduce/wave_cal/LR_R_linelist_L_2026.npy"
             
             
         self.rough_wls = None
@@ -69,19 +152,39 @@ class WavelengthCalibration():
         self.save_wl_pixel_toggle = True
             
     def execute(self):
+        """
+        Run the wavelength calibration workflow.
+
+        This method checks whether a master wavelength file already exists for
+        the current night. If not, it performs the calibration using either
+        the HS or non-HS pathway, writes the wavelength solution and precision
+        arrays into the FITS file, and saves a nightly master copy.
+
+        Returns
+        -------
+        str
+            Path to the saved master wavelength FITS file.
+
+        Raises
+        ------
+        ValueError
+            If an unsupported calibration type is requested or a required
+            ThAr line list is missing.
+        """
     
         #Test if the Master_wave file exisits for the night. If so, skip.
         path = os.path.dirname(self.file)
         obs_date=(os.path.basename(self.file)[-17:-5])
         dst = (path +"/"+str(self.mode)+"_Master_Wave_"+str(self.arm)+str(obs_date)+".fits")
+        diag_plot = (path +"/"+str(self.mode)+"_Master_Wave_Diagnostics_"+str(self.arm)+str(obs_date))
     
         master_wave = glob.glob(dst)
         if len(master_wave) == 0:
             with fits.open(self.file) as hdul:
                 if self.arm =='R':
-                    ref_arc = "./hrsreduce/wave_cal/HR_Super_Arc_R_Reference.fits"
+                    ref_arc = "./hrsreduce/wave_cal/"+str(self.mode)+"_Super_Arc_R_Reference.fits"
                 if self.arm =='H':
-                    ref_arc = "./hrsreduce/wave_cal/HR_Super_Arc_H_Reference.fits"
+                    ref_arc = "./hrsreduce/wave_cal/"+str(self.mode)+"_Super_Arc_H_Reference.fits"
             
                 with fits.open(ref_arc) as hdu_ref:
                     ref_U_fluxes = np.nan_to_num(hdu_ref['Fibre_U'].data)
@@ -163,22 +266,23 @@ class WavelengthCalibration():
                             Su_L_fluxes = np.nan_to_num(Shdu['Fibre_L'].data)
                             
                         
-                        wl_soln_U, order_precisions_U,absolute_precision_U  = self.alg.run_wavelength_cal_nonHS(U_fluxs,Su_U_fluxes,ref_U_fluxes,self.linelist_path_U,self.nord, self.arm)
-                        self.logger.info("Overall absolute precision (all orders U): {} m/s".format(absolute_precision_U))
+                        wl_soln_U, order_precisions_U,absolute_precision_U  = self.alg.run_wavelength_cal_nonHS(U_fluxs,Su_U_fluxes,ref_U_fluxes,self.linelist_path_U,self.nord, self.arm,self.mode,diag_plot,'_U.png',obs_date)
+                        self.logger.info("Overall rms (all orders U): {}".format(absolute_precision_U))
                         
-                        wl_soln_L, order_precisions_L, absolute_precision_L = self.alg.run_wavelength_cal_nonHS(L_fluxs,Su_L_fluxes,ref_L_fluxes,self.linelist_path_L,self.nord, self.arm)
-                        self.logger.info("Overall absolute precision (all orders L): {} m/s".format(absolute_precision_L))
+                        wl_soln_L, order_precisions_L, absolute_precision_L = self.alg.run_wavelength_cal_nonHS(L_fluxs,Su_L_fluxes,ref_L_fluxes,self.linelist_path_L,self.nord, self.arm,self.mode,diag_plot,'_L.png',obs_date)
+                        self.logger.info("Overall rms (all orders L): {}".format(absolute_precision_L))
+                        
                         
                     #Save the wavelength solution to a new fits extension
                     Ext_wave_U = fits.ImageHDU(data=wl_soln_U, name="WAVE_U")
-                    Ext_wave_U.header["RV_PREC"] = ((absolute_precision_U),"Overall absolute precision (all orders) m/s")
+                    Ext_wave_U.header["WAVE_RMS"] = ((absolute_precision_U),"Overall rms (all orders)")
                     hdul.append(Ext_wave_U)
                     Ext_wave_U2 = fits.ImageHDU(name='WAVE_U_PRE', data=order_precisions_U)
                     hdul.append(Ext_wave_U2)
 
                     #Save the wavelength solution to a new fits extension
                     Ext_wave_L = fits.ImageHDU(data=wl_soln_L, name="WAVE_L")
-                    Ext_wave_L.header["RV_PREC"] = ((absolute_precision_L),"Overall absolute precision (all orders) m/s")
+                    Ext_wave_L.header["WAVE_RMS"] = ((absolute_precision_L),"Overall rms (all orders)")
                     hdul.append(Ext_wave_L)
                     Ext_wave_L2 = fits.ImageHDU(name='WAVE_L_PRE', data=order_precisions_L)
                     hdul.append(Ext_wave_L2)

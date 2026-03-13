@@ -15,6 +15,72 @@ from hrsreduce.master_flat.master_flat import MasterFlat
 logger = logging.getLogger(__name__)
 
 class SuperFlat():
+    """
+    Build a super-flat from HRS flat-field exposures spanning multiple nights.
+
+    This class searches a user-defined date range for suitable flat-field
+    frames, applies Level-0 corrections, creates the required nightly master
+    bias frames, subtracts bias from the flats, and finally combines the
+    bias-corrected flats into a super-flat product using the existing
+    `MasterFlat` workflow.
+
+    The super-flat is intended to provide a higher signal-to-noise flat-field
+    calibration by combining data over many nights, restricted to a specific
+    spectrograph arm and observing mode. Only files matching the expected
+    detector dimensions, calibration type, and observing mode are included.
+
+    Parameters
+    ----------
+    year : str
+        Observing year used in the directory structure.
+    base_dir : str
+        Base reduction directory containing the nightly raw and reduced data.
+    arm : str
+        Arm label used in the directory tree, typically "Blu" or "Red".
+    mode : str
+        Observing mode identifier, e.g. "HS", "HR", "MR", or "LR".
+    start : str
+        Start date of the search range in YYYYMMDD format.
+    end : str
+        End date of the search range in YYYYMMDD format.
+    plot : bool, optional
+        If True, enable diagnostic plot generation during later processing
+        stages.
+
+    Attributes
+    ----------
+    flat_propid : str
+        Expected project identifier for flat-field calibration frames.
+    bias_propid : str
+        Expected project identifier for bias calibration frames.
+    year : str
+        Observing year used when traversing the directory tree.
+    base_dir : str
+        Base reduction directory.
+    plot : bool
+        Flag controlling diagnostic plotting.
+    arm : str
+        Full arm label used in the reduction tree.
+    sarm : str
+        Short arm identifier used by downstream routines ("H" or "R").
+    ax1 : int
+        Expected raw detector size along the x-axis for the selected arm.
+    ax2 : int
+        Expected raw detector size along the y-axis for the selected arm.
+    s_date : str
+        Start date of the requested search interval.
+    e_date : str
+        End date of the requested search interval.
+    mode : str
+        Short observing mode code.
+    modefull : str
+        Full observing mode name as stored in FITS headers.
+    tn : str
+        Dummy target-night placeholder used when running Level-0 corrections
+        across multiple nights.
+    low_light_limit : float
+        Threshold reserved for possible low-illumination filtering.
+    """
 
     def __init__(self,year,base_dir,arm,mode,start,end,plot=False):
     
@@ -53,6 +119,33 @@ class SuperFlat():
         return [start_date + timedelta(days=n) for n in range(int((end_date - start_date).days) + 1)]
 
     def create_superflat(self):
+        """
+        Create a super-flat from all valid flats found within the date range.
+
+        This method searches the nightly raw-data directories between the requested
+        start and end dates and identifies flat-field exposures matching the
+        required arm, observing mode, and detector geometry. Each accepted flat is
+        first passed through the Level-0 correction stage.
+
+        For every night contributing flats, the method then:
+            1. identifies matching bias frames from that same night
+            2. applies Level-0 corrections to those bias frames
+            3. creates a nightly master bias
+            4. subtracts the master bias from the reduced flat files
+
+        Once all selected flats have been bias-subtracted, the full collection is
+        passed to the `MasterFlat` class to create a combined super-flat product
+        spanning the requested date range.
+
+        The resulting super-flat is written using the super-flat output mode of
+        the `MasterFlat` workflow.
+
+        Returns
+        -------
+        None
+            The final super-flat product is written to disk by the downstream
+            master-flat routine.
+        """
     
         logger.info('Creating Super Flat file for {} arm, {} mode between {} and {}'.format(self.arm, self.mode,self.s_date, self.e_date))
         

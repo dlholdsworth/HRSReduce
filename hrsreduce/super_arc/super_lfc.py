@@ -15,7 +15,78 @@ from hrsreduce.super_arc.alg import MasterLFC
 logger = logging.getLogger(__name__)
 
 class SuperLFC():
+    """
+    Build a super-LFC from HRS laser-frequency-comb exposures spanning multiple nights.
 
+    This class searches a user-defined date range for suitable LFC
+    calibration frames, applies Level-0 corrections, creates the required
+    nightly master bias frames, subtracts bias from the LFC exposures, and
+    finally combines the bias-corrected frames into a super-LFC product using
+    the existing `MasterLFC` workflow.
+
+    The super-LFC is intended to provide a higher signal-to-noise calibration
+    reference by combining data over many nights, restricted to a specific
+    spectrograph arm and observing mode. Only files matching the expected
+    detector dimensions, calibration type, observing mode, iodine-stage
+    configuration, and exposure time are included.
+
+    Parameters
+    ----------
+    year : str
+        Observing year used in the directory structure.
+    base_dir : str
+        Base reduction directory containing the nightly raw and reduced data.
+    arm : str
+        Arm label used in the directory tree, typically "Blu" or "Red".
+    mode : str
+        Observing mode identifier, e.g. "HS", "HR", "MR", or "LR".
+    start : str
+        Start date of the search range in YYYYMMDD format.
+    end : str
+        End date of the search range in YYYYMMDD format.
+    plot : bool, optional
+        If True, enable diagnostic plot generation during later processing
+        stages.
+
+    Attributes
+    ----------
+    arc_propid : str
+        Expected project identifier for LFC calibration frames.
+    bias_propid : str
+        Expected project identifier for bias calibration frames.
+    year : str
+        Observing year used when traversing the directory tree.
+    base_dir : str
+        Base reduction directory.
+    plot : bool
+        Flag controlling diagnostic plotting.
+    arm : str
+        Full arm label used in the reduction tree.
+    sarm : str
+        Short arm identifier used by downstream routines ("H" or "R").
+    ax1 : int
+        Expected raw detector size along the x-axis for the selected arm.
+    ax2 : int
+        Expected raw detector size along the y-axis for the selected arm.
+    s_date : str
+        Start date of the requested search interval.
+    e_date : str
+        End date of the requested search interval.
+    mode : str
+        Short observing mode code.
+    fullmode : str
+        Full observing mode name as stored in FITS headers.
+    I2STAGE : str
+        Expected iodine-stage or calibration configuration for valid LFC
+        frames.
+    exp : float
+        Required exposure time for valid LFC frames in the selected mode.
+    tn : str
+        Dummy target-night placeholder used when running Level-0 corrections
+        across multiple nights.
+    low_light_limit : float
+        Threshold reserved for possible low-illumination filtering.
+    """
     def __init__(self,year,base_dir,arm,mode,start,end,plot=False):
     
         self.arc_propid = "ENG_HRS"
@@ -65,6 +136,34 @@ class SuperLFC():
         return [start_date + timedelta(days=n) for n in range(int((end_date - start_date).days) + 1)]
 
     def create_superlfc(self):
+        """
+        Create a super-LFC from all valid LFC frames found within the date range.
+
+        This method searches the nightly raw-data directories between the
+        requested start and end dates and identifies LFC exposures matching the
+        required arm, observing mode, detector geometry, iodine-stage
+        configuration, and exposure time. Each accepted LFC frame is first passed
+        through the Level-0 correction stage.
+
+        For every night contributing LFC frames, the method then:
+            1. identifies matching bias frames from that same night
+            2. applies Level-0 corrections to those bias frames
+            3. creates a nightly master bias
+            4. subtracts the master bias from the reduced LFC files
+
+        Once all selected LFC frames have been bias-subtracted, the full
+        collection is passed to the `MasterLFC` class to create a combined
+        super-LFC product spanning the requested date range.
+
+        The resulting super-LFC is written using the super-LFC output mode of the
+        `MasterLFC` workflow.
+
+        Returns
+        -------
+        None
+            The final super-LFC product is written to disk by the downstream
+            master-LFC routine.
+        """
         
         #Find all arc files in the given date range
         logger.info('Creating Super LFC file for {} arm, {} mode between {} and {}'.format(self.arm, self.mode,self.s_date, self.e_date))

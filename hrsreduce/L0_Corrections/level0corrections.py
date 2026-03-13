@@ -9,16 +9,84 @@ import os
 logger = logging.getLogger(__name__)
 
 class L0Corrections():
-
     """
-    Description:
-        This class applyies the level 0 corrections to HRS data. This included the removal of the overscan region, gain correction (inc. for multiport readout) and flipping of Red frames so that the orders run bottom --> top , blue --> red.
+    Apply Level-0 detector corrections to SALT HRS raw frames.
 
-    Arguments:
+    This class performs the first stage of instrumental processing for HRS
+    exposures before any tracing, extraction, or calibration steps. It reads
+    raw FITS files, removes overscan regions, reconstructs the science image
+    from the detector readout geometry, applies amplifier-dependent gain
+    corrections, and standardises image orientation for downstream reduction.
 
+    The implementation supports both HRS arms and their expected amplifier
+    configurations:
 
-    Attributes:
+    - Blue arm ("H"): 1- or 2-amplifier readout
+    - Red arm ("R"): 1- or 4-amplifier readout
 
+    For each file, the class:
+    1. Identifies overscan and data sections from FITS header keywords
+    2. Measures and records the mean overscan level(s) in the header
+    3. Trims away overscan regions
+    4. Reassembles multi-amplifier data into a single contiguous science frame
+    5. Applies gain correction to convert counts to electrons
+    6. Flips Red-arm frames into a consistent orientation so that spectral
+       orders run from bottom to top and from blue to red
+    7. Writes corrected intermediate/output files to the appropriate reduction
+       directory structure
+
+    Parameters
+    ----------
+    files : dict
+        Dictionary of input files grouped by frame type.
+    nights : dict
+        Dictionary giving the observing night associated with each file group.
+    targ_night : str
+        Target observing night currently being reduced.
+    in_dir : str
+        Input directory containing the raw files for the target night.
+    out_dir : str
+        Output directory for intermediate Level-0 products of the target night.
+    base_dir : str
+        Base reduction directory used when writing files for non-target nights.
+    arm : str
+        Spectrograph arm identifier. Expected to begin with "H" (blue arm) or
+        "R" (red arm).
+
+    Attributes
+    ----------
+    files : dict
+        Updated dictionary of files after Level-0 processing.
+    nights : dict
+        Observing-night mapping for each file group.
+    tn : str
+        Target night being actively reduced.
+    in_dir : str
+        Input directory for raw data.
+    out_dir : str
+        Output directory for processed files.
+    base_dir : str
+        Base directory for the reduction tree.
+    arm : str
+        Short arm identifier ("H" or "R").
+    arm_col : str
+        Full arm label used in the directory structure ("Blu" or "Red").
+    naxis1 : int
+        Expected trimmed image size along the x-axis for the selected arm.
+    naxis2 : int
+        Expected trimmed image size along the y-axis for the selected arm.
+
+    Notes
+    -----
+    This class assumes the FITS headers contain valid detector geometry
+    keywords such as NAMPS, BIASSEC, DATASEC, and GAIN. The output filenames
+    are prefixed to reflect processing stage:
+    
+    - 'o' : overscan-trimmed file
+    - 'g' : gain-corrected final Level-0 file
+
+    The `run()` method applies the full Level-0 sequence to all files and
+    skips files whose final intermediate products already exist.
     """
 
     def __init__(self,files,nights,targ_night,in_dir,out_dir,base_dir,arm):
@@ -42,9 +110,37 @@ class L0Corrections():
     
     def oscan(self,file,night):
     
-        '''
-        This removes the overscan region, while adding the average as a new header keyword ['OS_AVG']
-        '''
+        """
+        Remove detector overscan regions and reconstruct the science image.
+
+        This method reads the overscan and data regions from the FITS header
+        keywords (`BIASSEC`, `DATASEC`) and trims the raw detector frame to the
+        usable science area. The mean value of the overscan region(s) is computed
+        and stored in the header keyword `OS_MEAN`.
+
+        For multi-amplifier readouts, the method:
+            - Separately measures the overscan for each amplifier
+            - Extracts the science region for each amplifier
+            - Reassembles the amplifier sections into a single contiguous frame
+
+        The resulting trimmed image replaces the original data array and updated
+        geometry keywords (`DATASEC`, `DATASEC1`, etc.) are written to the header.
+
+        A new FITS file prefixed with `o` (overscan-corrected) is written to the
+        appropriate reduction directory.
+
+        Parameters
+        ----------
+        file : str
+            Path to the input FITS file.
+        night : str
+            Observing night associated with the file.
+
+        Returns
+        -------
+        str
+            Path to the overscan-corrected output FITS file.
+        """
 
         with fits.open(file) as hdu:
             hdr = hdu[0].header
@@ -311,10 +407,36 @@ class L0Corrections():
     
     def gain(self, file,night):
     
-        '''
-        This corrects for the gain converting to adu to photoelectrons, dealing with the relavent amplifiers if needed.
-        It also flips the Red arm data
-        '''
+        """
+        Apply gain correction and standardise detector orientation.
+
+        This method converts detector counts (ADU) to electrons by applying the
+        amplifier gain values stored in the FITS header keyword `GAIN`. For
+        multi-amplifier readouts, gain corrections are applied independently to
+        the data regions corresponding to each amplifier.
+
+        The method also updates the overscan mean values (`OS_MEAN`) to reflect
+        the gain conversion and records the average gain used in the header
+        keyword `AVG_GAIN`.
+
+        For Red-arm frames, the image is flipped vertically so that the spectral
+        orders follow a consistent orientation across both arms:
+            bottom → top and blue → red.
+
+        A new FITS file prefixed with `g` (gain-corrected) is written to disk.
+
+        Parameters
+        ----------
+        file : str
+            Path to the overscan-corrected FITS file.
+        night : str
+            Observing night associated with the file.
+
+        Returns
+        -------
+        str
+            Path to the gain-corrected output FITS file.
+        """
         
         with fits.open(file) as hdu:
         
@@ -496,6 +618,28 @@ class L0Corrections():
                     raise ValueError("Reduction failed in "+self.__class__.__name__+" as Number of Amplifiers not known (given "+str(namps)+" not in [1,4])")
 
     def run(self):
+    
+        """
+        Execute the Level-0 correction pipeline for all input files.
+
+        This method iterates through all files provided in the `files`
+        dictionary and applies the full Level-0 processing sequence:
+
+            1. Overscan removal (`oscan`)
+            2. Gain correction and orientation standardisation (`gain`)
+
+        If a fully processed intermediate file already exists (identified by the
+        `go` filename prefix), processing for that file is skipped and the
+        existing product is used instead.
+
+        Intermediate overscan-only files are removed after gain correction,
+        leaving only the final Level-0 output.
+
+        Returns
+        -------
+        dict
+            Updated dictionary containing paths to the fully corrected files.
+        """
     
         #First check to see if this has been run by checking for intermediate files
         for type in self.files.keys():

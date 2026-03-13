@@ -6,6 +6,41 @@ import logging
 from .sort_files import SortFiles
 
 def FindNearestFiles(type,night,m,base_dir,arm_colour,logger):
+    """
+    Locate the nearest available calibration files when none exist for a target night.
+
+    This helper routine searches the nightly directory structure for calibration
+    frames (bias, flat, arc, or LFC) when none are present for the requested
+    observing night. The search proceeds outward in time, alternating between
+    earlier and later nights, until suitable files are found.
+
+    The routine relies on the `SortFiles` utility to classify files within each
+    nightly raw-data directory and returns the first set of matching calibration
+    files encountered.
+
+    Parameters
+    ----------
+    type : str
+        Calibration type to search for. Supported values are "Bias", "Flat",
+        "Arc", or "LFC".
+    night : str
+        Target observing night in YYYYMMDD format.
+    m : str
+        Observing mode used when filtering files.
+    base_dir : str
+        Base reduction directory containing the nightly raw-data structure.
+    arm_colour : str
+        Spectrograph arm directory name ("Blu" or "Red").
+    logger : logging.Logger
+        Logger used for status messages during the search.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+            - list of matching calibration files
+            - the observing night (YYYYMMDD) from which the files were selected
+    """
     
     if type == "Bias":
         idx = 0
@@ -41,9 +76,7 @@ def FindNearestFiles(type,night,m,base_dir,arm_colour,logger):
                 )
                 files_night = str(prev_year+prev_mmdd)
                 break
-            else:
-                continue
-            
+
         next_night = arrow.get(next_night).shift(days=+1).format('YYYYMMDD')
         next_year=next_night[0:4]
         next_mmdd=next_night[4:8]

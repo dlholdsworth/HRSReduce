@@ -1,21 +1,94 @@
-from astropy import units as u, constants as cst
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import numpy as np
 from numpy.fft import fft2, ifft2, fftshift
 from numpy.polynomial.legendre import Legendre
 from scipy.interpolate import interp1d
 import os
-import time
 import pandas as pd
 import scipy
-from scipy import signal
 import warnings
 from scipy.optimize import curve_fit
-from scipy.special import erf, binom
+from scipy.special import erf
 from scipy.linalg import lstsq
-from lmfit import  Model,Parameter
+
+from numpy.polynomial.chebyshev import chebvander
+from scipy.optimize import least_squares
+from scipy.signal import find_peaks
 
 class WaveCalAlg:
+    """
+    Provide wavelength-calibration utilities for HRS arc, LFC, and related calibrations.
+
+    This class groups together the algorithms used to identify calibration
+    lines, fit Gaussian peak positions, build 1D and 2D wavelength solutions,
+    reject outliers, evaluate calibration precision, and generate diagnostic
+    plots. It supports several calibration workflows, including ThAr arc
+    lamps, laser-frequency-comb frames, and iterative global wavelength
+    solutions across many orders.
+
+    The class contains both lower-level fitting helpers and higher-level
+    orchestration routines that operate on extracted order spectra. It also
+    includes tools for loading saved line lists, fitting polynomial surfaces
+    in pixel and order space, estimating residual statistics, and exporting
+    wavelength images.
+
+    Parameters
+    ----------
+    cal_type : str
+        Calibration type, e.g. "ThAr", "LFC", or "Etalon".
+    logger : logging.Logger
+        Logger instance used for status and diagnostic messages.
+    save_diagnostics : str, optional
+        Directory in which to save diagnostic plots and calibration outputs.
+    config : object, optional
+        Optional configuration context.
+    plot : bool, optional
+        If True, enable diagnostic plotting where supported.
+
+    Attributes
+    ----------
+    cal_type : str
+        Calibration type being processed.
+    save_diagnostics_dir : str or None
+        Output directory for diagnostic products.
+    red_skip_orders : object
+        Optional configuration for red orders to skip.
+    green_skip_orders : object
+        Optional configuration for green orders to skip.
+    chi_2_threshold : float
+        Maximum allowed chi-squared threshold for Gaussian line fits.
+    skip_orders : object
+        Optional set of orders to skip.
+    quicklook_steps : int
+        Step size used in quick-look calculations.
+    min_wave : float
+        Minimum wavelength for calibration use.
+    max_wave : float
+        Maximum wavelength for calibration use.
+    fit_order : int
+        Polynomial order used in 1D wavelength fitting.
+    fit_type : str
+        Functional form used for 1D wavelength fitting.
+    n_sections : int
+        Number of spectrum sections used in peak-finding.
+    clip_peaks_toggle : bool
+        Flag controlling optional clipping of detected peaks.
+    clip_below_median : bool
+        Flag controlling optional removal of peaks below the median.
+    peak_height_threshold : float
+        Threshold used to detect significant peaks.
+    sigma_clip : float
+        Sigma-clipping threshold used in polynomial fitting.
+    fit_iterations : int
+        Number of fitting iterations for iterative polynomial solutions.
+    logger : logging.Logger
+        Logger instance.
+    etalon_mask_in : object
+        Optional etalon mask input.
+    plot : bool
+        Flag controlling diagnostic plotting.
+    """
 
     def __init__(
         self, cal_type, logger, save_diagnostics=None, config=None,plot=False):
@@ -52,144 +125,980 @@ class WaveCalAlg:
         self.etalon_mask_in = None #configpull.get_config_value('master_etalon_file',None)
         self.plot = plot
         
-    def reject_lines(self,m_x,m_ord,m_wave, nord, ncol, degree,threshold=100 ,plot=False):
-        """
-        Reject the largest outlier one by one until all residuals are lower than the threshold
-
-        Parameters
-        ----------
-        lines : recarray of shape (nlines,)
-            Line data with pixel position, and expected wavelength
-        threshold : float, optional
-            upper limit for the residual, by default 100
-        degree : tuple, optional
-            polynomial degree of the wavelength solution (pixel, column) (default: (6, 6))
-        plot : bool, optional
-            Wether to plot the results (default: False)
-
-        Returns
-        -------
-        lines : recarray of shape (nlines,)
-            Line data with updated flags
-        """
-
-        wave_solution = self.polyfit2d(m_x,m_ord,m_wave,degree)
-        residual = self.calculate_residual(wave_solution, m_x,m_ord,m_wave)
-        nbad = 0
-        while np.ma.any(np.abs(residual) > threshold):
-            m_x,m_ord,m_wave = self.reject_outlier(residual, m_x,m_ord,m_wave)
-            wave_solution = self.polyfit2d(m_x,m_ord,m_wave, degree)
-            residual = self.calculate_residual(wave_solution, m_x,m_ord,m_wave)
-            nbad += 1
-        self.logger.info("Discarding {} lines".format(nbad))
-
-        return m_x,m_ord,m_wave
-
-    def reject_outlier(self,residual, m_x,m_ord,m_wave):
-        """
-        Reject the strongest outlier
-
-        Parameters
-        ----------
-        residual : array of shape (nlines,)
-            residuals of all lines
-        lines : recarray of shape (nlines,)
-            line data
-
-        Returns
-        -------
-        lines : struct_array
-            line data with one more flagged line
-        residual : array of shape (nlines,)
-            residuals of each line, with outliers masked (including the new one)
-        """
-
-        # Strongest outlier
-        ibad = np.ma.argmax(np.abs(residual))
-        #lines["flag"][ibad] = False
-        m_x = np.delete(m_x, ibad)
-        m_wave = np.delete(m_wave, ibad)
-        m_ord = np.delete(m_ord, ibad)
-        return m_x,m_ord,m_wave
-
-    def calculate_residual(self,wave_solution, x,y,m_wave):
-        """
-        Calculate all residuals of all given lines
-
-        Residual = (Wavelength Solution - Expected Wavelength) / Expected Wavelength * speed of light
-
-        Parameters
-        ----------
-        wave_solution : array of shape (degree_x, degree_y)
-            polynomial coefficients of the wavelength solution (in numpy format)
-        lines : recarray of shape (nlines,)
-            contains the position of the line on the detector (posm), the order (order), and the expected wavelength (wll)
-
-        Returns
-        -------
-        residual : array of shape (nlines,)
-            Residual of each line in m/s
-        """
-    #    x = lines["posm"]
-    #    y = lines["order"]
-    #    mask = ~lines["flag"]
-
-        solution = self.evaluate_solution(x, y, wave_solution)
-
-        residual = (solution - m_wave) / m_wave * scipy.constants.c
-        #residual = np.ma.masked_array(residual, mask=mask)
-        return residual
-        
-    def auto_id(self,wave_img, obs,HRS_lines, line_list):
     
-        output = {}
-        new_lines = 0
-        #loop over all orders
-        for ord in range(obs.shape[0]):
-            line_pix = []
-            line_wave = []
-            output[ord] = {}
-            #Get data for a given order
-            data_obs = obs[ord]
-            data_obs = np.nan_to_num(data_obs,nan=0.0, posinf=0.0, neginf=0.0)
-            wave_obs = wave_img[ord]
-            threshold_of_peak_closeness = (np.diff(wave_obs) / wave_obs[:-1] * scipy.constants.c)
-            threshold_of_peak_closeness = np.max(threshold_of_peak_closeness)
-            wmin, wmax = wave_obs[0], wave_obs[-1]
-            #Find the HRS lines in the line list for this order
-            ii=np.where(np.logical_and(HRS_lines>wmin, HRS_lines<wmax))[0]
-            for line in HRS_lines[ii]:
-                #check if line already used in line list
-                diff = np.abs(line_list[ord]['known_wavelengths_air'] - line) / line * scipy.constants.c
-                if np.any(diff < threshold_of_peak_closeness):
+
+    # --------- 2D polynomial surface fit (pix, order) -> wavelength ----------
+    def _poly_design_matrix(self,pix_s, ord_s, deg_pix=6, deg_ord=3, cross=True):
+        pix_s = np.asarray(pix_s, float).ravel()
+        ord_s = np.asarray(ord_s, float).ravel()
+        if pix_s.shape != ord_s.shape:
+            raise ValueError("pix and order must have the same shape")
+
+        cols = []
+        exps = []
+        if cross:
+            for i in range(deg_pix + 1):
+                for j in range(deg_ord + 1):
+                    cols.append((pix_s**i) * (ord_s**j))
+                    exps.append((i, j))
+        else:
+            for i in range(deg_pix + 1):
+                cols.append(pix_s**i)
+                exps.append((i, 0))
+            for j in range(1, deg_ord + 1):
+                cols.append(ord_s**j)
+                exps.append((0, j))
+
+        A = np.vstack(cols).T
+        return A, exps
+        
+    def _compute_used_mask_for_plotting(self,pix, order, wave, model, n_iter=7, clip_sigma=4.0, ridge=1e-10):
+        """
+        Recompute the robust weights/mask for diagnostics ONLY.
+        This leaves the wavelength-fitting code untouched.
+        """
+        pix = np.asarray(pix, float).ravel()
+        order = np.asarray(order, float).ravel()
+        wave = np.asarray(wave, float).ravel()
+
+        good = np.isfinite(pix) & np.isfinite(order) & np.isfinite(wave)
+        pix_g, ord_g, wav_g = pix[good], order[good], wave[good]
+
+        deg_pix = model["deg_pix"]
+        deg_ord = model["deg_ord"]
+        cross = model["cross"]
+
+        pix_mu = model["pix_mu"]
+        pix_span = model["pix_span"]
+        ord_mu = model["ord_mu"]
+        ord_span = model["ord_span"]
+
+        pix_s = (pix_g - pix_mu) / (0.5 * pix_span)
+        ord_s = (ord_g - ord_mu) / (0.5 * ord_span)
+
+        A, _ = self._poly_design_matrix(pix_s, ord_s, deg_pix=deg_pix, deg_ord=deg_ord, cross=cross)
+
+        # Start from the model coefficients
+        coeff = model["coeff"]
+
+        def solve(A, y, w):
+            W = w[:, None]
+            ATA = A.T @ (W * A)
+            ATy = A.T @ (w * y)
+            if ridge and ridge > 0:
+                ATA = ATA + ridge * np.eye(ATA.shape[0])
+            return np.linalg.solve(ATA, ATy)
+
+        # Iterate weights (and allow coeff to update, matching the original algorithm behaviour)
+        w = np.ones_like(wav_g)
+        coeff = solve(A, wav_g, w)
+
+        for _ in range(n_iter):
+            resid = wav_g - (A @ coeff)
+            med = np.median(resid)
+            mad = np.median(np.abs(resid - med))
+            sigma = 1.4826 * mad if mad > 0 else (np.std(resid) + 1e-12)
+
+            u = resid / (clip_sigma * sigma)
+            w = np.zeros_like(wav_g)
+            m = np.abs(u) < 1
+            w[m] = (1 - u[m]**2)**2
+
+            if np.sum(w > 0) < A.shape[1]:
+                break
+            coeff = solve(A, wav_g, w)
+
+        used_good = w > 0
+        used_full = np.zeros_like(good, dtype=bool)
+        used_full[np.where(good)[0]] = used_good
+        return used_full
+        
+    def plot_diagnostics(self,pix, order, wave, model,diag_plot,fibre,
+                                      n_iter=7, clip_sigma=4.0,
+                                      order_min=84, order_max=125,
+                                      n_pix_plot=None):
+        """
+        Make a diagnostic plot matching the example layout:
+          - Left big: wavelength curves per order + points (used filled, rejected open)
+          - Top-right: residuals vs pixel with RMS and N used/total
+          - Bottom-right: residuals vs aperture index with fit + clipping + iter annotation
+        """
+        pix = np.asarray(pix, float).ravel()
+        order = np.asarray(order, float).ravel()
+        wave = np.asarray(wave, float).ravel()
+
+        used_mask = self._compute_used_mask_for_plotting(
+            pix, order, wave, model, n_iter=n_iter, clip_sigma=clip_sigma
+        )
+        good = np.isfinite(pix) & np.isfinite(order) & np.isfinite(wave)
+        used = used_mask & good
+        rej = (~used_mask) & good
+
+        # Residuals (at measured line points)
+        wave_fit = model["predict"](pix[good], order[good])
+        resid = wave[good] - wave_fit
+
+        # Used/rejected counts
+        n_used = int(np.sum(used))
+        n_tot = int(np.sum(good))
+
+        # RMS on used points only
+        if np.any(used[good]):
+            rms = float(np.sqrt(np.mean((wave[used] - model["predict"](pix[used], order[used]))**2)))
+        else:
+            rms = np.nan
+
+        # Define "aperture" indices 0..Norders-1 (like the example plot)
+        orders_unique = np.unique(order[good]).astype(int)
+        orders_unique = np.sort(orders_unique)  # ascending to make index stable
+        order_to_ap = {o: i for i, o in enumerate(orders_unique)}
+        aperture = np.array([order_to_ap[int(o)] for o in order[good]], dtype=int)
+
+        # Pixel range for curves in the left panel
+        if n_pix_plot is None:
+            x_min = float(np.nanmin(pix[good]))
+            x_max = float(np.nanmax(pix[good]))
+            x = np.linspace(x_min, x_max, 400)
+        else:
+            x = np.linspace(0, n_pix_plot - 1, 400)
+
+        # Orders shown on the left panel (descending like your example)
+        orders_desc = np.arange(order_min, order_max + 1, dtype=float)[::-1]
+
+        # ---- Layout: big left + 2 right panels ----
+        fig = plt.figure(figsize=(11, 6), dpi=150)
+        gs = gridspec.GridSpec(2, 2, width_ratios=[2.25, 1.0], height_ratios=[1, 1], wspace=0.25, hspace=0.25)
+
+        axL = fig.add_subplot(gs[:, 0])
+        axTR = fig.add_subplot(gs[0, 1])
+        axBR = fig.add_subplot(gs[1, 1])
+
+        # ---- Left: wavelength curves per order + points ----
+        for o in orders_desc:
+            w_curve = model["predict"](x, np.full_like(x, o))
+            axL.plot(x, w_curve, linewidth=0.8, alpha=0.9)
+
+        # Points: used filled, rejected open (use same color mapping as order)
+        sc_used = axL.scatter(pix[used], wave[used], c=order[used], s=10, edgecolors="none")
+        axL.scatter(pix[rej], wave[rej], facecolors="none", edgecolors="0.3", s=10, linewidths=0.7)
+
+        axL.set_xlabel("Pixel")
+        axL.set_ylabel("λ (Å)")
+        axL.grid(True, alpha=0.25)
+        cbar = fig.colorbar(sc_used, ax=axL, pad=0.01)
+        cbar.set_label("Order")
+
+        # ---- Top-right: residuals vs pixel ----
+        axTR.scatter(pix[good], resid, c=order[good], s=8, alpha=0.9, edgecolors="none")
+        axTR.set_xlabel("Pixel")
+        axTR.set_ylabel("Residual on λ (Å)")
+        axTR.set_title(f"R.M.S. = {rms:.5f}, N = {n_used}/{n_tot}", fontsize=9)
+        axTR.grid(True, axis="y", linestyle="--", alpha=0.35)
+        axTR.axhline(0, linewidth=0.8, alpha=0.7)
+
+        # ---- Bottom-right: residuals vs aperture ----
+        axBR.scatter(aperture, resid, c=order[good], s=8, alpha=0.9, edgecolors="none")
+        axBR.set_xlabel("Aperture")
+        axBR.set_ylabel("Residual on λ (Å)")
+        axBR.set_title(
+            f"Xorder = {model['deg_pix']}, Yorder = {model['deg_ord']}, clipping = ±{clip_sigma:g}, Niter = {n_iter}",
+            fontsize=9
+        )
+        axBR.grid(True, axis="y", linestyle="--", alpha=0.35)
+        axBR.axhline(0, linewidth=0.8, alpha=0.7)
+
+        plt.savefig(str(diag_plot+fibre),dpi=600)
+        return (rms)
+        
+    C_KMS = 299792.458
+
+
+    # ============================================================
+    # Peak detection
+    # ============================================================
+
+    def detect_well_defined_peaks(self,
+        pix,
+        flux,
+        cut=10,
+        prominence=None,
+        distance=2,
+        min_snr=2.0,
+    ):
+        pix = np.asarray(pix, dtype=float)
+        flux = np.asarray(flux, dtype=float)
+
+        good = np.isfinite(pix) & np.isfinite(flux)
+        pix = pix[good]
+        flux = flux[good]
+
+        if len(pix) < 5:
+            return []
+
+        flux0 = flux - np.median(flux)
+
+        noise = 1.4826 * np.median(np.abs(flux0))
+        noise = max(noise, 1e-10)
+
+        if prominence is None:
+            prominence = 3.0 * noise
+
+        peaks, _ = find_peaks(flux0, prominence=prominence, distance=distance)
+
+        out = []
+        for pk in peaks:
+            
+            if pk - cut > 0 and pk+cut < len(flux0):
+                cut_line = flux0[int(pk)-cut:int(pk)+cut]
+                cut_pix = np.arange(len(cut_line))+int(pk)-cut
+            
+                coef,_=self.fit_gaussian_integral(cut_pix,cut_line,x0=pk)
+            
+            else:
+                coef = None
+            if coef is None:
+                continue
+
+            #if mu is None:
+            #    continue
+
+            amp = flux0[pk]
+            snr = amp / noise
+            if snr < min_snr:
+                continue
+
+            out.append({
+                "pixel": coef[1],
+                "snr": snr,
+                "peak_index": int(pk),
+                "amp": amp,
+            })
+
+        return out
+
+
+    # ============================================================
+    # Global wavelength fit
+    # ============================================================
+
+    class GlobalEchelleWavelengthFit:
+        def __init__(self, deg_m=3, deg_x=5):
+            self.deg_m = deg_m
+            self.deg_x = deg_x
+
+            self.coeff = None
+            self.dv_inst = 0.0
+
+            self.x_min = None
+            self.x_max = None
+            self.m_min = None
+            self.m_max = None
+
+            self.available_orders = None
+            
+            self.C_KMS = 299792.458
+
+        def set_domain(self, x_min, x_max, m_min, m_max, orders):
+            self.x_min = float(x_min)
+            self.x_max = float(x_max)
+            self.m_min = float(m_min)
+            self.m_max = float(m_max)
+            self.available_orders = np.array(sorted(np.unique(orders)), dtype=int)
+
+        @staticmethod
+        def scale(x, xmin, xmax):
+            x = np.asarray(x, dtype=float)
+            if xmax == xmin:
+                return np.zeros_like(x)
+            return 2.0 * (x - xmin) / (xmax - xmin) - 1.0
+
+        def design_matrix(self, x, m):
+            x = np.asarray(x, dtype=float).ravel()
+            m = np.asarray(m, dtype=float).ravel()
+
+            xhat = self.scale(x, self.x_min, self.x_max)
+            mhat = self.scale(m, self.m_min, self.m_max)
+
+            Vx = chebvander(xhat, self.deg_x)
+            Vm = chebvander(mhat, self.deg_m)
+
+            cols = []
+            for i in range(self.deg_m + 1):
+                for j in range(self.deg_x + 1):
+                    cols.append(Vm[:, i] * Vx[:, j])
+
+            return np.column_stack(cols)
+
+        def model(self, params, x, m):
+            dv = params[-1]
+            a = params[:-1]
+
+            A = self.design_matrix(x, m)
+            poly = A @ a
+
+            return (1.0 / m) * (1.0 + dv / self.C_KMS) * poly
+
+        def fit(self, x, m, wave):
+            x = np.asarray(x, dtype=float).ravel()
+            m = np.asarray(m, dtype=float).ravel()
+            wave = np.asarray(wave, dtype=float).ravel()
+
+            good = np.isfinite(x) & np.isfinite(m) & np.isfinite(wave) & (m != 0)
+            x = x[good]
+            m = m[good]
+            wave = wave[good]
+
+            if len(x) == 0:
+                raise ValueError("No valid lines to fit.")
+
+            A = self.design_matrix(x, m)
+            y = wave * m
+
+            a0, *_ = np.linalg.lstsq(A, y, rcond=None)
+            p0 = np.concatenate([a0, [0.0]])
+
+            def residuals(p):
+                return self.model(p, x, m) - wave
+
+            res = least_squares(
+                residuals,
+                p0,
+                loss="soft_l1",
+                f_scale=0.01,
+                max_nfev=20000,
+            )
+
+            self.dv_inst = res.x[-1]
+            self.coeff = res.x[:-1]
+
+            resid = self.predict(x, m) - wave
+            resid_ms = (resid / wave) * self.C_KMS * 1000.0
+            rms_ms = np.sqrt(np.mean(resid_ms**2))
+
+            return {
+                "rms_ms": rms_ms,
+                "resid_ms": resid_ms,
+                "x_used": x,
+                "m_used": m,
+                "w_used": wave,
+            }
+
+        def predict(self, x, m):
+            x = np.asarray(x, dtype=float).ravel()
+            m = np.asarray(m, dtype=float).ravel()
+
+            A = self.design_matrix(x, m)
+            poly = A @ self.coeff
+
+            return (1.0 / m) * (1.0 + self.dv_inst / self.C_KMS) * poly
+
+        def predict_order(self, x, order):
+            x = np.asarray(x, dtype=float)
+            m = np.full_like(x, order, dtype=float)
+            return self.predict(x, m)
+
+
+    # ============================================================
+    # Helpers
+    # ============================================================
+
+    def flatten_seed_lines(self,seed_lines):
+        x_all, m_all, w_all = [], [], []
+        for order in sorted(seed_lines):
+            x = np.asarray(seed_lines[order]["pixel"], dtype=float).ravel()
+            w = np.asarray(seed_lines[order]["wave"], dtype=float).ravel()
+
+            if len(x) != len(w):
+                raise ValueError(f"Order {order}: pixel/wave length mismatch")
+
+            good = np.isfinite(x) & np.isfinite(w)
+            x = x[good]
+            w = w[good]
+
+            x_all.append(x)
+            m_all.append(np.full(len(x), float(order)))
+            w_all.append(w)
+
+        if not x_all:
+            raise ValueError("No seed lines supplied.")
+
+        return np.concatenate(x_all), np.concatenate(m_all), np.concatenate(w_all)
+
+
+    def wavelength_margin_from_velocity(self,wave, dv_ms):
+        return wave * (dv_ms / 1000.0) / self.C_KMS
+
+
+    def get_order_predicted_wave_span(self,fitter, order_number, pixel_array, extra_margin_ms=10000.0):
+        pixel_array = np.asarray(pixel_array, dtype=float)
+        if pixel_array.size == 0:
+            return None
+
+        x0 = np.nanmin(pixel_array)
+        x1 = np.nanmax(pixel_array)
+
+        lam0 = fitter.predict_order(np.array([x0]), order_number)[0]
+        lam1 = fitter.predict_order(np.array([x1]), order_number)[0]
+
+        lam_min = min(lam0, lam1)
+        lam_max = max(lam0, lam1)
+
+        lam_mid = 0.5 * (lam_min + lam_max)
+        dlam = self.wavelength_margin_from_velocity(lam_mid, extra_margin_ms)
+
+        return lam_min - dlam, lam_max + dlam
+
+
+    def select_master_lines_in_order_span(self,master_linelist, lam_min, lam_max):
+        master_linelist = np.asarray(master_linelist, dtype=float).ravel()
+        s = (master_linelist >= lam_min) & (master_linelist <= lam_max)
+        return master_linelist[s]
+
+
+    def robust_match_lines(self,
+        peaks,
+        order,
+        fitter,
+        master_lines,
+        pixel_array,
+        tol_ms,
+        span_margin_ms=10000.0,
+        ambiguity_ratio=0.7,
+        used_waves=None,
+    ):
+        """
+        Match only if the best candidate is clearly better than the second-best
+        and not already used.
+        """
+        if used_waves is None:
+            used_waves = np.array([], dtype=float)
+        else:
+            used_waves = np.asarray(used_waves, dtype=float).ravel()
+
+        peak_pix = np.array([p["pixel"] for p in peaks], dtype=float)
+        if len(peak_pix) == 0:
+            return []
+
+        span = self.get_order_predicted_wave_span(
+            fitter, order, pixel_array, extra_margin_ms=span_margin_ms
+        )
+        if span is None:
+            return []
+
+        lam_min, lam_max = span
+        candidate_lines = self.select_master_lines_in_order_span(master_lines, lam_min, lam_max)
+        if len(candidate_lines) == 0:
+            return []
+
+        lam_pred = fitter.predict_order(peak_pix, order)
+        matches = []
+
+        for px, lp in zip(peak_pix, lam_pred):
+            dv = (candidate_lines - lp) / candidate_lines * self.C_KMS * 1000.0
+            good = np.where(np.abs(dv) < tol_ms)[0]
+
+            if len(good) == 0:
+                continue
+
+            abs_dv = np.abs(dv[good])
+            sort_idx = np.argsort(abs_dv)
+
+            best_i = good[sort_idx[0]]
+            best_abs = abs_dv[sort_idx[0]]
+
+            # Ambiguity rejection: if 2nd-best is nearly as good, skip
+            if len(sort_idx) > 1:
+                second_abs = abs_dv[sort_idx[1]]
+                if best_abs / second_abs > ambiguity_ratio:
+                    # Example: 0.92 means best and second-best are too similar
                     continue
-                else:
-                    #cut out the region in the spectrum and fit for the line
-                    if np.logical_and(line > wmin+1, line < wmax -1):
-                        cut_pix = np.where(np.logical_and(wave_obs>line-0.5,wave_obs<line+0.5))[0]
-                        cut_obs = data_obs[cut_pix]
-                        if len(cut_pix)>10:
-                            coef,_=self.fit_gaussian_integral(cut_pix,cut_obs,x0=int(np.mean(cut_pix)))
-                        else:
-                            coef = None
-                    
-                        if coef is not None:
-                            line_pix.append(coef[1])
-                            line_wave.append(line)
-                            new_lines +=1
-            for line in range(len(line_list[ord]['known_wavelengths_air'])):
-                line_pix.append(line_list[ord]['line_positions'][line])
-                line_wave.append(line_list[ord]['known_wavelengths_air'][line])
+
+            lam_match = candidate_lines[best_i]
+
+            # Prevent repeated use of nearly identical wavelength
+            if used_waves.size > 0:
+                sep_ms = np.abs((used_waves - lam_match) / lam_match * self.C_KMS * 1000.0)
+                if np.any(sep_ms < 20.0):
+                    continue
+
+            matches.append((px, order, lam_match, dv[best_i]))
+
+        return matches
+
+
+    # ============================================================
+    # Iterative global solution
+    # ============================================================
+
+    def build_global_solution(self,
+        order_spectra,
+        master_lines,
+        seed_lines,
+        deg_m=4,
+        deg_x=4,
+        cut = 10,
+        max_iter=10,
+        peak_prominence=None,
+        peak_distance=2,
+        peak_min_snr=2.0,
+        initial_match_tol_ms=3000.0,
+        min_match_tol_ms=500.0,
+        span_margin_ms=10000.0,
+        new_line_clip_ms=1500.0,
+        global_clip_ms=200.0,
+        max_new_lines_per_order=15,
+    ):
+        x_all, m_all, w_all = self.flatten_seed_lines(seed_lines)
+
+        orders = np.array(sorted(order_spectra.keys()), dtype=int)
+
+        pix_min = min(np.nanmin(np.asarray(order_spectra[o]["pixel"], dtype=float)) for o in orders)
+        pix_max = max(np.nanmax(np.asarray(order_spectra[o]["pixel"], dtype=float)) for o in orders)
+
+        fitter = self.GlobalEchelleWavelengthFit(deg_m=deg_m, deg_x=deg_x)
+        fitter.set_domain(pix_min, pix_max, orders.min(), orders.max(), orders)
+
+        for it in range(max_iter):
+            fitres = fitter.fit(x_all, m_all, w_all)
+            rms = fitres["rms_ms"]
+            #print(f"Iter {it} RMS {rms:.3f} m/s")
+
+            # Global clipping of currently used lines
+            keep = np.abs(fitres["resid_ms"]) < global_clip_ms
+            x_all = fitres["x_used"][keep]
+            m_all = fitres["m_used"][keep]
+            w_all = fitres["w_used"][keep]
+
+            # Refit after clipping
+            fitres = fitter.fit(x_all, m_all, w_all)
+            rms = fitres["rms_ms"]
+
+            # Tolerance starts loose, then tightens; never let it blow up
+            tol_ms = max(min_match_tol_ms, min(initial_match_tol_ms, 3.0 * rms))
+
+            used_waves = w_all.copy()
+            new_lines = []
+
+            for order in orders:
+                pix = np.asarray(order_spectra[order]["pixel"], dtype=float)
+                flux = np.asarray(order_spectra[order]["flux"], dtype=float)
+
+                peaks = self.detect_well_defined_peaks(
+                    pix,
+                    flux,
+                    cut = cut,
+                    prominence=peak_prominence,
+                    distance=peak_distance,
+                    min_snr=peak_min_snr,
+                )
+
+                span = self.get_order_predicted_wave_span(
+                    fitter, order, pix, extra_margin_ms=span_margin_ms
+                )
+                if span is None:
+                    #print(f"Order {order}: 0 peaks, 0 candidate lines in span [nan, nan], 0 raw matches")
+                    continue
+
+                lam_min, lam_max = span
+                candidate_lines = self.select_master_lines_in_order_span(master_lines, lam_min, lam_max)
+
+                matches = self.robust_match_lines(
+                    peaks=peaks,
+                    order=order,
+                    fitter=fitter,
+                    master_lines=master_lines,
+                    pixel_array=pix,
+                    tol_ms=tol_ms,
+                    span_margin_ms=span_margin_ms,
+                    ambiguity_ratio=0.7,
+                    used_waves=used_waves,
+                )
+
+    #            print(
+    #                f"Order {order}: {len(peaks)} peaks, "
+    #                f"{len(candidate_lines)} candidate lines in span "
+    #                f"[{lam_min:.3f}, {lam_max:.3f}], {len(matches)} raw matches"
+    #            )
+
+                if len(matches) == 0:
+                    continue
+
+                # Sort by absolute match residual and keep only best few per order
+                matches = sorted(matches, key=lambda t: abs(t[3]))
+                matches = matches[:max_new_lines_per_order]
+
+                x_exist = x_all[m_all == order]
+
+                for px, o, lam, dv in matches:
+                    # avoid duplicate pixel use in same order
+                    if np.any(np.abs(x_exist - px) < 0.2):
+                        continue
+
+                    # avoid duplicate within this iteration for same order
+                    this_order_new = [d[0] for d in new_lines if d[1] == o]
+                    if len(this_order_new) > 0 and np.any(np.abs(np.array(this_order_new) - px) < 0.2):
+                        continue
+
+                    new_lines.append((px, o, lam))
+                    used_waves = np.append(used_waves, lam)
+
+            if len(new_lines) == 0:
+                #print("No new lines found")
+                break
+
+            # Tentatively add new lines
+            x_trial = np.concatenate([x_all, np.array([t[0] for t in new_lines])])
+            m_trial = np.concatenate([m_all, np.array([t[1] for t in new_lines])])
+            w_trial = np.concatenate([w_all, np.array([t[2] for t in new_lines])])
+
+            # Refit with new lines
+            trial_fit = fitter.fit(x_trial, m_trial, w_trial)
+            trial_pred = fitter.predict(x_trial, m_trial)
+            trial_resid_ms = (trial_pred - w_trial) / w_trial * self.C_KMS * 1000.0
+
+            # Keep old lines always; keep new lines only if they survive a stricter clip
+            old_n = len(x_all)
+            keep_trial = np.ones(len(x_trial), dtype=bool)
+            keep_trial[old_n:] = np.abs(trial_resid_ms[old_n:]) < new_line_clip_ms
+
+            n_kept_new = np.sum(keep_trial[old_n:])
+
+            x_all = x_trial[keep_trial]
+            m_all = m_trial[keep_trial]
+            w_all = w_trial[keep_trial]
+
+            #print(f"  added {len(new_lines)} tentative lines, kept {n_kept_new}")
+
+            # Stop if nothing survived
+            if n_kept_new == 0:
+                #print("No new lines survived residual clipping")
+                break
+
+        return fitter, x_all, m_all, w_all
+
+
+    # ============================================================
+    # Diagnostic plot
+    # ============================================================
+
+
+    def plot_solution_diagnostics(self,
+        fitter,
+        x,
+        m,
+        w,
+        diag_plot,
+        fibre,
+        pixel_range=None,
+        figsize=(11, 10),
+        title="Global wavelength solution diagnostics",
+    ):
+        """
+        4-panel diagnostic plot:
+
+        1. Pixel vs wavelength, with full solution for every order
+        2. Residual vs pixel [m/s], with right axis in Delta-lambda
+        3. Residual vs order [m/s], with right axis in Delta-lambda
+        4. Residual vs wavelength [m/s], with right axis in Delta-lambda
+           and a binned mean residual curve
+        """
+
+        x = np.asarray(x, dtype=float).ravel()
+        m = np.asarray(m, dtype=float).ravel()
+        w = np.asarray(w, dtype=float).ravel()
+
+        good = np.isfinite(x) & np.isfinite(m) & np.isfinite(w)
+        x = x[good]
+        m = m[good]
+        w = w[good]
+
+        if x.size == 0:
+            raise ValueError("No valid points to plot.")
+
+        w_fit = fitter.predict(x, m)
+        resid_wave = w_fit - w
+        resid_ms = (resid_wave / w) * self.C_KMS * 1000.0
+
+        if getattr(fitter, "available_orders", None) is not None:
+            orders = np.asarray(fitter.available_orders, dtype=int)
+        else:
+            orders = np.unique(m.astype(int))
+
+        if pixel_range is None:
+            if getattr(fitter, "x_min", None) is not None and getattr(fitter, "x_max", None) is not None:
+                pixel_range = (fitter.x_min, fitter.x_max)
+            else:
+                pixel_range = (np.min(x), np.max(x))
+
+        cmap = plt.get_cmap("turbo", len(orders))
+
+        fig, axes = plt.subplots(
+            4,
+            1,
+            figsize=figsize,
+            gridspec_kw={"height_ratios": [2.5, 1.2, 1.2, 1.4]},
+        )
+
+        ax0, ax1, ax2, ax3 = axes
+
+        # -----------------------------------------------------
+        # Panel 1: full wavelength solution for every order
+        # -----------------------------------------------------
+        xgrid = np.linspace(pixel_range[0], pixel_range[1], 1200)
+
+        for i, order in enumerate(orders):
+            color = cmap(len(orders)+(i*-1))
+            s = m.astype(int) == order
+
+            if np.any(s):
+                ax0.plot(
+                    x[s],
+                    w[s],
+                    "o",
+                    ms=4,
+                    color=color,
+                    alpha=0.9,
+                )
+
+            w_model = fitter.predict_order(xgrid, order)
+            ax0.plot(
+                xgrid,
+                w_model,
+                "-",
+                lw=1.4,
+                color=color,
+                alpha=0.95,
+            )
+
+        ax0.set_ylabel("Wavelength")
+        ax0.set_xlabel("Pixel")
+        ax0.set_title(title)
+        ax0.grid(alpha=0.25)
+
+        # -----------------------------------------------------
+        # Panel 2: residual vs pixel
+        # -----------------------------------------------------
+        for i, order in enumerate(orders):
+            s = m.astype(int) == order
+            if np.any(s):
+                ax1.plot(
+                    x[s],
+                    resid_ms[s],
+                    "o",
+                    ms=4,
+                    color=cmap(len(orders)+(i*-1)),
+                    alpha=0.9,
+                )
+
+        ax1.axhline(0.0, color="k", ls="--", lw=1)
+        ax1.set_ylabel("Residual [m/s]")
+        ax1.set_xlabel("Pixel")
+        ax1.grid(alpha=0.25)
+
+        ax1r = ax1.twinx()
+        y1_ms, y2_ms = ax1.get_ylim()
+        w_med = np.median(w)
+        y1_dl = (y1_ms / 1000.0) / self.C_KMS * w_med
+        y2_dl = (y2_ms / 1000.0) / self.C_KMS * w_med
+        ax1r.set_ylim(y1_dl, y2_dl)
+        ax1r.set_ylabel(r"$\Delta \lambda$")
+
+        # -----------------------------------------------------
+        # Panel 3: residual vs order
+        # -----------------------------------------------------
+        order_rms = []
+        order_mean = []
+        order_n = []
+
+        for i, order in enumerate(orders):
+
+            s = m.astype(int) == order
+
+            if np.any(s):
+
+                r = resid_ms[s]
+
+                mean = np.mean(r)
+                rms = np.sqrt(np.mean((r - mean)**2))
+
+                order_rms.append(rms)
+                order_mean.append(mean)
+                order_n.append(len(r))
+
+                ax2.plot(
+                    np.full(np.sum(s), order),
+                    r,
+                    "o",
+                    ms=4,
+                    color=cmap(len(orders)+(i*-1)),
+                    alpha=0.9,
+                )
+
+            else:
+                order_rms.append(np.nan)
+                order_mean.append(np.nan)
+                order_n.append(0)
+
+        order_rms = np.asarray(order_rms, dtype=float)
+        order_mean = np.asarray(order_mean, dtype=float)
+        order_n = np.asarray(order_n, dtype=int)
+
+        # Mean residual curve on the residual axis
+        ax2.plot(
+            orders,
+            order_mean,
+            "-k",
+            lw=2,
+            marker="o",
+            ms=5,
+            label="Order mean residual",
+        )
+
+        ax2.axhline(0.0, color="k", ls="--", lw=1)
+
+        ax2.set_ylabel("Residual [m/s]")
+        ax2.set_xlabel("Order")
+        ax2.invert_xaxis()
+        ax2.grid(alpha=0.25)
+        ax2.legend(loc="upper left")
+
+        # Annotate each order
+        for order, mean, rms, n in zip(orders, order_mean, order_rms, order_n):
+
+            if n == 0:
+                label = "N=0"
+                ytxt = 0.0
+            else:
+                label = f"μ={mean:.0f}\nRMS={rms:.0f}\nN={n}"
+                ytxt = mean
+
+            ax2.text(
+                order,
+                ytxt,
+                label,
+                fontsize=8,
+                ha="center",
+                va="bottom",
+                rotation=90,
+            )
+
+    #    # Separate axis for RMS
+    #    ax2_rms = ax2.twinx()
+    #    ax2_rms.plot(
+    #        orders,
+    #        order_rms,
+    #        color="0.35",
+    #        lw=1.5,
+    #        marker="s",
+    #        ms=4,
+    #        label="Order RMS",
+    #    )
+    #    ax2_rms.set_ylabel("Order RMS [m/s]")
+    #    ax2_rms.invert_xaxis()
         
-            output[ord]['line_positions'] = np.array(line_pix)
-            output[ord]['known_wavelengths_air'] = np.array(line_wave)
         
-        self.logger.info("Auto ID added {} new lines.".format(new_lines))
+        # -----------------------------------------------------
+        # Panel 4: residual vs wavelength + binned mean
+        # -----------------------------------------------------
+        for i, order in enumerate(orders):
+            s = m.astype(int) == order
+            if np.any(s):
+                ax3.plot(
+                    w[s],
+                    resid_ms[s],
+                    "o",
+                    ms=4,
+                    color=cmap(len(orders)+(i*-1)),
+                    alpha=0.85,
+                )
+
+        ax3.axhline(0.0, color="k", ls="--", lw=1)
+        ax3.set_xlabel("Wavelength")
+        ax3.set_ylabel("Residual [m/s]")
+        ax3.grid(alpha=0.25)
+
+        ax3r = ax3.twinx()
+        y1_ms, y2_ms = ax3.get_ylim()
+        y1_dl = (y1_ms / 1000.0) / self.C_KMS * w_med
+        y2_dl = (y2_ms / 1000.0) / self.C_KMS * w_med
+        ax3r.set_ylim(y1_dl, y2_dl)
+        ax3r.set_ylabel(r"$\Delta \lambda$")
+
+        # -----------------------------------------------------
+        # Diagnostic box
+        # -----------------------------------------------------
+        global_rms = np.sqrt(np.mean(resid_ms**2))
+        n_lines = len(x)
+
+        orders_with_lines = np.unique(m.astype(int))
+        n_orders_with_lines = len(orders_with_lines)
+
+        text = (
+            f"N lines = {n_lines}\n"
+            f"Global RMS = {global_rms:.1f} m/s\n"
+            #f"$\\delta v_{{inst}}$ = {fitter.dv_inst:.4f} km/s\n"
+            f"deg_x = {fitter.deg_x}\n"
+            f"deg_m = {fitter.deg_m}\n"
+            f"orders = {orders.min()}–{orders.max()}\n"
+            f"orders with lines = {n_orders_with_lines}"
+        )
+
+        ax0.text(
+            0.01,
+            0.99,
+            text,
+            transform=ax0.transAxes,
+            fontsize=10,
+            va="top",
+            bbox=dict(boxstyle="round", fc="white", alpha=0.8),
+        )
+
+        plt.tight_layout()
+        plt.savefig(str(diag_plot+fibre),dpi=600)
+        return order_rms, global_rms
         
-        return output
-        
-        
-    def run_wavelength_cal_nonHS(self,all_obs,all_super,all_ref,linelist_path, nord, arm):
+    def apply_velocity_correction(self,waves, rv_kms,relativistic=True):
+        """
+        Apply a velocity correction to wavelengths.
+
+        Parameters
+        ----------
+        waves : array_like
+            Wavelengths (any unit; e.g. Angstrom). Output keeps same unit.
+        rv_kms : float
+            Correction velocity in km/s.
+            Convention here:
+              - If rv_kms > 0 (observer moving away from target), observed wavelengths are redder.
+              - To correct to the frame (remove observer motion), wavelengths should be shifted by
+                the *inverse* Doppler factor (i.e., blueshift).
+            This function applies:
+              - forward (default): lambda_bary = lambda_obs / D
+              - inverse=True:      lambda_obs  = lambda_bary * D
+            where D is the Doppler factor for +bcv_kms.
+        relativistic : bool
+            If True (default): use relativistic Doppler factor.
+            If False: use classical approximation (1 + v/c).
+
+        Returns
+        -------
+        waves_out : ndarray
+            Shifted wavelengths, same shape as input.
+        """
+        w = np.asarray(waves, dtype=float)
+
+        beta = float(rv_kms) / self.C_KMS
+
+        if relativistic:
+            # Doppler factor for wavelength: lambda_obs = lambda_rest * sqrt((1+beta)/(1-beta))
+            D = np.sqrt((1.0 + beta) / (1.0 - beta))
+        else:
+            # Classical: lambda_obs ~ lambda_rest * (1 + v/c)
+            D = 1.0 + beta
+
+        return w / D          # obs -> corr
+
+
+    def run_wavelength_cal_nonHS(self,all_obs,all_super,all_ref,linelist_path, nord, arm,mode,diag_plot,fibre,obs_date):
                 
         line_list = np.load(linelist_path,allow_pickle=True).item()
         
@@ -200,7 +1109,6 @@ class WaveCalAlg:
             #return (amp / (np.sqrt(2*np.pi) * wid)) * np.exp(-(x-cen)**2 / (2*wid**2))
             #return (1./(wid*np.sqrt(2*np.pi))) * np.exp(-(x-cen)**2 / (2*wid**2))
             return amp*np.exp(-(x-cen)**2/(2*wid**2)) + offset
-        gmod = Model(gaussian)
         
         wls = []
         new_line_list = {}
@@ -220,7 +1128,9 @@ class WaveCalAlg:
             coef = np.polyfit(shift_ord,dx2,1)
             dx = np.polyval(coef,np.arange(nord))
         else:
-            ii = np.where(np.logical_and((dx2-np.mean(dx2))> np.mean(dx2)-dx_std, (dx2+np.mean(dx2))< np.mean(dx2)+dx_std))[0]
+            med = np.median(dx2)
+            mad = np.median(np.abs(dx2 - med)) + 1e-3
+            ii = np.where(np.abs(0.6745*(dx2 - med)/mad) < 3.5)[0]
             dx2 = dx2[ii]
             shift_ord = shift_ord[ii]
             coef = np.polyfit(shift_ord,dx2,1)
@@ -259,20 +1169,31 @@ class WaveCalAlg:
                 ref = ref[ord][:-2]-np.nanmedian(ref[ord][4:-2])
                 ref /= np.nanmax(ref)
             if arm == 'H':
-                degree = [5,5]
-                degree2 = [5,5]
-                reject_threshold = 200
-                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/Intermediate_files/HRS_ThAr_list_H.list", usecols=0, unpack=True)
+                min_ord = 84
+                max_ord = 125
+                n_pix = 2048
+                cut = 10
+
             if arm == 'R':
-                degree = [8,8]
-                degree2 = [8,8]
-                reject_threshold = 100
-                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/Intermediate_files/HRS_ThAr_list_R.list", usecols=0, unpack=True)
+                cut = 10
+                n_pix=4096
+                min_ord = 53
+                max_ord = 85
+                cut = 20
+
+            if mode =='MR':
+                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/HRS_MR_linelist_2026.txt", usecols=0, unpack=True)
+            if mode == 'HR':
+                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/HRS_HR_linelist_2026.txt", usecols=0, unpack=True)
+            if mode =='LR':
+                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/HRS_LR_linelist_2026.txt", usecols=0, unpack=True)
+            
 
             
             obs[np.isnan(obs)] = 0
             super[np.isnan(super)] = 0
             
+            pix=np.arange(n_pix)
             
             chi_plus=0
             while len(new_pix) <1:
@@ -280,10 +1201,10 @@ class WaveCalAlg:
                 #Update the line positions by fitting gaussians.
                 for old_pix in line_list[ord]['line_positions']:
                     old_pix -=dx[ord]
-                    if np.logical_and(old_pix-10 > 0, old_pix+10 < len(obs)):
-                        
-                        cut_line = obs[int(old_pix)-10:int(old_pix)+10]
-                        cut_pix = np.arange(len(cut_line))+int(old_pix)-10
+                    if np.logical_and(old_pix-cut > 0, old_pix+cut < len(obs)):
+                    
+                        cut_line = obs[int(old_pix)-cut:int(old_pix)+cut]
+                        cut_pix = np.arange(len(cut_line))+int(old_pix)-cut
                         coef,gauss_out=self.fit_gaussian_integral(cut_pix,cut_line,x0=old_pix,chi_plus=chi_plus)
                         
                         if coef is not None:
@@ -298,89 +1219,73 @@ class WaveCalAlg:
 
             new_pix = []
             new_wav = []
-         
-        #Set up the 2D wavelength solution
-        m_pix = []
-        m_ord = []
-        m_wave = []
+        
+        #Save a temporary file
+        np.save("./line_list_tmp"+str(obs_date)+".npy",new_line_list)
 
-        for ord in range(nord):
-            for line in range(len(new_line_list[ord]['line_positions'])):
-    
-                m_pix.append(new_line_list[ord]['line_positions'][line])
-                m_wave.append(new_line_list[ord]['known_wavelengths_air'][line])
-                m_ord.append(ord)
-                
-        m_ord = np.array(m_ord)
-        m_wave = np.array(m_wave)
-        m_pix = np.array(m_pix)
-                
-        #Calcualte the 2D solution and return. Working with a AxB degree polynomial [column,order]
-        wave_solution = self.polyfit2d(m_pix, m_ord, m_wave, degree=degree, plot=False)
-        wave_img = self.make_wave(wave_solution,nord,all_obs.shape[1])
+        seed_lines_rel = np.load("./line_list_tmp"+str(obs_date)+".npy",allow_pickle=True).item()
+        master_lines = HRS_lines
+
+        order_spectra = {}
+        seed_lines = {}
+        count = 0
+
+        for ord in range(len(all_obs)):
+            abs_ord = max_ord + (ord*-1)
+            order_spectra[abs_ord] = {}
+            pixels = np.arange(len(all_obs[ord]))
+            order_spectra[abs_ord]['pixel'] = pixels
+            order_spectra[abs_ord]['flux'] = np.nan_to_num(all_obs[ord])
+            seed_lines[abs_ord] = {}
+            seed_lines[abs_ord]['pixel'] = seed_lines_rel[ord]['line_positions']
+            seed_lines[abs_ord]['wave'] = seed_lines_rel[ord]['known_wavelengths_air']
+
+        fitter, x_lines, m_lines, w_lines = self.build_global_solution(
+            order_spectra=order_spectra,
+            master_lines=master_lines,
+            seed_lines=seed_lines,
+            deg_m=5,
+            deg_x=5,
+            cut = cut,
+            max_iter=10,
+            peak_distance=2,
+            peak_min_snr=2.0,
+            initial_match_tol_ms=3000.0,
+            min_match_tol_ms=500.0,
+            span_margin_ms=10000.0,
+            new_line_clip_ms=500.0,
+            global_clip_ms=500.0,
+            max_new_lines_per_order=50,
+        )
+
+        rms_vals, overall_rms = self.plot_solution_diagnostics(
+            fitter,
+            x_lines,
+            m_lines,
+            w_lines,
+            diag_plot,
+            fibre,
+            title="Global wavelength solution diagnostics",
+        )
         
-        m_pix,m_ord,m_wave = self.reject_lines(m_pix,m_ord,m_wave,nord,all_obs.shape[1],degree,threshold=reject_threshold)
+        wave_img = []
         
-        wave_solution = self.polyfit2d(m_pix, m_ord, m_wave, degree=degree, plot=False)
-        wave_img = self.make_wave(wave_solution,nord,all_obs.shape[1])
+        inst_offset = fitter.dv_inst*-1.
         
-        auto_lines = self.auto_id(wave_img, all_obs,HRS_lines,new_line_list)
-        
-        m_pix = []
-        m_ord = []
-        m_wave = []
-        for ord in range(nord):
-            for line in range(len(auto_lines[ord]['line_positions'])):
-    
-                m_pix.append(auto_lines[ord]['line_positions'][line])
-                m_wave.append(auto_lines[ord]['known_wavelengths_air'][line])
-                m_ord.append(ord)
-                
-        #Calcualte the 2D solution and return. Working with a AxB degree polynomial [column,order]
-        wave_solution = self.polyfit2d(m_pix, m_ord, m_wave, degree=degree2, plot=False)
-        wave_img = self.make_wave(wave_solution,nord,all_obs.shape[1])
-        
-        m_pix,m_ord,m_wave = self.reject_lines(m_pix,m_ord,m_wave,nord,all_obs.shape[1],degree,threshold=reject_threshold)
-        wave_solution = self.polyfit2d(m_pix, m_ord, m_wave, degree=degree2, plot=False)
-        wave_img = self.make_wave(wave_solution,nord,all_obs.shape[1])
-        
-        final_line_list = {}
-        for ord in range(nord):
-            new_pix = []
-            new_wave = []
-            final_line_list[ord] = {}
-            ii=np.where(m_ord == ord)[0]
-            for line in ii:
-                new_pix.append(m_pix[line])
-                new_wave.append(m_wave[line])
+        for ord in range(len(all_obs)):
+
+            abs_ord = max_ord + (ord*-1)
+            xgrid = np.arange(all_obs.shape[1])
+            w_model = fitter.predict_order(xgrid, abs_ord)
+            #correcto for offset
+            #wave_cor = self.apply_velocity_correction(w_model,inst_offset)
             
-            final_line_list[ord]['line_positions'] = new_pix
-            final_line_list[ord]['known_wavelengths_air'] = new_wave
-                
-        
-        order_precisions = []
-        num_detected_peaks = []
-        for ord in range(nord):
-            leg_out = Legendre.fit(np.arange(all_obs.shape[1]), wave_img[ord], 9)
-            our_wls_peak_pos = leg_out(final_line_list[ord]['line_positions'])
-            # absolute/polynomial precision of order = difference between fundemental wavelengths
-            # and our wavelength solution wavelengths for (fractional) peak pixels
-            abs_residual = ((our_wls_peak_pos - final_line_list[ord]['known_wavelengths_air']) * scipy.constants.c) / final_line_list[ord]['known_wavelengths_air']
-            abs_precision_m_s =  np.nanstd(abs_residual)/np.sqrt(len(final_line_list[ord]['line_positions']))
-            # the above line should use RMS not STD
-            if abs_precision_m_s != 0 and abs_precision_m_s == abs_precision_m_s:
-                #print('Absolute standard error (this order {}): {:.2f} m/s'.format(ord, abs_precision_m_s))
-                order_precisions.append(abs_precision_m_s)
-                num_detected_peaks.append(len(final_line_list[ord]['line_positions']))
-            else:
-                order_precisions.append(999)
-                num_detected_peaks.append(1)
-        squared_resids = (np.array(order_precisions) * num_detected_peaks)**2
-        sum_of_squared_resids = np.sum(squared_resids)
-        overall_std_error = (np.sqrt(sum_of_squared_resids) / np.sum(num_detected_peaks))
-        #orderlet_dict['overall_std_error_cms'] = overall_std_error
+            wave_img.append(w_model)
+        wave_img = np.array(wave_img)
 
-        return wave_img,order_precisions,overall_std_error
+        os.remove("./line_list_tmp"+str(obs_date)+".npy")
+
+        return wave_img,rms_vals,overall_rms
             
     
 
@@ -866,7 +1771,6 @@ class WaveCalAlg:
         linelist = linelist[np.isfinite(coefs[0,:])]
         coefs = coefs[:, np.isfinite(coefs[0,:])]
         
-        print('{}/{} lines not fit.'.format(missed_lines, num_input_lines))
         if plot_toggle:
 
             n_zoom_sections = 10
@@ -1174,192 +2078,6 @@ class WaveCalAlg:
             raise ValueError('Only set up to perform Legendre fits currently! Please set fit_type to "Legendre"')
 
         return our_wavelength_solution_for_order, leg_out
-        
-    def polyfit2d(self,x, y, z, degree=1, max_degree=None, scale=True, plot=False, plot_title=None):
-        """A simple 2D plynomial fit to data x, y, z
-        The polynomial can be evaluated with numpy.polynomial.polynomial.polyval2d
-
-        Parameters
-        ----------
-        x : array[n]
-            x coordinates
-        y : array[n]
-            y coordinates
-        z : array[n]
-            data values
-        degree : int, optional
-            degree of the polynomial fit (default: 1)
-        max_degree : {int, None}, optional
-            if given the maximum combined degree of the coefficients is limited to this value
-        scale : bool, optional
-            Wether to scale the input arrays x and y to mean 0 and variance 1, to avoid numerical overflows.
-            Especially useful at higher degrees. (default: True)
-        plot : bool, optional
-            wether to plot the fitted surface and data (slow) (default: False)
-
-        Returns
-        -------
-        coeff : array[degree+1, degree+1]
-            the polynomial coefficients in numpy 2d format, i.e. coeff[i, j] for x**i * y**j
-        """
-        # Flatten input
-        x = np.asarray(x).ravel()
-        y = np.asarray(y).ravel()
-        z = np.asarray(z).ravel()
-
-        # Removed masked values
-        mask = ~(np.ma.getmask(z) | np.ma.getmask(x) | np.ma.getmask(y))
-        x, y, z = x[mask].ravel(), y[mask].ravel(), z[mask].ravel()
-
-        if scale:
-            x, y, norm, offset = self._scale(x, y)
-
-        # Create combinations of degree of x and y
-        # usually: [(0, 0), (1, 0), (0, 1), (1, 1), (2, 0), ....]
-        if np.isscalar(degree):
-            degree = (int(degree), int(degree))
-        assert len(degree) == 2, "Only 2D polynomials can be fitted"
-        degree = [int(degree[0]), int(degree[1])]
-        # idx = [[i, j] for i, j in product(range(degree[0] + 1), range(degree[1] + 1))]
-        coeff = np.zeros((degree[0] + 1, degree[1] + 1))
-        idx = self._get_coeff_idx(coeff)
-
-        # Calculate elements 1, x, y, x*y, x**2, y**2, ...
-        A = self.polyvander2d(x, y, degree)
-
-        # We only want the combinations with maximum order COMBINED power
-        if max_degree is not None:
-            mask = idx[:, 0] + idx[:, 1] <= int(max_degree)
-            idx = idx[mask]
-            A = A[:, mask]
-
-        # Do least squares fit
-        C, *_ = lstsq(A, z)
-
-        # Reorder coefficients into numpy compatible 2d array
-        for k, (i, j) in enumerate(idx):
-            coeff[i, j] = C[k]
-
-        # # Backup copy of coeff
-        if scale:
-            coeff = self.polyscale2d(coeff, *norm, copy=False)
-            coeff = self.polyshift2d(coeff, *offset, copy=False)
-
-        if plot:  # pragma: no cover
-            if scale:
-                x, y = self._unscale(x, y, norm, offset)
-            plot2d(x, y, z, coeff, title='Title')
-            
-        return coeff
-        
-    def _scale(self,x, y):
-        # Normalize x and y to avoid huge numbers
-        # Mean 0, Variation 1
-        offset_x, offset_y = np.mean(x), np.mean(y)
-        norm_x, norm_y = np.std(x), np.std(y)
-        if norm_x == 0:
-            norm_x = 1
-        if norm_y == 0:
-            norm_y = 1
-        x = (x - offset_x) / norm_x
-        y = (y - offset_y) / norm_y
-        return x, y, (norm_x, norm_y), (offset_x, offset_y)
-
-    def _unscale(self,x, y, norm, offset):
-        x = x * norm[0] + offset[0]
-        y = y * norm[1] + offset[1]
-        return x, y
-        
-    def _get_coeff_idx(self,coeff):
-        idx = np.indices(coeff.shape)
-        idx = idx.T.swapaxes(0, 1).reshape((-1, 2))
-        # degree = coeff.shape
-        # idx = [[i, j] for i, j in product(range(degree[0]), range(degree[1]))]
-        # idx = np.asarray(idx)
-        return idx
-        
-    def polyvander2d(self,x, y, degree):
-        # A = np.array([x ** i * y ** j for i, j in idx], dtype=float).T
-        A = np.polynomial.polynomial.polyvander2d(x, y, degree)
-        return A
-        
-    def polyscale2d(self,coeff, scale_x, scale_y, copy=True):
-        if copy:
-            coeff = np.copy(coeff)
-        idx = self._get_coeff_idx(coeff)
-        for k, (i, j) in enumerate(idx):
-            coeff[i, j] /= scale_x ** i * scale_y ** j
-        return coeff
-        
-    def polyshift2d(self,coeff, offset_x, offset_y, copy=True):
-        if copy:
-            coeff = np.copy(coeff)
-        idx = self._get_coeff_idx(coeff)
-        # Copy coeff because it changes during the loop
-        coeff2 = np.copy(coeff)
-        for k, m in idx:
-            not_the_same = ~((idx[:, 0] == k) & (idx[:, 1] == m))
-            above = (idx[:, 0] >= k) & (idx[:, 1] >= m) & not_the_same
-            for i, j in idx[above]:
-                b = binom(i, k) * binom(j, m)
-                sign = (-1) ** ((i - k) + (j - m))
-                offset = offset_x ** (i - k) * offset_y ** (j - m)
-                coeff[k, m] += sign * b * coeff2[i, j] * offset
-        return coeff
-        
-    def make_wave(self,wave_solution, nord, ncol, plot=False):
-        """Expand polynomial wavelength solution into full image
-
-        Parameters
-        ----------
-        wave_solution : array of shape(degree,)
-            polynomial coefficients of wavelength solution
-        plot : bool, optional
-            wether to plot the solution (default: False)
-
-        Returns
-        -------
-        wave_img : array of shape (nord, ncol)
-            wavelength solution for each point in the spectrum
-        """
-
-        y, x = np.indices((nord, ncol))
-        wave_img = self.evaluate_solution(x, y, wave_solution)
-
-        return wave_img
-        
-    def evaluate_solution(self,pos, order, solution, dimensionality="2D"):
-        """
-        Evaluate the 1d or 2d wavelength solution at the given pixel positions and orders
-
-        Parameters
-        ----------
-        pos : array
-            pixel position on the detector (i.e. x axis)
-        order : array
-            order of each point
-        solution : array of shape (nord, ndegree) or (degree_x, degree_y)
-            polynomial coefficients. For mode=1D, one set of coefficients per order.
-            For mode=2D, the first dimension is for the positions and the second for the orders
-        mode : str, optional
-            Wether to interpret the solution as 1D or 2D polynomials, by default "1D"
-
-        Returns
-        -------
-        result: array
-            Evaluated polynomial
-
-        Raises
-        ------
-        ValueError
-            If pos and order have different shapes, or mode is of the wrong value
-        """
-        if not np.array_equal(np.shape(pos), np.shape(order)):
-            raise ValueError("pos and order must have the same shape")
-
-        result = np.polynomial.polynomial.polyval2d(pos, order, solution)
-
-        return result
 
     def calculate_rv_precision(
         self, fitted_peak_pixels, wls, leg_out, rough_wls, our_wavelength_solution_for_order, rough_wls_order,
@@ -1459,7 +2177,6 @@ class WaveCalAlg:
                     
                 fitted_peaks_section, detected_peaks_section, peak_heights_section, \
                     gauss_coeffs_section, this_lines_dict = self.find_peaks(order_flux[indices], peak_height_threshold=self.peak_height_threshold)
-                print("peaks alg", fitted_peaks_section)
     
                 for ii, row in enumerate(this_lines_dict):
                     lines_dict[ind_dict] = this_lines_dict[ii]
@@ -1521,76 +2238,6 @@ class WaveCalAlg:
                   
         return fitted_peak_pixels, detected_peak_pixels, detected_peak_heights, gauss_coeffs, lines_dict
 
-    def find_peaks(self, order_flux, peak_height_threshold=1.5, lower_lim=0):
-        """
-        Finds all order_flux peaks in an array. This runs scipy.signal.find_peaks 
-            twice: once to find the average distance between peaks, and once
-            for real, disregarding close peaks.
-        Args:
-            order_flux (np.array): flux values. Their indices correspond to
-                their pixel numbers. Generally a subset of the full order.
-            peak_height_threshold (float): only detect peaks above this num * sigma
-                above the chip median.
-            
-        Returns:
-            tuple of:
-                np.array: array of true peak locations as determined by Gaussian fitting
-                np.array: array of detected peak locations (pre-Gaussian fitting)
-                np.array: array of detected peak heights (pre-Gaussian fitting)
-                np.array: array of size (4, n_peaks) containing best-fit Gaussian 
-                    parameters [a, mu, sigma**2, const] for each detected peak
-        """
-
-        lines_dict = {} # dictionary of lines and their parameters
-        
-        c = order_flux - np.ma.min(order_flux)
-
-        # TODO: make this more indep of order_flux flux
-        height = peak_height_threshold * np.ma.median(c)
-        detected_peaks, properties = signal.find_peaks(c, height=height)
-
-        distance = np.median(np.diff(detected_peaks)) // 2
-        detected_peaks, properties = signal.find_peaks(c, distance=distance, height=height)
-        peak_heights = np.array(properties['peak_heights'])
-
-        # Only consider peaks with height greater than lower_lim
-        valid_peak_indices = np.where(peak_heights > lower_lim)[0]
-        detected_peaks = detected_peaks[valid_peak_indices]
-        peak_heights = peak_heights[valid_peak_indices]
-
-        # fit peaks with Gaussian to get accurate position
-        fitted_peaks = detected_peaks.astype(float)
-        gauss_coeffs = np.empty((4, len(detected_peaks)))
-        width = np.mean(np.diff(detected_peaks)) // 2
-        width = 10
-
-        # Create mask initially set to True for all detected peaks
-        mask = np.ones(len(detected_peaks), dtype=bool)
-
-        for j, p in enumerate(detected_peaks):
-            idx = p + np.arange(-width, width + 1, 1)
-            idx = np.clip(idx, 0, len(c) - 1).astype(int)
-            coef, line_dict = self.fit_gaussian_integral(np.arange(len(idx)), c[idx],do_test=False)
-            gaussian_fit = self.integrate_gaussian(np.arange(len(idx)), coef[0], coef[1], coef[2], coef[3])
-            
-            if coef is None:
-                mask[j] = False # mask out bad fits
-            elif np.abs(peak_heights[j]-coef[0]) > 0.1 or coef[0] < 0.002:
-                mask[j] = False
-            else: # Only update the coefficients and peaks if fit_gaussian did not return None
-                gauss_coeffs[:, j] = coef
-                fitted_peaks[j] = coef[1] + p - width
-                lines_dict[j] = line_dict
-                plt.plot(np.arange(len(idx))+p,c[idx])
-                plt.plot(np.arange(len(idx))+p,gaussian_fit,'r')
-        plt.show()
-        # Remove the peaks where fit_gaussian returned None
-        fitted_peaks = fitted_peaks[mask]
-        detected_peaks = detected_peaks[mask]
-        peak_heights = peak_heights[mask]
-        gauss_coeffs = gauss_coeffs[:, mask]
-                
-        return fitted_peaks, detected_peaks, peak_heights, gauss_coeffs, lines_dict
 
     def compute_offset_fft_subpixel(self,ref, target):
         """

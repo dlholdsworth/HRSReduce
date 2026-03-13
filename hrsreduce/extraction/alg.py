@@ -13,107 +13,26 @@ import json
 
 class SpectralExtractionAlg():
     """
-    This module defines class 'SpectralExtractionAlg' and methods to perform the optimal or summation
-    extraction which reduces 2D spectrum to 1D spectrum for each order, or perform the rectification on either 2D
-    flat or spectrum.
+    This module defines class 'SpectralExtractionAlg' and methods to perform optimal extraction which reduces 
+    2D spectrum to 1D spectrum for each order, or perform the rectification on either 2D flat or spectrum.
     The process includes 2 steps. In the first step, the curved order from the 2D spectral data and/or flat data
     is straighted and output to a new 2D data set by using the specified rectification method.
-    The second step performs either the optimal or summation extraction to reduce the 2D data made by
+    The second step performs the optimal extraction to reduce the 2D data made by
     the first step into 1D data for each order based on the specified extraction method.
 
-    In the first step, the pixels along the normal or vertical direction of the order trace are collected and
-    processed column by column by using one of three methods,
+    In the first step, the pixels along the normal direction of the order trace are collected and
+    processed column by column by:
 
-        - no rectification method: collecting the pixels within the edge size along the north-up direction
-          of the order and taking the pixel flux in full to result the output pixel.
-        - vertical rectification method: collecting the pixels within the edge size along the north-up direction
-          of the order and performing fractional summation over the collected pixels to result the output pixel.
-          The output pixel coverage is based on the vector along the vertical direction and
-          the weighting for the fractional summation is based on the overlapping between the collected pixels
-          and the output pixel.
         - normal rectification method: collecting the pixels within the edge size along the normal direction
           of the order and performing fractional summation over the collected pixels to result the output pixel.
           The output pixel coverage is based on the vector along the normal direction and the weighting for the
           fractional summation is based on the overlapping between the collected pixels and the output pixel.
 
     In the second step, either spectral extraction or no operation is made.
-    If spectral extraction is made, either optimal or summation extraction is performed
+    If spectral extraction is made, optimal extraction is performed
     to reduce the 2D data along each order into 1D data. By using optimal extraction, the output pixel of the
     first step from the spectrum data are weighted and summed up column by column and the weighting is based on
-    the associated output pixels of the first step from the flat data. By using summation extraction,
-    the pixels are summed up directly without the weighting. If no operation is made, the 2D results of
-    all orders from the first step are combined like the raw image with straight orders.
-
-    Args:
-        flat_data (numpy.ndarray): 2D flat data, raw data or rectified data.
-        flat_header (fits.header.Header): fit header of flat data.
-        spectrum_data (numpy.ndarray): 2D spectrum data, raw data or rectified data. None is allowed in case the
-            instance is created to perform rectification on flat data only.
-        spectrum_header (fits.header.Header): fits header of spectrum data. None is allowed in case no spectrum data.
-        order_trace_data (Union[numpy.ndarray, pandas.DataFrame]): order trace data including polynomial coefficients,
-            top/bottom edges and area coverage of the order trace.
-        order_trace_header (dict): fits header of order trace extension.
-        config (configparser.ConfigParser, optional): config context. Defaults to None.
-        logger (logging.Logger, optional): Instance of logging.Logger. Defaults to None.
-        rectification_method (int, optional): There are three methods used to collect pixels from orders of spectrum
-                data and flat data for spectral extraction. Defaults to NoRECT.
-
-                - SpectralExtractionAlg.NoRECT: Pixels at the north-up direction along the order are collected.
-                  No rectification. (the fastest computation).
-                - SpectralExtractionAlg.VERTICAL: Pixels at the north-up direction along the order are collected
-                  to be rectified.
-                - SpectralExtractionAlg.NORMAL: Pixels at the normal direction of the order are collected to
-                  be rectified.
-        extraction_method (int, optional): There are 2 extraction methods performing extraction on collected
-                flux along the order or no extraction is made. Defaults to OPTIMAL.
-
-                - SpectralExtractionAlg.OPTIMAL (i.e. 'optimal'): for optimal extraction.
-                - SpectralExtractionAlg.SUM (i.e. 'sum'): for summation extraction.
-                - SpectralExtractionAlg.NOEXTRACT (i.e. 'rectonly'): no reduction on rectified
-                  (including VERTICAL, NORMAL or NoRECT rectification method) order trace.
-        clip_file (str, optional): Prefix of clip file path. Defaults to None. Clip file is used to store the
-            polygon clip data for the rectification method which is not NoRECT.
-        logger_name (str, optional): Name of the logger defined for the SpectralExtractionAlg instance.
-
-    Note:
-        Any rectification method combined with extraction method `NOEXTRACT` means only rectification step and no
-        extraction is involved and the output is 2D image with the straightened orders at the location of the
-        original curved ones.
-
-    Attributes:
-        flat_flux (numpy.ndarray): Numpy array storing 2d flat data.
-        flat_header (fits.header.Header): fit header of flat data.
-        spectrum_flux (numpy.ndarray): Numpy array storing 2d spectrum data for spectral extraction. None is allowed.
-        spectrum_header (fits.header.Header): Header of the fits for spectrum data. None is allowed.
-        extraction_method (int): Extraction method.
-        rectification_method (int): Rectification method.
-        poly_order (int): Polynomial order for the approximation made on the order trace.
-        origin (list): The origin of the image from the original raw image.
-        instrument (str): Instrument of the observation.
-        config_ins (ConfigHandler): Instance of ConfigHandler related to section for the instrument or 'PARAM' section.
-        order_trace (numpy.ndarrary): Order trace results from order trace module including polynomial coefficients,
-            top/bottom edges and  area coverage of the order trace.
-        total_order (int): Total order in order trace object.
-        order_coeffs (numpy.ndarray): Polynomial coefficients for order trace from higher to lower order.
-        order_edges (numpy.ndarray): Bottom and top edges along order trace.
-        order_xrange (numpy.ndarray): Left and right boundary of order trace.
-
-        orderlet_names (list): A list containing orderlet names.
-        total_image_orderlets (int): Total orderlet contained in the image.
-        extracted_flux_pixels (numpy.ndarray): Container to hold the rectified data.
-        is_raw_flat (bool): If the flat data is raw image or rectified image.
-        is_raw_spectrum (bool): If the spectrum data is raw image or rectified image.
-        clip_file_prefix (str): Prefix of the clip files.
-        output_clip_area (bool): Flag to indicate if outputting the polygon clipping information to clip file or not.
-        output_area_info (list): Container to store the dimension of the order at rectification step. The data of
-            each order has to be added into the list in the ascending order of trace's vertical position.
-
-    Raises:
-        AttributeError: The ``Raises`` section is a list of all exceptions that are relevant to the interface.
-        TypeError: If there is type error for `flat_data`, `spectrum_data`, or `order_trace_data`.
-        TypeError: If there is type error for `spectrum_header` or `order_trace_header`.
-        TypeError: If there is no flux data for spectral extraction.
-        Exception: If the order size between spectrum data and order trace data is not the same.
+    the associated output pixels of the first step from the flat data. 
 
     """
 
@@ -183,11 +102,7 @@ class SpectralExtractionAlg():
         self.origin = [order_trace_header['STARTCOL'] if 'STARTCOL' in order_trace_header else 0,
                        order_trace_header['STARTROW'] if 'STARTROW' in order_trace_header else 0]
 
-#        ins = self.config_param.get_config_value('instrument', '') if self.config_param is not None else ''
-#        self.instrument = ins.upper()
-#        # section of instrument or 'PARAM'
-#        self.config_ins = ConfigHandler(config, ins, self.config_param)
-#
+
         self.total_order = np.shape(order_trace_data)[0]
         if isinstance(order_trace_data, pd.DataFrame):
             self.order_trace = order_trace_data.values
@@ -2290,7 +2205,7 @@ class SpectralExtractionAlg():
         for idx_out in range(order_set.size):
             c_order = order_set[idx_out]
             to_pos = idx_out+start_row_at if self.extraction_method != self.NOEXTRACT else \
-                order_result[c_order].get('out_y_center') - order_result[c_order].get('edges')[0]
+                order_result[c_order].get('out_y_center')-20 - order_result[c_order].get('edges')[0]
             y_size = np.sum(order_result[c_order].get('edges')) if self.extraction_method == self.NOEXTRACT else 1
             self.fill_2d_with_data(order_result[c_order].get('extracted_data'), out_data, to_pos, 0, height=y_size)
             if self.extraction_method == self.NOEXTRACT:
@@ -2312,7 +2227,7 @@ class SpectralExtractionAlg():
                 y_center=(order_rect.get("out_y_center"))
                 df_result={}
                 df_result['order']= order_idx
-                df_result['Coeff0'] = y_center
+                df_result['Coeff0'] = y_center - 20
                 df_result['BottomEdge'] = edge_low
                 df_result['TopEdge'] = edge_top
                 df_result['X1'] = 0

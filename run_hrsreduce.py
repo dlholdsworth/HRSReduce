@@ -21,30 +21,40 @@ if __name__ == '__main__':
                         help="A list of strings with the instrument modes to reduce. Default = 'ALL', options HR MR LR or combinations thereof [no comma or quotes].")
     parser.add_argument('-l','--location', type=str, default='work',
                         help="Location of the data to reduce. Default = 'work', can be 'archive'")
+    parser.add_argument('-c','--clean', type=str, default=True,
+                        help="Toggle True/False to clean the intermediate files. Default True")
+    parser.add_argument('-rv','--rvst', type=str, default=False,
+                        help="Toggle True/False to run the reductions on just RV standard stars. Default False")
                         
     args = parser.parse_args()
     
     nights = args.date
-    mode = args.modes
+    modes = args.modes
     loc = args.location
+    cln = args.clean
+    rv = args.rvst
     arms = ['Blue','Red']
     
-    if mode[0] == 'ALL':
-        mode = ["HR"] #Update to ["HR","MR","LR"]
+    if modes[0] == 'ALL':
+        modes = ["HR","MR","LR"]
         
     for night in nights:
-        mode = mode
-        #Run the code for BLUE data
-        exit_code = hrsreduce.reduce.main(
-            night,
-            mode,
-            "H",
-            loc
-        )
-        #Run the code for RED data
-        exit_code = hrsreduce.reduce.main(
-            night,
-            mode,
-            "R",
-            loc
-        )
+        for mode in modes:
+            #Run the code for BLUE data
+            exit_code = hrsreduce.reduce.main(
+                night,
+                mode,
+                "H",
+                loc,
+                clean=cln,
+                cal_rvst=True
+            )
+            #Run the code for RED data
+            exit_code = hrsreduce.reduce.main(
+                night,
+                mode,
+                "R",
+                loc,
+                clean=cln,
+                cal_rvst=True
+            )

@@ -12,6 +12,75 @@ from hrsreduce.utils.frame_stacker import FrameStacker
 logger = logging.getLogger(__name__)
 
 class MasterArc():
+    """
+    Create a master arc frame from reduced HRS arc-lamp exposures.
+
+    This class identifies suitable arc calibration frames for a given night,
+    arm, and observing mode, rejects poor-quality inputs, normalises the
+    accepted frames by exposure time, and combines them into a master arc
+    image. The final product is written to disk together with count and
+    uncertainty extensions for later wavelength-calibration steps.
+
+    The class supports both standard nightly master arcs and optional
+    super-arc products. The expected project identifier and rejection
+    threshold depend on the selected observing mode.
+
+    Parameters
+    ----------
+    files : list
+        List of candidate arc FITS files.
+    nights : dict
+        Dictionary giving the observing night associated with each file group.
+    in_dir : str
+        Input directory for the current data set.
+    out_dir : str
+        Output directory for reduced products.
+    base_dir : str
+        Base reduction directory.
+    arm : str
+        Arm label used in the directory structure, typically "Blu" or "Red".
+    night : str
+        Target observing night in YYYYMMDD format.
+    mode : str
+        Observing mode, e.g. "HS", "HR", "MR", or "LR".
+    plot : bool
+        If True, save a diagnostic image of the master arc frame.
+    super : bool, optional
+        If True, create a super-arc product instead of a standard nightly
+        master arc.
+
+    Attributes
+    ----------
+    files : list
+        Candidate input arc files.
+    nights : dict
+        Observing-night mapping for each file group.
+    tn : str
+        Target observing night.
+    base_dir : str
+        Base reduction directory.
+    plot : bool
+        Flag controlling diagnostic plot creation.
+    arm : str
+        Full arm label used in the directory tree.
+    mode : str
+        Observing mode.
+    fullmode : str
+        Full observing-mode name as stored in FITS headers.
+    propid : str
+        Expected project identifier for valid arc exposures.
+    I2STAGE : str
+        Expected iodine-stage configuration associated with the mode.
+    reject_limit : float
+        Minimum image standard deviation required for an arc frame to be
+        accepted.
+    sarm : str
+        Short arm label used in filenames ("H" or "R").
+    super : bool
+        Flag indicating whether to build a super-arc.
+    low_light_limit : float
+        Threshold reserved for possible low-illumination masking.
+    """
 
     def __init__(self,files,nights,in_dir,out_dir,base_dir,arm,night,mode,plot,super=False):
     
@@ -53,6 +122,38 @@ class MasterArc():
         
         
     def create_masterarc(self):
+        """
+        Create or load the master arc frame for the selected night and mode.
+
+        This method first determines the correct output directory from the arc
+        night recorded in `self.nights`. It then checks whether the requested
+        master arc already exists on disk. If so, the existing file is returned.
+
+        If no master arc is present, the method:
+            1. selects arc exposures with the expected calibration metadata
+            2. rejects poor-quality files with insufficient image variation
+            3. normalises each accepted frame by its exposure time
+            4. combines the stack into a master arc using the frame-stacking
+               routine
+            5. writes the result to a FITS file with count and uncertainty
+               extensions
+
+        The output primary header is populated with representative instrument,
+        telescope, and environmental metadata, along with summary information such
+        as the mean Julian date and the number of files used.
+
+        If `self.super` is True, the combined product is written as a super-arc in
+        the dedicated super-arc directory. Otherwise, a standard nightly master
+        arc is written to the reduced-data directory.
+
+        If diagnostic plotting is enabled, a PNG image of the final master arc is
+        also saved.
+
+        Returns
+        -------
+        str
+            Path to the existing or newly created master arc FITS file.
+        """
         
         #Set the night for the master arc data
         yyyymmdd = str(self.nights['arc'][0:4])+str(self.nights['arc'][4:8])
@@ -355,6 +456,76 @@ class MasterArc():
         return master_file
 
 class MasterLFC():
+    """
+    Create a master laser-frequency-comb frame from reduced HRS calibration exposures.
+
+    This class identifies suitable LFC calibration frames for a given night,
+    arm, and observing mode, rejects poor-quality inputs, normalises the
+    accepted frames by exposure time, and combines them into a master LFC
+    image. The final product is written to disk together with count and
+    uncertainty extensions for later precision wavelength-calibration work.
+
+    The class supports both standard nightly master LFC frames and optional
+    super-LFC products. The expected project identifier and rejection
+    threshold depend on the selected observing mode.
+
+    Parameters
+    ----------
+    files : list
+        List of candidate LFC FITS files.
+    nights : dict
+        Dictionary giving the observing night associated with each file group.
+    in_dir : str
+        Input directory for the current data set.
+    out_dir : str
+        Output directory for reduced products.
+    base_dir : str
+        Base reduction directory.
+    arm : str
+        Arm label used in the directory structure, typically "Blu" or "Red".
+    night : str
+        Target observing night in YYYYMMDD format.
+    mode : str
+        Observing mode, e.g. "HS", "HR", "MR", or "LR".
+    plot : bool
+        If True, save a diagnostic image of the master LFC frame.
+    super : bool, optional
+        If True, create a super-LFC product instead of a standard nightly
+        master LFC.
+
+    Attributes
+    ----------
+    files : list
+        Candidate input LFC files.
+    nights : dict
+        Observing-night mapping for each file group.
+    tn : str
+        Target observing night.
+    base_dir : str
+        Base reduction directory.
+    plot : bool
+        Flag controlling diagnostic plot creation.
+    arm : str
+        Full arm label used in the directory tree.
+    mode : str
+        Observing mode.
+    fullmode : str
+        Full observing-mode name as stored in FITS headers.
+    propid : str
+        Expected project identifier for valid LFC exposures.
+    I2STAGE : str
+        Expected iodine-stage or calibration configuration associated with the
+        mode.
+    reject_limit : float
+        Minimum image standard deviation required for an LFC frame to be
+        accepted.
+    sarm : str
+        Short arm label used in filenames ("H" or "R").
+    super : bool
+        Flag indicating whether to build a super-LFC.
+    low_light_limit : float
+        Threshold reserved for possible low-illumination masking.
+    """
 
     def __init__(self,files,nights,in_dir,out_dir,base_dir,arm,night,mode,plot,super=False):
     
@@ -396,6 +567,38 @@ class MasterLFC():
         
         
     def create_masterarc(self):
+        """
+        Create or load the master LFC frame for the selected night and mode.
+
+        This method first determines the correct output directory from the arc
+        night recorded in `self.nights`. It then checks whether the requested
+        master LFC already exists on disk. If so, the existing file is returned.
+
+        If no master LFC is present, the method:
+            1. selects LFC exposures with the expected calibration metadata
+            2. rejects poor-quality files with insufficient image variation
+            3. normalises each accepted frame by its exposure time
+            4. combines the stack into a master LFC using the frame-stacking
+               routine
+            5. writes the result to a FITS file with count and uncertainty
+               extensions
+
+        The output primary header is populated with representative instrument,
+        telescope, and environmental metadata, along with summary information such
+        as the mean Julian date and the number of files used.
+
+        If `self.super` is True, the combined product is written as a super-LFC in
+        the dedicated super-LFC directory. Otherwise, a standard nightly master
+        LFC is written to the reduced-data directory.
+
+        If diagnostic plotting is enabled, a PNG image of the final master LFC is
+        also saved.
+
+        Returns
+        -------
+        str
+            Path to the existing or newly created master LFC FITS file.
+        """
         
         #Set the night for the master arc data
         yyyymmdd = str(self.nights['arc'][0:4])+str(self.nights['arc'][4:8])

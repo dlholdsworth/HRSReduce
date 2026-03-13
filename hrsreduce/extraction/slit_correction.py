@@ -1,3 +1,164 @@
+"""
+Slit-tilt and curvature correction for rectified spectral orders.
+
+This module defines the ``SlitCorrection`` class, which measures the geometric
+curvature of spectral lines within each order and applies a row-by-row
+correction to straighten the slit profile in a rectified 2D spectrum.
+
+Overview
+--------
+The class is responsible for:
+
+    1. Loading a science FITS frame and the selected image extension.
+    2. Reading an order-definition table describing the rectified orders.
+    3. Detecting arc or spectral peaks within each order.
+    4. Measuring line tilt and shear for individual peaks.
+    5. Fitting smooth curvature models order by order.
+    6. Applying the derived correction to each order.
+    7. Writing the corrected 2D image into a ``STRAIGHT`` FITS extension.
+
+Concept
+-------
+For each order, the code treats spectral-line curvature as a combination of:
+
+    - ``tilt``: a first-order displacement with row position
+    - ``shear``: a second-order displacement with row position
+
+These terms are estimated from the observed shape of bright lines across the
+cross-dispersion direction and then used to interpolate each order onto a
+straighter geometry.
+
+Main class
+----------
+``SlitCorrection``
+
+Constructor
+-----------
+``__init__(sci_frame, ext_name, order_file, arm, mode, base_dir, yyyymmdd,
+plot=False, super_arc=None)``
+
+Parameters
+----------
+sci_frame : str
+    Path to the science FITS frame to be corrected.
+ext_name : str
+    Name of the FITS extension containing the rectified 2D image to analyse.
+order_file : str
+    Path to the CSV file containing the rectified order definitions.
+arm : str
+    Spectrograph arm identifier, typically ``'H'`` or ``'R'``.
+mode : str
+    Instrument mode, used when constructing associated calibration filenames.
+base_dir : str
+    Base reduction directory.
+yyyymmdd : str
+    Observation date string used in output paths.
+plot : bool, optional
+    If ``True``, diagnostic plots are generated.
+super_arc : str, optional
+    Reference arc filename used to define the curvature solution output path.
+
+Primary attributes set during initialisation
+--------------------------------------------
+sci_frame : str
+    Input science FITS filename.
+ext_name : str
+    Name of the working FITS extension.
+order_file : str
+    CSV file containing order definitions.
+sarm : str
+    Short arm label, e.g. ``'H'`` or ``'R'``.
+arm_col : str
+    Expanded arm label used in directory names, e.g. ``'Blu'`` or ``'Red'``.
+super_arc : str or None
+    Reference arc file used for curvature-solution naming.
+mode : str
+    Instrument mode.
+base_dir : str
+    Base reduction directory.
+logger : logging.Logger
+    Module logger.
+plot : bool
+    Flag controlling diagnostic plot generation.
+yyyymmdd : str
+    Observation date string.
+spec_header : astropy.io.fits.Header
+    Primary FITS header from the input science frame.
+flux : numpy.ndarray
+    Input 2D flux image from the selected extension.
+straight : numpy.ndarray
+    Working copy of the flux image that will receive the slit correction.
+order_trace_data : pandas.DataFrame
+    Order-definition table read from the CSV file.
+
+Main workflow
+-------------
+The main processing sequence is:
+
+    - ``calculate()``
+        Measures or reloads the curvature solution (tilt and shear) for all
+        orders and stores it in an ``.npz`` file for reuse.
+
+    - ``run_correction(i)``
+        Applies the curvature correction to a single order and returns the
+        corrected order image plus its insertion index.
+
+    - ``correct()``
+        Runs the full slit-correction workflow across all orders, optionally in
+        parallel, and writes the corrected 2D image to a ``STRAIGHT`` FITS
+        extension.
+
+Supporting methods
+------------------
+The class also provides helper methods to:
+
+    - build Gaussian and Lorentzian peak models;
+    - find spectral peaks in extracted order profiles;
+    - construct image indices for order cutouts;
+    - determine curvature for one line or all lines in an order;
+    - fit smooth order-by-order curvature models; and
+    - generate diagnostic comparison plots.
+
+Outputs
+-------
+The code may create the following outputs:
+
+    - ``*_Curvature.npz``
+        Saved tilt and shear arrays for reuse.
+
+    - ``Curvature_fits.png``
+        Diagnostic plot showing the fitted curvature tracks, if plotting is
+        enabled.
+
+    - ``STRAIGHT`` FITS extension
+        The corrected 2D image appended to the science FITS file.
+
+Typical usage
+-------------
+A typical workflow is:
+
+    slit = SlitCorrection(
+        sci_frame,
+        ext_name,
+        order_file,
+        arm,
+        mode,
+        base_dir,
+        yyyymmdd,
+        plot=False,
+        super_arc=super_arc,
+    )
+    slit.correct()
+
+Notes
+-----
+- This class assumes that the order-definition CSV contains at least the
+  columns ``Coeff0``, ``BottomEdge``, and ``TopEdge``.
+- The curvature model is currently fit in ``1D`` mode within the code.
+- Existing curvature or straightened products are reused when present, so the
+  class does not necessarily recompute everything on every run.
+"""
+
 import numpy as np
 import os.path
 from astropy.io import fits

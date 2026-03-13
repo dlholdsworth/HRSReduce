@@ -12,13 +12,64 @@ import logging, os
 logger = logging.getLogger(__name__)
 
 class OrderMerge():
+    """
+    Merge extracted HRS echelle orders into continuous one-dimensional spectra.
 
-    def __init__(self,spec_file, flat_file,arm, scaling=False, plot=False):
+    This class takes order-by-order extracted spectra and their corresponding
+    blaze functions from a reduced science frame and master flat, combines
+    overlapping orders, and produces merged spectra for both fibres as well as
+    a sky-subtracted merged spectrum. It also writes uniformly sampled
+    per-order products back into the FITS file for downstream analysis.
+
+    The workflow includes:
+        - preparing fibre, wavelength, blaze, and uncertainty arrays
+        - masking known bad detector regions
+        - interpolating and combining overlapping orders
+        - constructing merged spectra on a common wavelength grid
+        - generating a sky-subtracted merged spectrum from the two fibres
+        - writing merged 1D products and per-order tables to the FITS file
+        - creating a lightweight output product file
+
+    Parameters
+    ----------
+    spec_file : str
+        Path to the reduced science FITS file containing extracted orders.
+    flat_file : str
+        Path to the master flat FITS file containing blaze information.
+    arm : str
+        Spectrograph arm identifier. Only the first character is used.
+    mode : str
+        Observing mode, e.g. 'LR', 'MR', 'HR', or 'HS'.
+    scaling : bool, optional
+        If True, scale orders relative to their continuum before merging.
+    plot : bool, optional
+        If True, show diagnostic plots during the merge process.
+
+    Attributes
+    ----------
+    spec : str
+        Path to the input science FITS file.
+    flat : str
+        Path to the input master flat FITS file.
+    arm : str
+        Short arm identifier used internally.
+    mode : str
+        Observing mode.
+    scaling : bool
+        Flag controlling optional continuum scaling before splicing.
+    plot : bool
+        Flag controlling diagnostic plotting.
+    logger : logging.Logger
+        Logger used for status and debug messages.
+    """
+    
+    def __init__(self,spec_file, flat_file,arm, mode, scaling=False, plot=False):
     
         self.spec = spec_file
         self.flat = flat_file
         self.arm = arm[0]
- 
+        self.mode = mode
+        
         self.scaling = scaling
         self.plot = plot
         self.logger = logger
@@ -39,34 +90,47 @@ class OrderMerge():
         mx=None,
     ):
         """
-        middle tries to fit a smooth curve that is located
-        along the "middle" of 1D data array f. Filter size "filter"
-        together with the total number of iterations determine
-        the smoothness and the quality of the fit. The total
-        number of iterations can be controlled by limiting the
-        maximum number of iterations (iter) and/or by setting
-        the convergence criterion for the fit (eps)
-        04-Nov-2000 N.Piskunov wrote.
-        09-Nov-2011 NP added weights and 2nd derivative constraint as LAM2
+        Fit a smooth central trend through a one-dimensional array.
+
+        This method iteratively estimates a smooth curve that follows the middle
+        of the input data rather than the upper or lower envelope. It can operate
+        either with polynomial fitting or with the optimal filter implemented in
+        `opt_filter`, and can optionally include weights and a second-derivative
+        regularisation term.
+
+        The routine rescales the input data, repeatedly smooths it, estimates the
+        local scatter, and clips the solution toward the central trend until
+        convergence or until the maximum number of iterations is reached.
 
         Parameters
         ----------
-        f : Callable
-            Function to fit
-        filter : int
-            Smoothing parameter of the optimal filter (or polynomial degree of poly is True)
-        iter : int
-            maximum number of iterations [def: 40]
-        eps : float
-            convergence level [def: 0.001]
-        mn : float
-            minimum function values to be considered [def: min(f)]
-        mx : float
-            maximum function values to be considered [def: max(f)]
-        lam2 : float
-            constraint on 2nd derivative
-        weight : array(float)
-            vector of weights.
+        f : array_like
+            One-dimensional data array to be smoothed.
+        param : float
+            Smoothing strength for the filter, or polynomial degree if `poly` is
+            True.
+        x : array_like, optional
+            Coordinate array associated with `f`. If omitted, a normalised
+            coordinate grid is used.
+        iterations : int, optional
+            Maximum number of fitting iterations.
+        eps : float, optional
+            Convergence threshold for stopping the iterations.
+        poly : bool, optional
+            If True, use polynomial fitting instead of the optimal filter.
+        weight : float or array_like, optional
+            Weights applied during smoothing.
+        lambda2 : float, optional
+            Second-derivative regularisation strength.
+        mn : float, optional
+            Minimum allowed data value to include.
+        mx : float, optional
+            Maximum allowed data value to include.
+
+        Returns
+        -------
+        numpy.ndarray
+            Smoothed array tracing the middle of the input data.
         """
         mn = mn if mn is not None else np.min(f)
         mx = mx if mx is not None else np.max(f)
@@ -250,24 +314,25 @@ class OrderMerge():
     @staticmethod
     def bezier_interp(x_old, y_old, x_new):
         """
-        Bezier interpolation, based on the scipy methods
+        Interpolate data onto a new grid using a spline-based Bezier-like scheme.
 
-        This mostly sanitizes the input by removing masked values and duplicate entries
-        Note that in case of duplicate entries (in x_old) the results are not well defined as only one of the entries is used and the other is discarded
+        This method sanitises the input by removing masked values and discarding
+        duplicate x-coordinates before constructing a spline representation. The
+        resulting spline is then evaluated on the requested output grid.
 
         Parameters
         ----------
-        x_old : array[n]
-            old x values
-        y_old : array[n]
-            old y values
-        x_new : array[m]
-            new x values
+        x_old : array_like
+            Original x-coordinates.
+        y_old : array_like
+            Original y-values.
+        x_new : array_like
+            New x-coordinates at which to evaluate the interpolant.
 
         Returns
         -------
-        y_new : array[m]
-            new y values
+        numpy.ndarray
+            Interpolated y-values on the new x-grid.
         """
 
         # Handle masked arrays
@@ -284,36 +349,42 @@ class OrderMerge():
         y_new = scipy.interpolate.BSpline(knots, coef, order)(x_new)
         return y_new
     
-    def splice_orders(self, spec, wave, cont, sigma,plot=False):
+    def splice_orders(self, spec, wave, cont, sigma, plot=False):
         """
-        Splice orders together so that they form a continous spectrum
-        This is achieved by linearly combining the overlaping regions
-        From PyReduce
+        Combine overlapping spectral orders into a continuous merged spectrum.
+
+        This method takes order-by-order spectra, wavelengths, continua/blaze
+        functions, and uncertainties, identifies overlap regions between
+        neighbouring orders, and replaces those regions with weighted averages.
+        After overlap handling, all orders are resampled onto a single common
+        wavelength grid and collapsed into a merged one-dimensional spectrum.
+
+        If requested, the routine first scales each order by its continuum level
+        to bring all orders onto a comparable relative scale. Diagnostic plots can
+        also be generated before and after merging.
+        From pyreduce.
 
         Parameters
         ----------
-        spec : array[nord, ncol]
-            Spectrum to splice, with seperate orders
-        wave : array[nord, ncol]
-            Wavelength solution for each point
-        cont : array[nord, ncol]
-            Continuum, blaze function will do fine as well
-        sigm : array[nord, ncol]
-            Errors on the spectrum
-        scaling : bool, optional
-            If true, the spectrum/continuum will be scaled to 1 (default: False)
+        spec : array_like
+            Two-dimensional array of spectral fluxes with shape
+            `(n_orders, n_pixels)`.
+        wave : array_like
+            Two-dimensional wavelength solution with the same shape as `spec`.
+        cont : array_like
+            Two-dimensional continuum or blaze array with the same shape as
+            `spec`. If None, unity continuum is assumed.
+        sigma : array_like
+            Two-dimensional uncertainty array with the same shape as `spec`.
         plot : bool, optional
-            If true, will plot the spliced spectrum (default: False)
-
-        Raises
-        ------
-        NotImplementedError
-            If neighbouring orders dont overlap
+            If True, show diagnostic plots of the merge process.
 
         Returns
         -------
-        spec, wave, cont, sigm : array[nord, ncol]
-            spliced spectrum
+        tuple
+            Two-element tuple containing:
+                - `new_wave` : merged one-dimensional wavelength grid
+                - `ssB` : merged one-dimensional spectrum
         """
         
         plot_title = 'Order Merging'
@@ -457,6 +528,28 @@ class OrderMerge():
         return new_wave,ssB
         
     def execute(self):
+        """
+        Execute the full order-merging workflow and write merged products to disk.
+
+        This method reads the extracted fibre spectra and wavelength solutions from
+        the science FITS file and the blaze functions from the master flat. It
+        then prepares per-order uncertainties, masks problematic detector regions,
+        constructs a sky-subtracted order set, and merges the lower fibre, upper
+        fibre, and sky-subtracted spectra into continuous one-dimensional products.
+
+        The merged spectra are written back into the science FITS file as new
+        image extensions. In addition, each order is resampled onto a uniform
+        wavelength grid and saved as a binary-table extension containing wave,
+        flux, and blaze columns. A simplified product FITS file is also written
+        with large intermediate extensions removed.
+
+        Returns
+        -------
+        tuple
+            Two-element tuple containing:
+                - `wave_L` : merged wavelength grid for the lower fibre
+                - `spectrum_L` : merged lower-fibre spectrum
+        """
     
         #Open the science file
         with fits.open(self.spec) as hdu:
@@ -469,6 +562,19 @@ class OrderMerge():
         with fits.open(self.flat) as hdu:
             BLAZE_L = hdu['BLAZE_L'].data
             BLAZE_U = hdu['BLAZE_U'].data
+            
+        if self.mode == 'LR':
+            #Open the science file
+            with fits.open(self.spec) as hdu:
+                FIBRE_L = hdu['FIBRE_U'].data
+                WAVE_L = hdu['WAVE_U'].data
+            
+                FIBRE_U = hdu['FIBRE_L'].data
+                WAVE_U = hdu['WAVE_L'].data
+        
+            with fits.open(self.flat) as hdu:
+                BLAZE_L = hdu['BLAZE_U'].data
+                BLAZE_U = hdu['BLAZE_L'].data
             
 #        FIBRE_L += np.abs(np.min(FIBRE_L))
         SIGMA_L = np.sqrt(BLAZE_L+1e-12)
@@ -622,6 +728,21 @@ class OrderMerge():
         
         #Save the final data to the FITS file
         
+        if self.mode == 'LR':
+            tmp_L = spectrum_L
+            tmp_U = spectrum_U
+            spectrum_L = tmp_U
+            spectrum_U = tmp_L
+            tmp_L = wave_L
+            tmp_U = wave_U
+            wave_L = tmp_U
+            wave_U = tmp_L
+            tmp_U = wave_step_U
+            tmp_L = wave_step_L
+            wave_step_U = tmp_L
+            wave_step_L = tmp_U
+            
+        
         with fits.open(self.spec) as HDU:
         
             try:
@@ -634,7 +755,7 @@ class OrderMerge():
             HDU[0].header['MSTRFLAT'] = (str(os.path.basename(self.flat)),"Master Flat File")
         
             FIBRE_L_SPEC_hdu = fits.ImageHDU(data=spectrum_L,name="FIBRE_L_SPEC_MERGED")
-            FIBRE_L_SPEC_hdu.header.insert(8,('COMMENT','Reduced FIBRE O Merged Spectrum'))
+            FIBRE_L_SPEC_hdu.header.insert(8,('COMMENT','Reduced FIBRE L Merged Spectrum'))
             FIBRE_L_SPEC_hdu.header['CRPIX1']  = (str(1), "Reference pixel")
             FIBRE_L_SPEC_hdu.header['CRVAL1']  = (str(np.min(wave_L)), "Coordinate at reference pixel")
             FIBRE_L_SPEC_hdu.header['CDELT1']  = (str(wave_step_L), "Coord. incr. per pixel (original value)")
@@ -645,7 +766,7 @@ class OrderMerge():
             HDU.append(FIBRE_L_SPEC_hdu)
             
             FIBRE_U_SPEC_hdu = fits.ImageHDU(data=spectrum_U,name="FIBRE_U_SPEC_MERGED")
-            FIBRE_U_SPEC_hdu.header.insert(8,('COMMENT','Reduced FIBRE P Merged Spectrum'))
+            FIBRE_U_SPEC_hdu.header.insert(8,('COMMENT','Reduced FIBRE U Merged Spectrum'))
             FIBRE_U_SPEC_hdu.header['CRPIX1']  = (str(1), "Reference pixel")
             FIBRE_U_SPEC_hdu.header['CRVAL1']  = (str(np.min(wave_U)), "Coordinate at reference pixel")
             FIBRE_U_SPEC_hdu.header['CDELT1']  = (str(wave_step_U), "Coord. incr. per pixel (original value)")
@@ -655,7 +776,7 @@ class OrderMerge():
             FIBRE_U_SPEC_hdu.header['DATAMIN']  = (str(np.min(spectrum_U)), "Minimum data value")
             HDU.append(FIBRE_U_SPEC_hdu)
             
-            SKY_SUBTRACTED_SPEC_hdu = fits.ImageHDU(data=spectrum_U,name="SKY_SUBTRACTED_SPEC_MERGED")
+            SKY_SUBTRACTED_SPEC_hdu = fits.ImageHDU(data=spectrum_sub,name="SKY_SUBTRACTED_SPEC_MERGED")
             SKY_SUBTRACTED_SPEC_hdu.header.insert(8,('COMMENT','Reduced Merged Spectrum Target - Sky'))
             SKY_SUBTRACTED_SPEC_hdu.header['CRPIX1']  = (str(1), "Reference pixel")
             SKY_SUBTRACTED_SPEC_hdu.header['CRVAL1']  = (str(np.min(wave_sub)), "Coordinate at reference pixel")

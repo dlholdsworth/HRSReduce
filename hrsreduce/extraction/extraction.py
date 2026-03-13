@@ -183,9 +183,6 @@ class SpectralExtraction():
                 self.logger.info("SpectralExtraction: Receipt written")
                 self.logger.info("SpectralExtraction: Done for {} orders!".format(int(n_ord*2)))
                 
-    #            out_file=os.path.splitext(str(os.path.dirname(self.input_spectrum))+"/HRS_E_"+str(os.path.basename(self.input_spectrum)))[0]+'.csv'
-    #            data_df.to_csv(out_file)
-                
                 data_U_np=data_U.to_numpy()
                 data_L_np=data_L.to_numpy()
                 U_VAR = np.array(data_U_np)

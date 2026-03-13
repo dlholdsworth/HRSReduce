@@ -8,21 +8,47 @@ logger = logging.getLogger(__name__)
 #TODO: Include readout noise calculations for different amplifiers
 
 class VarExts():
-
     """
-    Description:
-        Input L0 filename and database primary key rId for the L0Files database table.
-        Select the record from the ReadNoise database table, and square for the read-noise variances.
-        Gather all the other variances, sum them all, and write the resulting total variance images
-        to FITS extensions ['GREEN_VAR','RED_VAR'] in the associated 2D FITS file.
+    Construct and append a variance extension for a reduced science frame.
 
-    Arguments:
-        data_type (str): Type of data (e.g., KPF).
-        l0_filename (str): Full path and filename of L0 FITS file within container.
-        masterbias_path (str): Input master bias.
-        masterdark_path (str): Input master dark.
-        masterflat_path (str): Input master flat.
-        rId (int): Primary database key of L0 FITS file in L0Files database record.
+    This class assembles the total variance image associated with a science
+    exposure by combining the relevant detector and calibration-noise terms.
+    The variance model includes contributions from:
+
+        - detector read-noise variance
+        - master-bias variance
+        - master-flat variance propagated into the science counts
+        - photon-counting variance from the science image itself
+
+    The resulting variance image is written to the science FITS file as a new
+    `VAR` extension if one does not already exist.
+
+    Parameters
+    ----------
+    sci_frame : str
+        Path to the science FITS file for which the variance extension will be
+        created.
+    bias_frame : str
+        Path to the master-bias FITS file.
+    flat_frame : str
+        Path to the master-flat FITS file.
+
+    Attributes
+    ----------
+    sci_frame : str
+        Path to the target science FITS file.
+    bias_frame : str
+        Path to the master-bias FITS file.
+    flat_frame : str
+        Path to the master-flat FITS file.
+    logger : logging.Logger
+        Logger used for status and diagnostic messages.
+
+    Notes
+    -----
+    The read-noise contribution is currently assumed to be spatially uniform
+    across the detector. A future update may include amplifier-dependent
+    read-noise modelling.
     """
 
     def __init__(self, sci_frame, bias_frame,flat_frame):

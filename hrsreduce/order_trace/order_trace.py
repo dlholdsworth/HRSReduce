@@ -13,6 +13,69 @@ from .alg import OrderTraceAlg
 logger = logging.getLogger(__name__)
 
 class OrderTrace():
+    """
+    Run the full HRS order-tracing workflow on a master flat frame.
+
+    This class provides the high-level wrapper around `OrderTraceAlg` for
+    tracing echelle orders in an HRS master flat. It loads the master flat,
+    optionally removes large-scale background structure, detects candidate
+    order pixels, groups them into clusters, cleans and merges those clusters,
+    estimates order widths, applies HRS-specific corrections, and writes the
+    final order-trace table to disk.
+
+    The tracing process is arm- and mode-dependent, and the final output is a
+    CSV file describing the polynomial coefficients and extraction widths of
+    each traced order. A diagnostic plot and a NumPy archive of traced-order
+    pixels can also be written.
+
+    Parameters
+    ----------
+    MFlat : str
+        Path to the master flat FITS file.
+    nights : dict
+        Dictionary giving the observing night associated with each file group.
+    base_dir : str
+        Base reduction directory.
+    arm : str
+        Arm label used in the directory structure, typically "Blu" or "Red".
+    mode : str
+        Observing mode, e.g. "LR", "MR", "HR", or "HS".
+    plot : bool
+        If True, save a diagnostic plot of the traced orders.
+
+    Attributes
+    ----------
+    MFlat : str
+        Path to the input master flat file.
+    nights : dict
+        Observing-night mapping for the current data set.
+    base_dir : str
+        Base reduction directory.
+    arm : str
+        Full arm label used in the directory tree.
+    mode : str
+        Observing mode.
+    plot : bool
+        Flag controlling diagnostic plot output.
+    poly_degree : int
+        Polynomial degree used for the order-trace model.
+    sarm : str
+        Short arm label used internally ("H" or "R").
+    cols_to_reset : list or None
+        Optional detector columns to exclude during tracing.
+    rows_to_reset : list or None
+        Optional detector rows to exclude during tracing.
+    do_post : bool
+        Flag controlling post-processing of trace widths.
+    logger : logging.Logger
+        Logger used for status and debug messages.
+    orderlet_gap_pixels : int
+        Desired minimum gap between neighbouring traced orderlets.
+    flat_data : numpy.ndarray
+        Master flat image used for tracing, optionally background-subtracted.
+    alg : OrderTraceAlg
+        Lower-level tracing algorithm instance.
+    """
 
     def __init__(self,MFlat,nights,base_dir,arm,mode,plot):
     
@@ -37,6 +100,171 @@ class OrderTrace():
         #Open the flat file
         with fits.open(self.MFlat) as hdu:
             self.flat_data = hdu[0].data
+            
+        # 0) Remove the background
+        if self.sarm == 'R':
+            if self.logger:
+                self.logger.info("OrderTrace: Removing background from flat...")
+            
+            def _robust_polyfit_1d(x, y, deg, n_iter=6, clip_sigma=4.0):
+                x = np.asarray(x, float)
+                y = np.asarray(y, float)
+                m = np.isfinite(x) & np.isfinite(y)
+                x, y = x[m], y[m]
+                if x.size < deg + 2:
+                    return None
+
+                keep = np.ones_like(y, dtype=bool)
+                for _ in range(n_iter):
+                    if keep.sum() < deg + 2:
+                        break
+                    c = np.polyfit(x[keep], y[keep], deg)
+                    r = y - np.polyval(c, x)
+
+                    med = np.median(r[keep])
+                    mad = np.median(np.abs(r[keep] - med))
+                    sig = 1.4826 * mad if mad > 0 else np.std(r[keep])
+                    if sig <= 0:
+                        break
+
+                    new_keep = np.abs(r - med) < clip_sigma * sig
+                    if new_keep.sum() == keep.sum():
+                        keep = new_keep
+                        break
+                    keep = new_keep
+
+                if keep.sum() < deg + 2:
+                    return None
+                return np.polyfit(x[keep], y[keep], deg)
+            
+            def estimate_background_minima_per_column(
+                img,
+                y_bin=64,          # bins along y; minima taken within each bin
+                deg_y=3,           # poly degree vs y per column
+                deg_x=5,           # poly degree vs x for coefficient trends
+                robust_iters=6,
+                clip_sigma=4.0,
+                min_quantile=None, # if set (e.g. 0.01), use that quantile instead of absolute min
+            ):
+                """
+                For every x pixel (each column):
+                  - split column into y bins
+                  - take MINIMUM (or very-low quantile) in each y bin
+                  - fit poly(y) to those minima
+                Then:
+                  - fit poly(x) to each y coefficient => smooth 2D background surface.
+
+                Returns: bg, img, info
+                """
+
+                if img.ndim != 2:
+                    raise ValueError(f"Expected 2D image in HDU {ext}, got {img.shape}")
+
+                ny, nx = img.shape
+                y_bin = int(y_bin)
+                if y_bin < 1:
+                    raise ValueError("y_bin must be >= 1")
+
+                # y bin centers
+                y_edges = np.arange(0, ny + y_bin, y_bin)
+                y_centers = 0.5 * (y_edges[:-1] + y_edges[1:] - 1)
+
+                # Per-column fitted coeffs (nx, deg_y+1)
+                coeff_matrix = np.full((nx, deg_y + 1), np.nan, float)
+
+                # Store minima samples for a few columns if you want diagnostics
+                # (keeping all columns is big; you can still if you want)
+                for x in range(nx):
+                    col = img[:, x]
+                    zmins = np.full_like(y_centers, np.nan, dtype=float)
+
+                    for j in range(len(y_centers)):
+                        y0, y1 = int(y_edges[j]), int(min(y_edges[j + 1], ny))
+                        chunk = col[y0:y1]
+                        chunk = chunk[np.isfinite(chunk)]
+                        if chunk.size < 5:
+                            continue
+
+                        if min_quantile is None:
+                            zmins[j] = np.min(chunk)
+                        else:
+                            zmins[j] = np.quantile(chunk, float(min_quantile))
+
+                    ok = np.isfinite(zmins)
+                    if ok.sum() < deg_y + 2:
+                        continue
+
+                    c = _robust_polyfit_1d(
+                        y_centers[ok], zmins[ok],
+                        deg=deg_y,
+                        n_iter=robust_iters,
+                        clip_sigma=clip_sigma
+                    )
+                    if c is None:
+                        continue
+                    coeff_matrix[x, :] = c
+
+                # Fill missing columns by interpolation per coefficient
+                x_full = np.arange(nx, dtype=float)
+                for k in range(deg_y + 1):
+                    v = coeff_matrix[:, k]
+                    ok = np.isfinite(v)
+                    if ok.sum() < 2:
+                        raise RuntimeError(
+                            f"Coefficient {k} has too few valid columns ({ok.sum()}). "
+                            f"Try larger y_bin, lower deg_y, or use min_quantile=0.01."
+                        )
+                    coeff_matrix[~ok, k] = np.interp(x_full[~ok], x_full[ok], v[ok])
+
+                # Fit polynomial in x for each coefficient (to smooth across columns)
+                coeff_polys_x = []
+                for k in range(deg_y + 1):
+                    v = coeff_matrix[:, k]
+                    cx = _robust_polyfit_1d(
+                        x_full, v,
+                        deg=deg_x,
+                        n_iter=robust_iters,
+                        clip_sigma=clip_sigma
+                    )
+                    if cx is None:
+                        raise RuntimeError(f"Failed poly(x) fit for coefficient {k}. Try smaller deg_x.")
+                    coeff_polys_x.append(cx)
+
+                # Evaluate background surface: compute y-coeffs at each x, then eval in y
+                y_full = np.arange(ny, dtype=float)
+                Vy = np.vander(y_full, N=deg_y + 1, increasing=False)  # (ny, deg_y+1)
+
+                coeffs_y_at_x = np.vstack([np.polyval(cx, x_full) for cx in coeff_polys_x]).T  # (nx, deg_y+1)
+                bg = Vy @ coeffs_y_at_x.T  # (ny, nx)
+
+                info = {
+                    "shape": (ny, nx),
+                    "y_bin": y_bin,
+                    "deg_y": deg_y,
+                    "deg_x": deg_x,
+                    "min_quantile": min_quantile,
+                    "coeff_matrix_columns": coeff_matrix,
+                    "coeff_polys_x": coeff_polys_x,
+                    "y_centers": y_centers,
+                }
+                
+                return bg, img, info
+            
+            def rm_bkg(data):
+                    
+                bg, img, info = estimate_background_minima_per_column(
+                    data,
+                    y_bin=64,
+                    deg_y=4,
+                    deg_x=5,
+                    min_quantile=None,   # or 0.01
+                )
+                
+                bkg_removed = (img - bg).astype(np.float64)
+                
+                return bkg_removed
+
+            self.flat_data = rm_bkg(self.flat_data)
         
         
         self.alg = OrderTraceAlg(self.flat_data,self.mode, self.sarm, poly_degree=self.poly_degree, logger=self.logger)
@@ -44,6 +272,35 @@ class OrderTrace():
     
     
     def order_trace(self):
+        """
+        Create or load the traced-order table for the master flat.
+
+        This method determines the output directory from the flat-field observing
+        night and checks whether an order-trace CSV file already exists. If so,
+        that file is returned immediately. Otherwise, the full order-tracing
+        workflow is executed.
+
+        The tracing sequence consists of:
+            1. locating candidate order pixels in the master flat
+            2. grouping pixels into connected clusters
+            3. cleaning noisy clusters and removing border artefacts
+            4. merging compatible cluster fragments into full orders
+            5. applying HRS-specific filtering to reject spurious orders
+            6. estimating upper and lower order widths
+            7. optionally post-processing the widths
+            8. smoothing edge-order polynomial properties using ensemble fits
+            9. matching fibre-pair order lengths
+           10. writing the final trace solution to CSV
+
+        In addition to the CSV trace table, the method also writes a NumPy archive
+        containing the traced order pixels. If plotting is enabled, a diagnostic
+        image showing the order centres and widths is saved.
+
+        Returns
+        -------
+        str
+            Path to the existing or newly created order-trace CSV file.
+        """
     
         #Set the night for the master order data based on the flat location
         yyyymmdd = str(self.nights['flat'][0:4])+str(self.nights['flat'][4:8])
@@ -57,15 +314,15 @@ class OrderTrace():
             
             # 1) Locate cluster
             if self.logger:
-                self.logger.info("OrderTrace: locating cluster...")
+                self.logger.info("OrderTrace: locating clusters...")
                 #self.logger.warning("OrderTrace: locating cluster...")
             cluster_xy = self.alg.locate_clusters(self.rows_to_reset, self.cols_to_reset)
             
-            if self.plot:
-                plt.title("OrderTrace: locating cluster result")
-                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
-                plt.plot(cluster_xy['x'],cluster_xy['y'],'.')
-                plt.show()
+#            if self.plot:
+#                plt.title("OrderTrace: locating cluster result")
+#                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=10)
+#                plt.plot(cluster_xy['x'],cluster_xy['y'],'.')
+#                plt.show()
             
             # 2) assign cluster id and do basic cleaning
             if self.logger:

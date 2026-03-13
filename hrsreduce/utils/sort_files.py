@@ -4,46 +4,75 @@ from astropy.io import fits
 import logging
 
 def find_files(input_dir):
-    """Find fits files in the given folder
+    """
+    Find all FITS files in the specified directory.
+
+    This helper routine searches the input directory for files with the
+    `.fits` extension, sorts them alphabetically, and returns the result as a
+    NumPy array.
 
     Parameters
     ----------
-    input_dir : string
-        directory to look for fits and fits.gz files in, may include bash style wildcards
+    input_dir : str
+        Directory to search for FITS files.
 
     Returns
     -------
-    files: array(string)
-        absolute path filenames
+    numpy.ndarray
+        Sorted array of full file paths to FITS files found in the directory.
     """
     files = sorted(glob.glob(input_dir + "/*.fits"))
     files = np.array(files)
     return files
 
 
-def SortFiles(input_dir, logger, arm, mode):
+def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False):
     """
-    Sort a set of fits files into different categories
-    types are: bias, flat, wavecal, orderdef, spec
+    Sort HRS FITS files into calibration and science categories.
+
+    This routine scans all FITS files in the input directory, checks their
+    detector dimensions and FITS header metadata, and classifies them into
+    lists of bias, flat, arc, LFC, and science exposures appropriate for the
+    requested arm and observing mode.
+
+    Files are first filtered by detector size so that only frames matching the
+    selected spectrograph arm are considered. They are then separated by
+    `OBSTYPE`, `PROPID`, `OBSMODE`, and, where relevant, `I2STAGE`.
+
+    The returned file categories are:
+
+        - bias
+        - flat
+        - arc
+        - lfc
+        - sci
+
+    In High-Stability (`HS`) mode, the arc output is replaced by the subset of
+    arc-like reference-fibre files appropriate to that mode.
 
     Parameters
     ----------
     input_dir : str
-        input directory containing the files to sort
-    night : str
-        observation night, possibly with wildcards
+        Directory containing FITS files to classify.
+    logger : logging.Logger
+        Logger used for debug messages when files do not match expected
+        categories.
+    arm : str or list
+        Spectrograph arm identifier. Only the first element/value is used.
     mode : str
-        instrument mode
-    arm : str
-        instrument arm
-        
+        Observing mode, e.g. "HS", "HR", "MR", or "LR".
+    CAL_RVST : bool, optional
+        If True, only science files with `PROPID == "CAL_RVST"` are retained.
+
     Returns
     -------
-    files_per_night : list[dict{str:dict{str:list[str]}}]
-        a list of file sets, one entry per night, where each night consists of a dictionary with one entry per setting,
-        each fileset has five lists of filenames: "bias", "flat", "arc", "lfc", "sci", organised in another dict
-    nights_out : list[datetime]
-        a list of observation times, same order as files_per_night
+    tuple
+        Five lists of file paths:
+            - bias files
+            - flat files
+            - arc files (or HS reference-fibre arcs in HS mode)
+            - LFC files
+            - science files
     """
     
     files = find_files(input_dir)
@@ -87,7 +116,11 @@ def SortFiles(input_dir, logger, arm, mode):
                     elif np.logical_and(hdr["OBSTYPE"] == "Arc",(hdr["PROPID"] == "CAL_ARC" or hdr["PROPID"] == "CAL_STABLE")):
                         arc_files.append(file)
                     elif hdr["OBSTYPE"] == "Science":
-                        sci_files.append(file)
+                        if CAL_RVST:
+                            if hdr["PROPID"] == "CAL_RVST":
+                                sci_files.append(file)
+                        else:
+                            sci_files.append(file)
                     elif hdr["OBSTYPE"] == "Arc" and hdr["I2STAGE"] == "ThAr->Fibre O" :
                         lfc_files.append(file)
                     else:
