@@ -47,7 +47,7 @@ if __name__ == '__main__':
                 "H",
                 loc,
                 clean=cln,
-                cal_rvst=True
+                cal_rvst=False
             )
             #Run the code for RED data
             exit_code = hrsreduce.reduce.main(
@@ -56,5 +56,5 @@ if __name__ == '__main__':
                 "R",
                 loc,
                 clean=cln,
-                cal_rvst=True
+                cal_rvst=False
             )

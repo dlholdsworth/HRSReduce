@@ -1136,7 +1136,6 @@ class WaveCalAlg:
             coef = np.polyfit(shift_ord,dx2,1)
             dx = np.polyval(coef,np.arange(nord))
         
-
         for ord in range(nord):
             new_line_list[ord] = {}
             new_pix = []
@@ -1210,8 +1209,15 @@ class WaveCalAlg:
                         if coef is not None:
                             new_pix.append(coef[1])
                             new_wav.append(line_list[ord]['known_wavelengths_air'][line_count])
-                            
+                       
                     line_count += 1
+                if len(new_pix) < 1:
+                    line_count = 0
+                    for old_pix in line_list[ord]['line_positions']:
+                        old_pix -= dx[ord]
+                        new_pix.append(old_pix)
+                        new_wav.append(line_list[ord]['known_wavelengths_air'][line_count])
+                        line_count +=1
                 chi_plus += 0.1
  
                 new_line_list[ord]['line_positions'] = new_pix
