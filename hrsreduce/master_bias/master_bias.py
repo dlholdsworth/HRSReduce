@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from datetime import datetime
+from astropy.time import Time
 import pytz
 from scipy.stats import norm
 import os
@@ -190,7 +191,16 @@ class MasterBias():
             for file in Bias_files:
                 with fits.open(file) as hdu:
                     bias_data.append(hdu[0].data)
-                    jds.append(float(hdu[0].header["JD"]))
+                    try:
+                        jds.append(float(hdu[0].header["JD"]))
+                    except:
+                        date_obs = hdu[0].header['DATE-OBS']
+                        time_obs = hdu[0].header['TIME-OBS']
+                        # Combine into ISO format
+                        datetime_obs = f"{date_obs}T{time_obs}"
+                        # Convert to JD
+                        t = Time(datetime_obs, format='isot', scale='utc')
+                        jds.append(t.jd)
                     TEM_AIR.append(float(hdu[0].header["TEM-AIR"]))
                     TEM_BCAM.append(float(hdu[0].header["TEM-BCAM"]))
                     TEM_COLL.append(float(hdu[0].header["TEM-COLL"]))

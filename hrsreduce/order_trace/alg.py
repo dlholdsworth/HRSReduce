@@ -3345,7 +3345,7 @@ class OrderTraceAlg():
         return df
 
 
-    def HRS_clean(self, x,y,index):
+    def HRS_clean(self, x,y,index,yyyymmdd):
         """
         Apply final HRS-specific filtering to traced orders.
 
@@ -3361,6 +3361,8 @@ class OrderTraceAlg():
             Y coordinates of cluster pixels.
         index : numpy.ndarray
             Cluster identifier for each pixel.
+        yyyymmdd : str
+            Date of the observation.
 
         Returns
         -------
@@ -3412,18 +3414,38 @@ class OrderTraceAlg():
                             y2.append(y_ord[i])
                         new_index +=1
             if self.sarm == "H" and (self.mode == "HR" or self.mode =="MR" or self.mode =="LR"):
-                if np.polyval(fit_coeffs,750) > 20 and len(xrange) > 1200:
-                    if np.polyval(fit_coeffs,600)< 4050:
-                        if np.min(x_ord) < 650 and np.min(y_ord)<4000:
-                            for i in range(len(x_ord)):
-                                index2.append(new_index)
-                                x2.append(x_ord[i])
-                                y2.append(y_ord[i])
-                            new_index +=1
+                if yyyymmdd[0:4] == '2018':
+                    if np.min(fit) > 40 and len(xrange) > 1200:
+                        if np.polyval(fit_coeffs,600)< 4050:
+                            if np.min(x_ord) < 250 and np.min(fit)<4050:
+                                for i in range(len(x_ord)):
+                                    index2.append(new_index)
+                                    x2.append(x_ord[i])
+                                    y2.append(y_ord[i])
+                                new_index +=1
+                elif yyyymmdd[0:4] == '2015':
+                    if np.polyval(fit_coeffs,750) > 45 and len(xrange) > 1200:
+                        if np.polyval(fit_coeffs,600)< 4050:
+                            if np.min(x_ord) < 650 and np.min(y_ord)<4000:
+                                for i in range(len(x_ord)):
+                                    index2.append(new_index)
+                                    x2.append(x_ord[i])
+                                    y2.append(y_ord[i])
+                                new_index +=1
+                else:
+                    if np.polyval(fit_coeffs,750) > 20 and len(xrange) > 1200:
+                        if np.polyval(fit_coeffs,600)< 4050:
+                            if np.min(x_ord) < 650 and np.min(y_ord)<4000:
+                                for i in range(len(x_ord)):
+                                    index2.append(new_index)
+                                    x2.append(x_ord[i])
+                                    y2.append(y_ord[i])
+                                new_index +=1
 
         index3 = np.asarray(index2,dtype=np.int32)
         x3 = np.asarray(x2,dtype=np.int32)
         y3 = np.asarray(y2,dtype=np.int32)
+        
         
         uniq = len(np.unique(index3))
         if uniq != expected_ords:

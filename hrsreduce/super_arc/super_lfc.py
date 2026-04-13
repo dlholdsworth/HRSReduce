@@ -110,7 +110,7 @@ class SuperLFC():
             self.fullmode = "HIGH STABILITY"
             self.arc_propid = "ENG_HRS"
             self.I2STAGE = "ThAr->Fibre O"
-            self.exp = 1200.0
+            self.exp = 600.0
         if self.mode == 'HR':
             self.fullmode = "HIGH RESOLUTION"
             self.arc_propid = "CAL_ARC"

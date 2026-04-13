@@ -320,17 +320,31 @@ class OrderRectification():
                 hdul.append(rect_img)
                 hdul.writeto(self.input_spectrum,overwrite='True')
 
-    #        #Run orders (pairs of fibres) in parallel.
-            manager = mp.Manager()
-            return_dict = manager.dict()
-            processes = [mp.Process(target=self.alg.extract_spectrum, args=(o_set[(2*i):(2*i)+2],i,return_dict,self.input_spectrum)) for i in range(n_ord)]
-            for process in processes:
-                process.start()
-            for process in processes:
-                process.join()
+            #Run orders (pairs of fibres) in parallel.
+ 
+            # Start worker processes (as many as nr of CPUs)
+            pool = mp.Pool(mp.cpu_count())
+            # Initialise extracts list
+            extracts = []
+            # Loop for orders...
+            for i in range(n_ord):
+                # Extract spectrum for order i
+                extract = pool.apply_async(self.alg.extract_spectrum,args=(o_set[(2*i):(2*i)+2],i,{},self.input_spectrum,))
+                # Add extract to extracts list
+                extracts.append(extract)
 
-            #return_dict = {}
-            #opt_ext_result = self.alg.extract_spectrum(all_orders,1,return_dict,spectrum_file=self.input_spectrum)
+            # Prevent any more tasks from being submitted to the pool
+            pool.close()
+            # Wait for worker processes to exit
+            pool.join()
+
+            # Initialise return dictionary
+            return_dict={}
+            # Loop for extracts...
+            for extract in extracts:
+                # Unpack extraction and add to return dictionary
+                return_dict[extract.get()[0]] = extract.get()[1]
+
             data_df = []
             for i in range(n_ord):
                 data_df.append(return_dict[i])

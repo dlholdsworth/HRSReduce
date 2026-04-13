@@ -99,6 +99,7 @@ def main(
     plot=False,
     clean=False,
     cal_rvst=False,
+    propid=None,
     ):
     
     """
@@ -128,6 +129,8 @@ def main(
         option for deleting intermediate files. Default = False
     cal_rvst : boolean
         reduce just the RV standard star for the other given inputs.
+    propid : str
+        reduce just the PROPID data for the other given inputs.
     """
 
     # Log the package version at the start of execution.
@@ -173,6 +176,8 @@ def main(
     input_dir = arm_colour + "/" + year + "/" + mmdd + "/raw/"
     output_dir = arm_colour + "/" + year + "/" + mmdd + "/reduced/"
     
+#    base_dir = "/Volumes/SALT_DATA/"
+    
     # Placeholder return container.
     output = []
 
@@ -212,7 +217,7 @@ def main(
         files = {}
         nights = {}
         types = ['sci', 'arc', 'lfc', 'flat', 'bias']
-        files['bias'], files['flat'], files['arc'], files['lfc'], files['sci'] = SortFiles(input_dir, logger, arm, mode=m, CAL_RVST=cal_rvst)
+        files['bias'], files['flat'], files['arc'], files['lfc'], files['sci'] = SortFiles(input_dir, logger, arm, mode=m, CAL_RVST=cal_rvst,propid=propid)
         
         # Record the nominal night associated with each file type.
         # These may be updated later if fallback calibration files are used.
@@ -274,6 +279,7 @@ def main(
                 f"No SCI files found for instrument: night: {yyyymmdd} in folder: {input_dir} \n"
             )
             pass
+            #return output
             
         # LFC handling is currently disabled / incomplete.
         if not files['lfc']:
@@ -424,6 +430,15 @@ def main(
         order_file_rect = OrderRectification(super_arc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
         SlitCorrection(super_arc, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_arc).correct()
         VarExts(super_arc, master_bias, master_flat).run()
+        
+        if m == "HS" and arm == 'R':
+            # Fully process the Super Arc and Super Flat in the correct order.
+            super_lfc = "/Users/daniel/Desktop/SALT_HRS_DATA/Red/2026/Super_LFCs/HS_Super_LFC_R20260314.fits"
+            logger.info(f"Processing Super LFC file: {super_arc}")
+            order_file_rect = OrderRectification(super_lfc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc).perform()
+            SlitCorrection(super_lfc, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
+            VarExts(super_lfc, master_bias, master_flat).run()
+        
 
         logger.info(f"Processing Master Flat file: {master_flat}")
 
@@ -477,7 +492,7 @@ def main(
             master_wave = glob.glob(dst)
 
             if len(master_wave) == 0:
-                SpectralExtraction(arc_file, master_flat, arc_file, order_file_rect, arm_colour, m, base_dir).extraction()
+                SpectralExtraction(arc_file, master_flat, arc_file, order_file_rect, arm_colour, m, base_dir,extraction_method=1).extraction()
                 MasterWave = WavelengthCalibration(arc_file, super_arc, arm, m, base_dir, cal_type, plot).execute()
             else:
                 MasterWave = master_wave[0]

@@ -24,4 +24,4 @@ for mode in modes:
         #2024 has different dates as the Tank was opened in August for FIF fault finding
         #SuperArc('2024','/Users/daniel/Desktop/SALT_HRS_DATA/',arm, mode,'20240823','20241231').create_superarc()
 
-        SuperLFC('2025','/Users/daniel/Desktop/SALT_HRS_DATA/',arm, mode,'20251101','20251108').create_superlfc()
+        SuperLFC('2026','/Users/daniel/Desktop/SALT_HRS_DATA/',arm, mode,'20260314','20260315').create_superlfc()

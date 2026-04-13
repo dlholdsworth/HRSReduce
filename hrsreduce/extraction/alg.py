@@ -2243,5 +2243,6 @@ class SpectralExtractionAlg():
             return_dict[proc_no] = {'spectral_extraction_result': data_df}
             #return {'spectral_extraction_result': data_df, 'rectification_on': rectification_on,
             #        'outlier_rejection_result':self.outlier_flux}
+        return proc_no,return_dict[proc_no]
                 
 

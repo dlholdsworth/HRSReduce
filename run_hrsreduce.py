@@ -25,6 +25,8 @@ if __name__ == '__main__':
                         help="Toggle True/False to clean the intermediate files. Default True")
     parser.add_argument('-rv','--rvst', type=str, default=False,
                         help="Toggle True/False to run the reductions on just RV standard stars. Default False")
+    parser.add_argument('-pid','--propid', type=str, default=None,
+                        help="Provide a PROPID to reduce just those data. Default None")
                         
     args = parser.parse_args()
     
@@ -33,6 +35,7 @@ if __name__ == '__main__':
     loc = args.location
     cln = args.clean
     rv = args.rvst
+    propid = args.propid
     arms = ['Blue','Red']
     
     if modes[0] == 'ALL':
@@ -47,7 +50,8 @@ if __name__ == '__main__':
                 "H",
                 loc,
                 clean=cln,
-                cal_rvst=False
+                cal_rvst=rv,
+                propid=propid
             )
             #Run the code for RED data
             exit_code = hrsreduce.reduce.main(
@@ -56,5 +60,6 @@ if __name__ == '__main__':
                 "R",
                 loc,
                 clean=cln,
-                cal_rvst=False
+                cal_rvst=rv,
+                propid=propid
             )

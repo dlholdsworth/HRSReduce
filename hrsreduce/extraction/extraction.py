@@ -24,14 +24,14 @@ logger = logging.getLogger(__name__)
 
 class SpectralExtraction():
 
-    def __init__(self, sci_frame, flat_frame,arc_frame,order_trace_file, sarm,mode,base_dir):
+    def __init__(self, sci_frame, flat_frame,arc_frame,order_trace_file, sarm,mode,base_dir,extraction_method=0):
 
         self.input_spectrum = sci_frame
         self.input_flat = flat_frame
         self.arc_frame = arc_frame
         self.order_trace_file = order_trace_file
         self.rectification_method = 2 # Normal to the order trace: 0, vertical:1, none: 2
-        self.extraction_method = 0 # Optimal extraction: 0, sum: 1, no: 2
+        self.extraction_method = extraction_method #0 # Optimal extraction: 0, sum: 1, no: 2
         self.arm = sarm
         self.mode = mode
         self.base_dir = base_dir
@@ -156,24 +156,40 @@ class SpectralExtraction():
             good_result = True
 
             #Run orders (pairs of fibres) in parallel.
-            manager = mp.Manager()
-            return_dict = manager.dict()
-            processes = [mp.Process(target=self.alg.extract_spectrum, args=(o_set[(2*i):(2*i)+2],i,return_dict, self.input_spectrum)) for i in range(n_ord)]
-            for process in processes:
-                process.start()
-            for process in processes:
-                process.join()
 
+            # Start worker processes (as many as nr of CPUs)
+            pool = mp.Pool(mp.cpu_count())
+            # Initialise extracts list
+            extracts = []
+            # Loop for orders...
+            for i in range(n_ord):
+                # Extract spectrum for order i
+                extract = pool.apply_async(self.alg.extract_spectrum,args=(o_set[(2*i):(2*i)+2],i,{},self.input_spectrum,))
+                # Add extract to extracts list
+                extracts.append(extract)
 
-            data_df = pd.DataFrame.from_dict(return_dict[0]['spectral_extraction_result'])
-            data_U = pd.DataFrame(columns=data_df.columns)
-            data_L = pd.DataFrame(columns=data_df.columns)
+            # Prevent any more tasks from being submitted to the pool
+            pool.close()
+            # Wait for worker processes to exit
+            pool.join()
+
+            # Initialise return dictionary
+            return_dict={}
+            # Loop for extracts...
+            for extract in extracts:
+                # Unpack extraction and add to return dictionary
+                return_dict[extract.get()[0]] = extract.get()[1]
+            
+            data_df = pd.DataFrame.from_dict(return_dict[0]['spectral_extraction_result'],dtype=float)
+            data_U = pd.DataFrame(columns=data_df.columns,dtype=float)
+            data_L = pd.DataFrame(columns=data_df.columns,dtype=float)
+            
             for i in range(0,n_ord):
-                data_df = pd.concat([data_df,pd.DataFrame.from_dict(return_dict[i]['spectral_extraction_result'])],ignore_index=True)
-                tmp = pd.DataFrame.from_dict(return_dict[i]['spectral_extraction_result'])
+                data_df = pd.concat([data_df,pd.DataFrame.from_dict(return_dict[i]['spectral_extraction_result'],dtype=float)],ignore_index=True)
+                tmp = pd.DataFrame.from_dict(return_dict[i]['spectral_extraction_result'],dtype=float)
                 data_U = pd.concat([data_U, tmp.iloc[[1]]],axis=0,ignore_index=True)
                 data_L = pd.concat([data_L, tmp.iloc[[0]]],axis=0,ignore_index=True)
-
+                
 
             good_result = good_result and data_df is not None
 

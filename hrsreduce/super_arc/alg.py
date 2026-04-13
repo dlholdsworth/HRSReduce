@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from datetime import datetime
+from astropy.time import Time
 import pytz
 import os
 
@@ -205,7 +206,16 @@ class MasterArc():
                     if np.nanstd(hdu[0].data) > self.reject_limit:
                         arc_data = (hdu[0].data).astype(np.float32)
                         Arc_concat.append(arc_data)
-                        jd_mean.append(float(hdu[0].header['JD']))
+                        try:
+                            jd_mean.append(float(hdu[0].header['JD']))
+                        except:
+                            date_obs = hdu[0].header['DATE-OBS']
+                            time_obs = hdu[0].header['TIME-OBS']
+                            # Combine into ISO format
+                            datetime_obs = f"{date_obs}T{time_obs}"
+                            # Convert to JD
+                            t = Time(datetime_obs, format='isot', scale='utc')
+                            jd_mean.append(t.jd)
                         PRE_DEW.append(float(hdu[0].header['PRE-DEW']))
                         PRE_VAC.append(float(hdu[0].header['PRE-VAC']))
                         TEM_AIR.append(float(hdu[0].header['TEM-AIR']))

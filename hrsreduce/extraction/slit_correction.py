@@ -360,7 +360,10 @@ class SlitCorrection():
         """
         _, ncol = original.shape
 
-        window_width = 9.
+        if self.sarm == "R" and self.mode == "HS":
+            window_width = 4.
+        else:
+            window_width = 9.
         curv_degree = 1
         # look at +- width pixels around the line
         # Extract short horizontal strip for each row in extraction width
@@ -466,6 +469,8 @@ class SlitCorrection():
 
         for j in tqdm(range(n_ord), desc="Order",leave=False):
             cr = column_range[j]
+            cr[0] += 1
+            cr[1] -= 1
             xwd = extraction_width[j]
             ycen = np.zeros(cr[1])+self.order_trace_data['Coeff0'][j]
             ycen_int = ycen.astype(int)
@@ -473,17 +478,32 @@ class SlitCorrection():
 
             # Find peaks
             vec = extracted[j,cr[0] : cr[1]].astype('float64')
+            vec=vec[1:-1]
             vec_med = np.median(vec[2:-2])
-            vec -= vec_med
-            if np.max(vec) > 500:
-                factor = 500.
-                vec /= factor
-                pk_height = 0.002
-                
+            if self.sarm == "R" and self.mode == "HS":
+                #vec -= vec_med
+                if np.max(vec) > 2000:
+                    factor = 2000.
+                    vec /= factor
+                    pk_height = 0.002
+                    
+                else:
+                    factor = np.max(vec)
+                    vec /= factor
+                    pk_height =0.01
+                    
             else:
-                factor = np.max(vec)
-                vec /= factor
-                pk_height =0.01
+                vec -= vec_med
+                if np.max(vec) > 500:
+                    factor = 500.
+                    vec /= factor
+                    pk_height = 0.002
+                
+                else:
+                    factor = np.max(vec)
+                    vec /= factor
+                    pk_height =0.01
+
             vec, peaks = self.find_peaks(vec, cr,pk_height)
             npeaks = len(peaks)
             
@@ -543,7 +563,7 @@ class SlitCorrection():
                 for j, yt in enumerate(y):
                     x[j] = p + yt * tilt[i, p] + yt ** 2 * shear[i, p]
                 y += pos[i] + ew[0]
-                plt.plot(x, y, "r")
+                plt.plot(x, y, "r",lw=0.5)
 
         locs = np.sum(extraction_width, axis=1) + 1
         locs = np.array([0, *np.cumsum(locs)[:-1]])
@@ -708,6 +728,11 @@ class SlitCorrection():
             if self.tilt is not None and self.shear is not None:
                 pool=mp.Pool(mp.cpu_count())
                 workers = [pool.apply_async(self.run_correction, args=(i,)) for i in range(n_ord)]
+                # Prevent any more tasks from being submitted to the pool
+                pool.close()
+                # Wait for worker processes to exit
+                pool.join()
+                
                 idxs = []
                 imgs = []
                 for w in workers:

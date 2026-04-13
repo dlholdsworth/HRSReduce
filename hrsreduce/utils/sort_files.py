@@ -26,7 +26,7 @@ def find_files(input_dir):
     return files
 
 
-def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False):
+def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False,propid=None):
     """
     Sort HRS FITS files into calibration and science categories.
 
@@ -119,6 +119,9 @@ def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False):
                         if CAL_RVST:
                             if hdr["PROPID"] == "CAL_RVST":
                                 sci_files.append(file)
+                        elif propid is not None:
+                            if hdr["PROPID"] == propid:
+                                sci_files.append(file)
                         else:
                             sci_files.append(file)
                     elif hdr["OBSTYPE"] == "Arc" and hdr["I2STAGE"] == "ThAr->Fibre O" :
@@ -126,7 +129,6 @@ def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False):
                     else:
                         logger.debug("File %s does not match an expected value in %s, %s, %s or %s", file,"Flat field","Arc","Science","Comb")
                 if mode == 'HS':
-                    sci_files = []
                     if np.logical_and(hdr["OBSTYPE"] == "Arc", (hdr["PROPID"] == "ENG_HRS" or hdr["PROPID"] == "CAL_STABLE")):
                         if hdr["I2STAGE"] == "Reference Fibre":
                             hs_arc_files.append(file)

@@ -374,7 +374,7 @@ class OrderTrace():
             
             # Clean the merged clusters to the expected number for arm / mode
             self.logger.info("OrderTrace: cleaning spurious orders...")
-            HRS_x, HRS_y, HRS_index = self.alg.HRS_clean(c_x, c_y, c_index)
+            HRS_x, HRS_y, HRS_index = self.alg.HRS_clean(c_x, c_y, c_index,yyyymmdd)
             
             # 6) Find width
             if self.logger:
@@ -382,25 +382,25 @@ class OrderTrace():
                 #self.logger.warning("OrderTrace: finding width...")
             all_widths, cluster_coeffs = self.alg.find_all_cluster_widths(HRS_index, HRS_x, HRS_y, power_for_width_estimation=3)
             
-#            if self.plot:
-#                uniq = np.unique(HRS_index)
-#                plt.title("OrderTrace: Widths\nNumber ords="+str(len(uniq)))
-#                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=500)
-#
-#                count=0
-#                for i in uniq:
-#                    s_x = int(cluster_coeffs[i, self.poly_degree + 1])
-#                    e_x = int(cluster_coeffs[i, self.poly_degree + 2] + 1)
-#                    x=np.arange(s_x,e_x)
-#                    ord_cen=np.polyval(cluster_coeffs[i,0:self.poly_degree+1],x)
-#
-#                    plt.plot(x,ord_cen,'g')
-#                    plt.plot(x,ord_cen-all_widths[i-1]['bottom_edge'],'r')
-#                    plt.plot(x,ord_cen+all_widths[i-1]['top_edge'],'b')
-#                    count=count+1
-#                    
-#                plt.savefig(self.out_dir+self.mode+"_Order_Trace.png",bbox_inches='tight',dpi=600)
-#                plt.close()
+            if self.plot:
+                uniq = np.unique(HRS_index)
+                plt.title("OrderTrace: Widths\nNumber ords="+str(len(uniq)))
+                plt.imshow(self.flat_data,origin='lower',vmin=0,vmax=500,aspect='auto')
+
+                count=0
+                for i in uniq:
+                    s_x = int(cluster_coeffs[i, self.poly_degree + 1])
+                    e_x = int(cluster_coeffs[i, self.poly_degree + 2] + 1)
+                    x=np.arange(s_x,e_x)
+                    ord_cen=np.polyval(cluster_coeffs[i,0:self.poly_degree+1],x)
+
+                    plt.plot(x,ord_cen,'g')
+                    plt.plot(x,ord_cen-all_widths[i-1]['bottom_edge'],'r')
+                    plt.plot(x,ord_cen+all_widths[i-1]['top_edge'],'b')
+                    count=count+1
+                    
+                plt.savefig(self.out_dir+self.mode+"_Order_Trace.png",bbox_inches='tight',dpi=600)
+                plt.close()
 
             
             # 7) post processing

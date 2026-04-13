@@ -191,7 +191,7 @@ class WavelengthCalibration():
                     ref_L_fluxes = np.nan_to_num(hdu_ref['Fibre_L'].data)
 
                 if self.cal_type == 'LFC' or 'ThAr':
-                    if self.mode == 'HS':
+                    if self.mode == 'NULL':
 
                         # Create dictionary for storing information about the WLS, fits of each order, fits of each line, etc.
                         self.wls_dict = {
