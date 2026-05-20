@@ -101,172 +101,172 @@ class OrderTrace():
         with fits.open(self.MFlat) as hdu:
             self.flat_data = hdu[0].data
             
-        # 0) Remove the background
-        if self.sarm == 'R':
-            if self.logger:
-                self.logger.info("OrderTrace: Removing background from flat...")
-            
-            def _robust_polyfit_1d(x, y, deg, n_iter=6, clip_sigma=4.0):
-                x = np.asarray(x, float)
-                y = np.asarray(y, float)
-                m = np.isfinite(x) & np.isfinite(y)
-                x, y = x[m], y[m]
-                if x.size < deg + 2:
-                    return None
-
-                keep = np.ones_like(y, dtype=bool)
-                for _ in range(n_iter):
-                    if keep.sum() < deg + 2:
-                        break
-                    c = np.polyfit(x[keep], y[keep], deg)
-                    r = y - np.polyval(c, x)
-
-                    med = np.median(r[keep])
-                    mad = np.median(np.abs(r[keep] - med))
-                    sig = 1.4826 * mad if mad > 0 else np.std(r[keep])
-                    if sig <= 0:
-                        break
-
-                    new_keep = np.abs(r - med) < clip_sigma * sig
-                    if new_keep.sum() == keep.sum():
-                        keep = new_keep
-                        break
-                    keep = new_keep
-
-                if keep.sum() < deg + 2:
-                    return None
-                return np.polyfit(x[keep], y[keep], deg)
-            
-            def estimate_background_minima_per_column(
-                img,
-                y_bin=64,          # bins along y; minima taken within each bin
-                deg_y=3,           # poly degree vs y per column
-                deg_x=5,           # poly degree vs x for coefficient trends
-                robust_iters=6,
-                clip_sigma=4.0,
-                min_quantile=None, # if set (e.g. 0.01), use that quantile instead of absolute min
-            ):
-                """
-                For every x pixel (each column):
-                  - split column into y bins
-                  - take MINIMUM (or very-low quantile) in each y bin
-                  - fit poly(y) to those minima
-                Then:
-                  - fit poly(x) to each y coefficient => smooth 2D background surface.
-
-                Returns: bg, img, info
-                """
-
-                if img.ndim != 2:
-                    raise ValueError(f"Expected 2D image in HDU {ext}, got {img.shape}")
-
-                ny, nx = img.shape
-                y_bin = int(y_bin)
-                if y_bin < 1:
-                    raise ValueError("y_bin must be >= 1")
-
-                # y bin centers
-                y_edges = np.arange(0, ny + y_bin, y_bin)
-                y_centers = 0.5 * (y_edges[:-1] + y_edges[1:] - 1)
-
-                # Per-column fitted coeffs (nx, deg_y+1)
-                coeff_matrix = np.full((nx, deg_y + 1), np.nan, float)
-
-                # Store minima samples for a few columns if you want diagnostics
-                # (keeping all columns is big; you can still if you want)
-                for x in range(nx):
-                    col = img[:, x]
-                    zmins = np.full_like(y_centers, np.nan, dtype=float)
-
-                    for j in range(len(y_centers)):
-                        y0, y1 = int(y_edges[j]), int(min(y_edges[j + 1], ny))
-                        chunk = col[y0:y1]
-                        chunk = chunk[np.isfinite(chunk)]
-                        if chunk.size < 5:
-                            continue
-
-                        if min_quantile is None:
-                            zmins[j] = np.min(chunk)
-                        else:
-                            zmins[j] = np.quantile(chunk, float(min_quantile))
-
-                    ok = np.isfinite(zmins)
-                    if ok.sum() < deg_y + 2:
-                        continue
-
-                    c = _robust_polyfit_1d(
-                        y_centers[ok], zmins[ok],
-                        deg=deg_y,
-                        n_iter=robust_iters,
-                        clip_sigma=clip_sigma
-                    )
-                    if c is None:
-                        continue
-                    coeff_matrix[x, :] = c
-
-                # Fill missing columns by interpolation per coefficient
-                x_full = np.arange(nx, dtype=float)
-                for k in range(deg_y + 1):
-                    v = coeff_matrix[:, k]
-                    ok = np.isfinite(v)
-                    if ok.sum() < 2:
-                        raise RuntimeError(
-                            f"Coefficient {k} has too few valid columns ({ok.sum()}). "
-                            f"Try larger y_bin, lower deg_y, or use min_quantile=0.01."
-                        )
-                    coeff_matrix[~ok, k] = np.interp(x_full[~ok], x_full[ok], v[ok])
-
-                # Fit polynomial in x for each coefficient (to smooth across columns)
-                coeff_polys_x = []
-                for k in range(deg_y + 1):
-                    v = coeff_matrix[:, k]
-                    cx = _robust_polyfit_1d(
-                        x_full, v,
-                        deg=deg_x,
-                        n_iter=robust_iters,
-                        clip_sigma=clip_sigma
-                    )
-                    if cx is None:
-                        raise RuntimeError(f"Failed poly(x) fit for coefficient {k}. Try smaller deg_x.")
-                    coeff_polys_x.append(cx)
-
-                # Evaluate background surface: compute y-coeffs at each x, then eval in y
-                y_full = np.arange(ny, dtype=float)
-                Vy = np.vander(y_full, N=deg_y + 1, increasing=False)  # (ny, deg_y+1)
-
-                coeffs_y_at_x = np.vstack([np.polyval(cx, x_full) for cx in coeff_polys_x]).T  # (nx, deg_y+1)
-                bg = Vy @ coeffs_y_at_x.T  # (ny, nx)
-
-                info = {
-                    "shape": (ny, nx),
-                    "y_bin": y_bin,
-                    "deg_y": deg_y,
-                    "deg_x": deg_x,
-                    "min_quantile": min_quantile,
-                    "coeff_matrix_columns": coeff_matrix,
-                    "coeff_polys_x": coeff_polys_x,
-                    "y_centers": y_centers,
-                }
-                
-                return bg, img, info
-            
-            def rm_bkg(data):
-                    
-                bg, img, info = estimate_background_minima_per_column(
-                    data,
-                    y_bin=64,
-                    deg_y=4,
-                    deg_x=5,
-                    min_quantile=None,   # or 0.01
-                )
-                
-                bkg_removed = (img - bg).astype(np.float64)
-                
-                return bkg_removed
-
-            self.flat_data = rm_bkg(self.flat_data)
-        
-        
+#        # 0) Remove the background
+#        if self.sarm == 'R':
+#            if self.logger:
+#                self.logger.info("OrderTrace: Removing background from flat...")
+#            
+#            def _robust_polyfit_1d(x, y, deg, n_iter=6, clip_sigma=4.0):
+#                x = np.asarray(x, float)
+#                y = np.asarray(y, float)
+#                m = np.isfinite(x) & np.isfinite(y)
+#                x, y = x[m], y[m]
+#                if x.size < deg + 2:
+#                    return None
+#
+#                keep = np.ones_like(y, dtype=bool)
+#                for _ in range(n_iter):
+#                    if keep.sum() < deg + 2:
+#                        break
+#                    c = np.polyfit(x[keep], y[keep], deg)
+#                    r = y - np.polyval(c, x)
+#
+#                    med = np.median(r[keep])
+#                    mad = np.median(np.abs(r[keep] - med))
+#                    sig = 1.4826 * mad if mad > 0 else np.std(r[keep])
+#                    if sig <= 0:
+#                        break
+#
+#                    new_keep = np.abs(r - med) < clip_sigma * sig
+#                    if new_keep.sum() == keep.sum():
+#                        keep = new_keep
+#                        break
+#                    keep = new_keep
+#
+#                if keep.sum() < deg + 2:
+#                    return None
+#                return np.polyfit(x[keep], y[keep], deg)
+#            
+#            def estimate_background_minima_per_column(
+#                img,
+#                y_bin=64,          # bins along y; minima taken within each bin
+#                deg_y=3,           # poly degree vs y per column
+#                deg_x=5,           # poly degree vs x for coefficient trends
+#                robust_iters=6,
+#                clip_sigma=4.0,
+#                min_quantile=None, # if set (e.g. 0.01), use that quantile instead of absolute min
+#            ):
+#                """
+#                For every x pixel (each column):
+#                  - split column into y bins
+#                  - take MINIMUM (or very-low quantile) in each y bin
+#                  - fit poly(y) to those minima
+#                Then:
+#                  - fit poly(x) to each y coefficient => smooth 2D background surface.
+#
+#                Returns: bg, img, info
+#                """
+#
+#                if img.ndim != 2:
+#                    raise ValueError(f"Expected 2D image in HDU {ext}, got {img.shape}")
+#
+#                ny, nx = img.shape
+#                y_bin = int(y_bin)
+#                if y_bin < 1:
+#                    raise ValueError("y_bin must be >= 1")
+#
+#                # y bin centers
+#                y_edges = np.arange(0, ny + y_bin, y_bin)
+#                y_centers = 0.5 * (y_edges[:-1] + y_edges[1:] - 1)
+#
+#                # Per-column fitted coeffs (nx, deg_y+1)
+#                coeff_matrix = np.full((nx, deg_y + 1), np.nan, float)
+#
+#                # Store minima samples for a few columns if you want diagnostics
+#                # (keeping all columns is big; you can still if you want)
+#                for x in range(nx):
+#                    col = img[:, x]
+#                    zmins = np.full_like(y_centers, np.nan, dtype=float)
+#
+#                    for j in range(len(y_centers)):
+#                        y0, y1 = int(y_edges[j]), int(min(y_edges[j + 1], ny))
+#                        chunk = col[y0:y1]
+#                        chunk = chunk[np.isfinite(chunk)]
+#                        if chunk.size < 5:
+#                            continue
+#
+#                        if min_quantile is None:
+#                            zmins[j] = np.min(chunk)
+#                        else:
+#                            zmins[j] = np.quantile(chunk, float(min_quantile))
+#
+#                    ok = np.isfinite(zmins)
+#                    if ok.sum() < deg_y + 2:
+#                        continue
+#
+#                    c = _robust_polyfit_1d(
+#                        y_centers[ok], zmins[ok],
+#                        deg=deg_y,
+#                        n_iter=robust_iters,
+#                        clip_sigma=clip_sigma
+#                    )
+#                    if c is None:
+#                        continue
+#                    coeff_matrix[x, :] = c
+#
+#                # Fill missing columns by interpolation per coefficient
+#                x_full = np.arange(nx, dtype=float)
+#                for k in range(deg_y + 1):
+#                    v = coeff_matrix[:, k]
+#                    ok = np.isfinite(v)
+#                    if ok.sum() < 2:
+#                        raise RuntimeError(
+#                            f"Coefficient {k} has too few valid columns ({ok.sum()}). "
+#                            f"Try larger y_bin, lower deg_y, or use min_quantile=0.01."
+#                        )
+#                    coeff_matrix[~ok, k] = np.interp(x_full[~ok], x_full[ok], v[ok])
+#
+#                # Fit polynomial in x for each coefficient (to smooth across columns)
+#                coeff_polys_x = []
+#                for k in range(deg_y + 1):
+#                    v = coeff_matrix[:, k]
+#                    cx = _robust_polyfit_1d(
+#                        x_full, v,
+#                        deg=deg_x,
+#                        n_iter=robust_iters,
+#                        clip_sigma=clip_sigma
+#                    )
+#                    if cx is None:
+#                        raise RuntimeError(f"Failed poly(x) fit for coefficient {k}. Try smaller deg_x.")
+#                    coeff_polys_x.append(cx)
+#
+#                # Evaluate background surface: compute y-coeffs at each x, then eval in y
+#                y_full = np.arange(ny, dtype=float)
+#                Vy = np.vander(y_full, N=deg_y + 1, increasing=False)  # (ny, deg_y+1)
+#
+#                coeffs_y_at_x = np.vstack([np.polyval(cx, x_full) for cx in coeff_polys_x]).T  # (nx, deg_y+1)
+#                bg = Vy @ coeffs_y_at_x.T  # (ny, nx)
+#
+#                info = {
+#                    "shape": (ny, nx),
+#                    "y_bin": y_bin,
+#                    "deg_y": deg_y,
+#                    "deg_x": deg_x,
+#                    "min_quantile": min_quantile,
+#                    "coeff_matrix_columns": coeff_matrix,
+#                    "coeff_polys_x": coeff_polys_x,
+#                    "y_centers": y_centers,
+#                }
+#                
+#                return bg, img, info
+#
+#            def rm_bkg(data):
+#
+#                bg, img, info = estimate_background_minima_per_column(
+#                    data,
+#                    y_bin=64,
+#                    deg_y=4,
+#                    deg_x=5,
+#                    min_quantile=None,   # or 0.01
+#                )
+#
+#                bkg_removed = (img - bg).astype(np.float64)
+#
+#                return bkg_removed
+#
+#            self.flat_data = rm_bkg(self.flat_data)
+#
+#
         self.alg = OrderTraceAlg(self.flat_data,self.mode, self.sarm, poly_degree=self.poly_degree, logger=self.logger)
     
     
@@ -394,12 +394,12 @@ class OrderTrace():
                     x=np.arange(s_x,e_x)
                     ord_cen=np.polyval(cluster_coeffs[i,0:self.poly_degree+1],x)
 
-                    plt.plot(x,ord_cen,'g')
-                    plt.plot(x,ord_cen-all_widths[i-1]['bottom_edge'],'r')
-                    plt.plot(x,ord_cen+all_widths[i-1]['top_edge'],'b')
+                    plt.plot(x,ord_cen,'g',lw=0.1)
+                    plt.plot(x,ord_cen-all_widths[i-1]['bottom_edge'],'r',lw=0.1)
+                    plt.plot(x,ord_cen+all_widths[i-1]['top_edge'],'b',lw=0.1)
                     count=count+1
                     
-                plt.savefig(self.out_dir+self.mode+"_Order_Trace.png",bbox_inches='tight',dpi=600)
+                plt.savefig(self.out_dir+self.mode+"_Order_Trace.png",bbox_inches='tight',dpi=900)
                 plt.close()
 
             
@@ -415,20 +415,20 @@ class OrderTrace():
             # 8) Fixing order properties based on the ensamble. This is for the bluest 5 orders and 3 reddest orders
             # Fit 3rd order polynomials to the 'good' orders and use the parameters to fix the other 7 orders
             # Re-order the orders based on the intercpt value (coeff5)
-            
-            for i in range(5):
-                coeffs = cluster_coeffs[:,i]
-                x=np.arange(len(coeffs))
-                pars = np.polyfit(x[5:-3],coeffs[5:-3],3)
-
-                for j in range(5):
-                    fit = np.polyval(pars,j)
-                    cluster_coeffs[j,i] = fit
-                for j in range(3):
-                    fit = np.polyval(pars,len(coeffs)-j-1)
-                    cluster_coeffs[len(coeffs)-j-1,i] = fit
-                coeffs = cluster_coeffs[:,i]
-                
+#            
+#            for i in range(5):
+#                coeffs = cluster_coeffs[:,i]
+#                x=np.arange(len(coeffs))
+#                pars = np.polyfit(x[5:-3],coeffs[5:-3],3)
+#
+#                for j in range(5):
+#                    fit = np.polyval(pars,j)
+#                    cluster_coeffs[j,i] = fit
+#                for j in range(3):
+#                    fit = np.polyval(pars,len(coeffs)-j-1)
+#                    cluster_coeffs[len(coeffs)-j-1,i] = fit
+#                coeffs = cluster_coeffs[:,i]
+#                
             if self.plot:
                 uniq = np.unique(HRS_index)
                 plt.title("OrderTrace: Widths\nNumber ords="+str(len(uniq)))
@@ -441,11 +441,12 @@ class OrderTrace():
                     x=np.arange(s_x,e_x)
                     ord_cen=np.polyval(cluster_coeffs[i,0:self.poly_degree+1],x)
 
-                    plt.plot(x,ord_cen,'g')
-                    plt.plot(x,ord_cen-all_widths[i-1]['bottom_edge'],'r')
-                    plt.plot(x,ord_cen+all_widths[i-1]['top_edge'],'b')
+                    plt.plot(x,ord_cen,'g',lw=0.3)
+                    plt.plot(x,ord_cen-all_widths[i-1]['bottom_edge'],'r',lw=0.3)
+                    plt.plot(x,ord_cen+all_widths[i-1]['top_edge'],'b',lw=0.3)
                     count=count+1
-                plt.savefig(self.out_dir+self.mode+"_Order_Trace.png",bbox_inches='tight',dpi=600)
+
+                plt.savefig(self.out_dir+self.mode+"_Order_Trace.png",bbox_inches='tight',dpi=900)
                 plt.close()
             
             starts = cluster_coeffs[:,5]

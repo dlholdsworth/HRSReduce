@@ -44,6 +44,7 @@ from os.path import dirname, join
 import numpy as np
 import arrow
 
+from datetime import datetime
 # -----------------------------------------------------------------------------
 # Local package imports
 # -----------------------------------------------------------------------------
@@ -366,33 +367,43 @@ def main(
                 
         # Run cosmic ray masking on current files.
         _ = CosmicRayMasking(files, arm)
-            
-        # Find the closest previous Super Flat for order tracing.
-        # Restricting to previous frames helps avoid configuration mismatches
-        # after instrument interventions such as tank openings.
-        super_flat = []
-        prev_night = yyyymmdd
-        while not super_flat:
-            prev_night = arrow.get(prev_night).shift(days=-1).format('YYYYMMDD')
-            prev_year = prev_night[0:4]
-            prev_mmdd = prev_night[4:8]
-            prev_data_location = os.path.join(base_dir, arm_colour + '/????/Super_Flats/')
-            super_flats = glob.glob(prev_data_location + m + '_Super_Flat_' + arm[0] + '*.fits')
-            s_difference = []
-            sup_files = []
-            for sfiles in super_flats:
-                s_date = (os.path.basename(sfiles)[-13:-5])
-                tmp = ((arrow.get(int(yyyymmdd[0:4]), int(yyyymmdd[4:6]), int(yyyymmdd[6:8])) - arrow.get(int(s_date[0:4]), int(s_date[4:6]), int(s_date[6:8]))).days)
-                if tmp > 0:
-                    s_difference.append(tmp)
-                    sup_files.append(sfiles)
-            index_of_closest = (np.abs(s_difference)).argmin()
-            if s_difference[index_of_closest] < 365:
-                super_flat = sup_files[index_of_closest]
-                logger.info(f"Using Super Flat file: {super_flat}")
-            else:
-                super_flat = super_flats[index_of_closest]
-                logger.warning(f"Please update the Super Flat files, currently using potentially outdated file: {super_flat}")
+        
+        #DLH change 2026-04-17
+        date_obj = datetime.strptime(yyyymmdd, "%Y%m%d")
+        ref_date = datetime.strptime("20260515", "%Y%m%d")
+        
+        if date_obj < ref_date:
+                
+            # Find the closest previous Super Flat for order tracing.
+            # Restricting to previous frames helps avoid configuration mismatches
+            # after instrument interventions such as tank openings.
+            super_flat = []
+            prev_night = yyyymmdd
+            while not super_flat:
+                prev_night = arrow.get(prev_night).shift(days=-1).format('YYYYMMDD')
+                prev_year = prev_night[0:4]
+                prev_mmdd = prev_night[4:8]
+                prev_data_location = os.path.join(base_dir, arm_colour + '/????/Super_Flats/')
+                super_flats = glob.glob(prev_data_location + m + '_Super_Flat_' + arm[0] + '*.fits')
+                s_difference = []
+                sup_files = []
+                for sfiles in super_flats:
+                    s_date = (os.path.basename(sfiles)[-13:-5])
+                    tmp = ((arrow.get(int(yyyymmdd[0:4]), int(yyyymmdd[4:6]), int(yyyymmdd[6:8])) - arrow.get(int(s_date[0:4]), int(s_date[4:6]), int(s_date[6:8]))).days)
+                    if tmp > 0:
+                        s_difference.append(tmp)
+                        sup_files.append(sfiles)
+                index_of_closest = (np.abs(s_difference)).argmin()
+                if s_difference[index_of_closest] < 365:
+                    super_flat = sup_files[index_of_closest]
+                    logger.info(f"Using Super Flat file: {super_flat}")
+                else:
+                    super_flat = super_flats[index_of_closest]
+                    logger.warning(f"Please update the Super Flat files, currently using potentially outdated file: {super_flat}")
+        
+        else:
+            super_flat = master_flat
+        #DLH END MOD
         
         # Trace the echelle orders using the selected Super Flat.
         order_file = OrderTrace(super_flat, nights, base_dir, arm_colour, m, plot).order_trace()
@@ -424,31 +435,43 @@ def main(
             else:
                 super_arc = super_arcs[index_of_closest]
                 logger.warning(f"Please update the Super Arc files, currently using potentially outdated file: {super_arc}")
-                
-        # Fully process the Super Arc and Super Flat in the correct order.
-        logger.info(f"Processing Super arc file: {super_arc}")
-        order_file_rect = OrderRectification(super_arc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
-        SlitCorrection(super_arc, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_arc).correct()
-        VarExts(super_arc, master_bias, master_flat).run()
         
-        if m == "HS" and arm == 'R':
-            # Fully process the Super Arc and Super Flat in the correct order.
+        #super_arc = files['arc'][0]
+        
+        if m == "HS" and arm[0] == 'R':
+            # Fully process the Super LFC frame
             super_lfc = "/Users/daniel/Desktop/SALT_HRS_DATA/Red/2026/Super_LFCs/HS_Super_LFC_R20260314.fits"
-            logger.info(f"Processing Super LFC file: {super_arc}")
+            logger.info(f"Processing Super LFC file: {super_lfc}")
             order_file_rect = OrderRectification(super_lfc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc).perform()
             SlitCorrection(super_lfc, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
             VarExts(super_lfc, master_bias, master_flat).run()
-        
 
+            # Fully process the Super Arc and Super Flat in the correct order.
+            logger.info(f"Processing Super arc file: {super_arc}")
+            order_file_rect = OrderRectification(super_arc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
+            SlitCorrection(super_arc, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
+            VarExts(super_arc, master_bias, master_flat).run()
+            super_lfc = super_arc
+        else:
+            # Fully process the Super Arc and Super Flat in the correct order.
+            logger.info(f"Processing Super arc file: {super_arc}")
+            print(super_arc)
+            print(super_flat)
+            print(order_file)
+            order_file_rect = OrderRectification(super_arc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
+            SlitCorrection(super_arc, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_arc).correct()
+            VarExts(super_arc, master_bias, master_flat).run()
+            
+            super_lfc = super_arc
+            
         logger.info(f"Processing Master Flat file: {master_flat}")
-
         # Rectify and tilt-correct the master flat once, since this product
         # is reused later in the pipeline.
-        _ = OrderRectification(master_flat, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
-        SlitCorrection(master_flat, 'RECT', order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=False, super_arc=super_arc).correct()
+        _ = OrderRectification(master_flat, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc).perform()
+        SlitCorrection(master_flat, 'RECT', order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=False, super_arc=super_lfc).correct()
         
         # Extract the Super Arc spectrum.
-        SpectralExtraction(super_arc, master_flat, super_arc, order_file_rect, arm_colour, m, base_dir).extraction()
+        SpectralExtraction(super_lfc, master_flat, super_lfc, order_file_rect, arm_colour, m, base_dir).extraction()
         
         # Pre-process arc frames if a Master_Wave does not already exist.
         for arc_file in files['arc']:
@@ -463,8 +486,8 @@ def main(
 
             if len(master_wave) == 0:
                 VarExts(arc_file, master_bias, master_flat).run()
-                _ = OrderRectification(arc_file, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
-                SlitCorrection(arc_file, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_arc).correct()
+                _ = OrderRectification(arc_file, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc).perform()
+                SlitCorrection(arc_file, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
             else:
                 logger.info("Arc file already processed")
 
@@ -479,8 +502,8 @@ def main(
         for lfc_file in files['lfc']:
             logger.info(f"Processing LFC file: {lfc_file}")
             VarExts(lfc_file, master_bias, master_flat).run()
-            _ = OrderRectification(lfc_file, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
-            SlitCorrection(lfc_file, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_arc).correct()
+            _ = OrderRectification(lfc_file, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc).perform()
+            SlitCorrection(lfc_file, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
             SpectralExtraction(lfc_file, master_flat, files['arc'][0], order_file_rect, arm_colour, m, base_dir).extraction()
  
         # Extract arc frames and compute wavelength solution if needed.
@@ -503,8 +526,8 @@ def main(
         for sci_file in files['sci']:
             logger.info(f"Processing Science file: {sci_file}")
             VarExts(sci_file, master_bias, master_flat).run()
-            _ = OrderRectification(sci_file, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
-            SlitCorrection(sci_file, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_arc).correct()
+            _ = OrderRectification(sci_file, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc).perform()
+            SlitCorrection(sci_file, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
             SpectralExtraction(sci_file, master_flat, MasterWave, order_file_rect, arm_colour, m, base_dir).extraction()
             OrderMerge(sci_file, master_flat, arm, m, plot=False).execute()
         
