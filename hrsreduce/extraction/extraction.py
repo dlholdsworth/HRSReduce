@@ -158,7 +158,7 @@ class SpectralExtraction():
             #Run orders (pairs of fibres) in parallel.
 
             # Start worker processes (as many as nr of CPUs)
-            pool = mp.Pool(mp.cpu_count())
+            pool = mp.Pool(mp.cpu_count()-2)
             # Initialise extracts list
             extracts = []
             # Loop for orders...

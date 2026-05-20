@@ -445,7 +445,7 @@ class SlitCorrection():
 
         #height = np.percentile(vec, 90) * threshold
         peaks, _ = signal.find_peaks(
-            vec, height=pk_height, width=peak_width, distance=window_width, prominence=(0,0.99)
+            vec, height=[pk_height,1], width=peak_width, distance=window_width, prominence=(0,0.99)
         )
 
         # Remove peaks at the edge
@@ -603,7 +603,6 @@ class SlitCorrection():
     
         #Initially test to see if the super arc already has a correction file
         curve_file = os.path.dirname(self.super_arc)+"/"+os.path.splitext(os.path.basename(self.super_arc))[0]+"_Curvature.npz"
-        #tiltfile = glob.glob(self.base_dir+self.arm_col+"/"+self.yyyymmdd[0:4]+"/"+self.yyyymmdd[4:8]+"/reduced/Curvature_"+self.sarm+self.yyyymmdd+".npz")
         tiltfile = glob.glob(curve_file)
         if len(tiltfile) == 0:
         
@@ -726,7 +725,7 @@ class SlitCorrection():
             column_range = np.zeros((n_ord,2),dtype=np.int16)
             #Loop over all orders to correct
             if self.tilt is not None and self.shear is not None:
-                pool=mp.Pool(mp.cpu_count())
+                pool=mp.Pool(mp.cpu_count()-2)
                 workers = [pool.apply_async(self.run_correction, args=(i,)) for i in range(n_ord)]
                 # Prevent any more tasks from being submitted to the pool
                 pool.close()

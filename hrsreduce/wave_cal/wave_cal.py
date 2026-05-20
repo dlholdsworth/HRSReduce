@@ -121,11 +121,11 @@ class WavelengthCalibration():
         
         self.alg = WaveCalAlg(self.cal_type,self.logger,save_diagnostics = save_diagnostics)
         if self.mode == 'HS' and self.arm == 'H':
-            self.linelist_path_U = "./hrsreduce/wave_cal/HS_H_linelist_U.npy"
-            self.linelist_path_L = "./hrsreduce/wave_cal/HS_H_linelist_L.npy"
+            self.linelist_path_U = "./hrsreduce/wave_cal/HS_H_linelist_U_2026.npy"
+            self.linelist_path_L = "./hrsreduce/wave_cal/HS_H_linelist_L_2026.npy"
         if self.mode == 'HS' and self.arm == 'R':
-            self.linelist_path_U = "./hrsreduce/wave_cal/HS_R_linelist_U.npy"
-            self.linelist_path_L = "./hrsreduce/wave_cal/HS_R_linelist_L.npy"
+            self.linelist_path_U = "./hrsreduce/wave_cal/HS_R_linelist_U_2026.npy"
+            self.linelist_path_L = "./hrsreduce/wave_cal/HS_R_linelist_L_2026.npy"
         if self.mode == 'HR' and self.arm == 'H':
             self.linelist_path_U = "./hrsreduce/wave_cal/HR_H_linelist_U_2026.npy"
             self.linelist_path_L = "./hrsreduce/wave_cal/HR_H_linelist_L_2026.npy"

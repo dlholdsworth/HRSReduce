@@ -16,7 +16,7 @@ if __name__ == '__main__':
                                      epilog="run_hrsreduce.py is the call script to invoke the full HRSReduce pipeline\n"
                                             "(D.L.Holdsworth). \n")
     parser.add_argument('-d', '--date', nargs='+',
-                        help="Date for which to reduce data, can be many strings of CCYYMMDD, e.g., 20140101 20140102 [no comma or quotes]")
+                        help="Date for which to reduce data, can be many strings of CCYYMMDD, e.g., 20240101 20240102 [no comma or quotes]")
     parser.add_argument('-m','--modes', nargs='+',default ='ALL',
                         help="A list of strings with the instrument modes to reduce. Default = 'ALL', options HR MR LR or combinations thereof [no comma or quotes].")
     parser.add_argument('-l','--location', type=str, default='work',

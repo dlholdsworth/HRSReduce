@@ -594,6 +594,8 @@ class OrderMerge():
             FIBRE_L[20:,482:500] = np.nan
             FIBRE_L[:,851:856] = np.nan
             FIBRE_L[37:,536:542] = np.nan
+            FIBRE_L[:,0]= np.nan
+            FIBRE_L[:,-1]= np.nan
             
             BLAZE_U[20:,482:500] = np.nan
             BLAZE_U[:,851:856] = np.nan
@@ -604,6 +606,8 @@ class OrderMerge():
             FIBRE_U[20:,482:500] = np.nan
             FIBRE_U[:,851:856] = np.nan
             FIBRE_U[37:,536:542] = np.nan
+            FIBRE_U[:,0]= np.nan
+            FIBRE_U[:,-1]= np.nan
             
             starting_ord = 125
             
@@ -634,11 +638,13 @@ class OrderMerge():
             
             blaze_o[nans]= np.interp(x(nans), x(~nans), blaze_o[~nans])
             blaze_o = savgol_filter(blaze_o, 61, 3)
-            blaze_p[nans]= np.interp(x(nans), x(~nans), blaze_o[~nans])
-            blaze_p = savgol_filter(blaze_o, 61, 3)
-            
             flux_o[nans]= np.interp(x(nans), x(~nans), flux_o[~nans])
-            flux_p[nans]= np.interp(x(nans), x(~nans), flux_o[~nans])
+            
+            nans, x= nan_helper(blaze_p)
+            
+            blaze_p[nans]= np.interp(x(nans), x(~nans), blaze_p[~nans])
+            blaze_p = savgol_filter(blaze_p, 61, 3)
+            flux_p[nans]= np.interp(x(nans), x(~nans), flux_p[~nans])
 
             sigma_o = np.sqrt(blaze_o)
             sigma_p = np.sqrt(blaze_p)

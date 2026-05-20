@@ -129,7 +129,7 @@ def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False,propid=None):
                     else:
                         logger.debug("File %s does not match an expected value in %s, %s, %s or %s", file,"Flat field","Arc","Science","Comb")
                 if mode == 'HS':
-                    if np.logical_and(hdr["OBSTYPE"] == "Arc", (hdr["PROPID"] == "ENG_HRS" or hdr["PROPID"] == "CAL_STABLE")):
+                    if np.logical_and(hdr["OBSTYPE"] == "Arc", (hdr["PROPID"] == "CAL_STABLE" or hdr["PROPID"] == "CAL_STABLE")):
                         if hdr["I2STAGE"] == "Reference Fibre":
                             hs_arc_files.append(file)
 

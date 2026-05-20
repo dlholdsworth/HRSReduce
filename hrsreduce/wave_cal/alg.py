@@ -1179,11 +1179,22 @@ class WaveCalAlg:
                 min_ord = 53
                 max_ord = 85
                 cut = 20
-
-            if mode =='MR':
-                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/HRS_MR_linelist_2026.txt", usecols=0, unpack=True)
+                
+            if mode =='HS':
+                min_match_tol_ms = 300.0
+                new_line_clip_ms= 300.0
+                global_clip_ms=300.0
+            else:
+                min_match_tol_ms = 500.0
+                new_line_clip_ms= 500.0
+                global_clip_ms=500.0
+                
+            if mode == 'HS':
+                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/thar_list_orig.txt", usecols=0, unpack=True)
             if mode == 'HR':
                 HRS_lines = np.loadtxt("./hrsreduce/wave_cal/HRS_HR_linelist_2026.txt", usecols=0, unpack=True)
+            if mode =='MR':
+                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/HRS_MR_linelist_2026.txt", usecols=0, unpack=True)
             if mode =='LR':
                 HRS_lines = np.loadtxt("./hrsreduce/wave_cal/HRS_LR_linelist_2026.txt", usecols=0, unpack=True)
             
@@ -1257,10 +1268,10 @@ class WaveCalAlg:
             peak_distance=2,
             peak_min_snr=2.0,
             initial_match_tol_ms=3000.0,
-            min_match_tol_ms=500.0,
+            min_match_tol_ms=min_match_tol_ms,
             span_margin_ms=10000.0,
-            new_line_clip_ms=500.0,
-            global_clip_ms=500.0,
+            new_line_clip_ms=new_line_clip_ms,
+            global_clip_ms=global_clip_ms,
             max_new_lines_per_order=50,
         )
 
@@ -1283,9 +1294,7 @@ class WaveCalAlg:
             abs_ord = max_ord + (ord*-1)
             xgrid = np.arange(all_obs.shape[1])
             w_model = fitter.predict_order(xgrid, abs_ord)
-            #correcto for offset
-            #wave_cor = self.apply_velocity_correction(w_model,inst_offset)
-            
+
             wave_img.append(w_model)
         wave_img = np.array(wave_img)
 
