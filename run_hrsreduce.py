@@ -38,7 +38,7 @@ if __name__ == '__main__':
     propid = args.propid
     arms = ['Blue','Red']
     
-    if modes[0] == 'ALL':
+    if modes == 'ALL':
         modes = ["HR","MR","LR"]
         
     for night in nights:

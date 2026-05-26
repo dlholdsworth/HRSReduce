@@ -725,7 +725,7 @@ class SlitCorrection():
             column_range = np.zeros((n_ord,2),dtype=np.int16)
             #Loop over all orders to correct
             if self.tilt is not None and self.shear is not None:
-                pool=mp.Pool(mp.cpu_count()-2)
+                pool=mp.Pool(mp.cpu_count())
                 workers = [pool.apply_async(self.run_correction, args=(i,)) for i in range(n_ord)]
                 # Prevent any more tasks from being submitted to the pool
                 pool.close()

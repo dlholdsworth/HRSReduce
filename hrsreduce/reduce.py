@@ -214,11 +214,20 @@ def main(
         log_file = join(base_dir.format(mode=modes), "logs/%s_%s_%s.log" % (arm_colour, m, yyyymmdd))
         util.start_logging(log_file)
         
+        #This decides if we are using the older flats and Super Flats or the new flats.
+        date_obj = datetime.strptime(yyyymmdd, "%Y%m%d")
+        ref_date = datetime.strptime("20260515", "%Y%m%d")
+        
+        if date_obj < ref_date:
+            new_way=False
+        else:
+            new_way = True
+        
         # Find input files and sort them by type.
         files = {}
         nights = {}
         types = ['sci', 'arc', 'lfc', 'flat', 'bias']
-        files['bias'], files['flat'], files['arc'], files['lfc'], files['sci'] = SortFiles(input_dir, logger, arm, mode=m, CAL_RVST=cal_rvst,propid=propid)
+        files['bias'], files['flat'], files['arc'], files['lfc'], files['sci'] = SortFiles(input_dir, logger, arm, mode=m, CAL_RVST=cal_rvst,propid=propid,new_flat=new_way)
         
         # Record the nominal night associated with each file type.
         # These may be updated later if fallback calibration files are used.
@@ -368,10 +377,6 @@ def main(
         # Run cosmic ray masking on current files.
         _ = CosmicRayMasking(files, arm)
         
-        #DLH change 2026-04-17
-        date_obj = datetime.strptime(yyyymmdd, "%Y%m%d")
-        ref_date = datetime.strptime("20260515", "%Y%m%d")
-        
         if date_obj < ref_date:
                 
             # Find the closest previous Super Flat for order tracing.
@@ -403,7 +408,6 @@ def main(
         
         else:
             super_flat = master_flat
-        #DLH END MOD
         
         # Trace the echelle orders using the selected Super Flat.
         order_file = OrderTrace(super_flat, nights, base_dir, arm_colour, m, plot).order_trace()
@@ -455,9 +459,6 @@ def main(
         else:
             # Fully process the Super Arc and Super Flat in the correct order.
             logger.info(f"Processing Super arc file: {super_arc}")
-            print(super_arc)
-            print(super_flat)
-            print(order_file)
             order_file_rect = OrderRectification(super_arc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
             SlitCorrection(super_arc, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_arc).correct()
             VarExts(super_arc, master_bias, master_flat).run()
@@ -532,12 +533,12 @@ def main(
             OrderMerge(sci_file, master_flat, arm, m, plot=False).execute()
         
         # Optional cleanup of remaining intermediate files.
-        if clean:
-            for type in ['sci', 'arc', 'lfc', 'flat']:
-                for file in files[type]:
-                    try:
-                        os.remove(file)
-                    except:
-                        pass
+#        if clean:
+#            for type in ['sci', 'arc', 'lfc', 'flat']:
+#                for file in files[type]:
+#                    try:
+#                        os.remove(file)
+#                    except:
+#                        pass
 
     return output

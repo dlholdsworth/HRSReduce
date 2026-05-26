@@ -2215,9 +2215,6 @@ class SpectralExtractionAlg():
 
         #Write the rectified image to the input file
         if self.extraction_method == self.NOEXTRACT:
-            with fits.open(spectrum_file,mode='update') as hdul:
-                hdul["RECT"].data +=out_data
-                hdul.flush()
                 
             df_result_out = []
             for i in range(len(order_rectification_result)):
@@ -2243,6 +2240,6 @@ class SpectralExtractionAlg():
             return_dict[proc_no] = {'spectral_extraction_result': data_df}
             #return {'spectral_extraction_result': data_df, 'rectification_on': rectification_on,
             #        'outlier_rejection_result':self.outlier_flux}
-        return proc_no,return_dict[proc_no]
+        return proc_no,return_dict[proc_no],out_data
                 
 

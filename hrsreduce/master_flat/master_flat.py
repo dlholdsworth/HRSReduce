@@ -61,8 +61,6 @@ class MasterFlat():
 
     Attributes
     ----------
-    propid : str
-        Expected project identifier for flat-field calibration frames.
     files : list
         Candidate input files to inspect.
     nights : dict
@@ -87,8 +85,6 @@ class MasterFlat():
 
     def __init__(self,files,nights,in_dir,out_dir,base_dir,arm,night,mode,plot,super=False):
     
-        self.propid = "CAL_FLAT"
-        #self.propid = "ENG_HRS"
         self.files = files
         self.nights = nights
         self.tn = night
@@ -320,9 +316,8 @@ class MasterFlat():
             Flat_files_short = []
             for file in self.files:
                 with fits.open(file) as hdu:
-                    if (hdu[0].header["PROPID"] == self.propid):
-                        Flat_files.append(file)
-                        gain = hdu[0].header["AVG_GAIN"]
+                    Flat_files.append(file)
+                    gain = hdu[0].header["AVG_GAIN"]
 
             n=len(Flat_files)
             if n <1:

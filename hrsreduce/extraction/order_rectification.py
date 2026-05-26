@@ -137,6 +137,7 @@ from astropy.io import fits
 import multiprocessing as mp
 import os.path
 import glob
+import matplotlib.pyplot as plt
 
 # Local dependencies
 from hrsreduce.extraction.alg import SpectralExtractionAlg
@@ -312,18 +313,10 @@ class OrderRectification():
                 all_o_sets.append(o_set)
                 first_trace_at.append(f_idx)
 
-            good_result = True
-            
-            with fits.open(self.input_spectrum) as hdul:
-                data= np.zeros([hdul[0].data.shape[0],hdul[0].data.shape[1]])
-                rect_img = fits.ImageHDU(data=data, name="RECT")
-                hdul.append(rect_img)
-                hdul.writeto(self.input_spectrum,overwrite='True')
-
             #Run orders (pairs of fibres) in parallel.
  
             # Start worker processes (as many as nr of CPUs)
-            pool = mp.Pool(mp.cpu_count()-2)
+            pool = mp.Pool(mp.cpu_count())
             # Initialise extracts list
             extracts = []
             # Loop for orders...
@@ -338,13 +331,20 @@ class OrderRectification():
             # Wait for worker processes to exit
             pool.join()
 
-            # Initialise return dictionary
+            # Initialise return dictionary and image
             return_dict={}
+            data= np.zeros([hdul[0].data.shape[0],hdul[0].data.shape[1]])
             # Loop for extracts...
             for extract in extracts:
                 # Unpack extraction and add to return dictionary
                 return_dict[extract.get()[0]] = extract.get()[1]
+                data += (extract.get()[2])
 
+            with fits.open(self.input_spectrum) as hdul:
+                rect_img = fits.ImageHDU(data=data, name="RECT")
+                hdul.append(rect_img)
+                hdul.writeto(self.input_spectrum,overwrite='True')
+                
             data_df = []
             for i in range(n_ord):
                 data_df.append(return_dict[i])

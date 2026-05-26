@@ -26,7 +26,7 @@ def find_files(input_dir):
     return files
 
 
-def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False,propid=None):
+def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False,propid=None,new_flat=False):
     """
     Sort HRS FITS files into calibration and science categories.
 
@@ -99,6 +99,37 @@ def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False,propid=None):
     if mode == "LR":
         modefull = 'LOW RESOLUTION'
         
+    if new_flat == True:
+        flat_propid='ENG_HRS'
+        lampid = 'QTH2'
+    else:
+        flat_propid = 'CAL_FLAT'
+        lampid = 'QTH1 - QTH2'
+        
+    flat_map = {
+        ("H", "HS", False): 40.0,
+        ("H", "HS", True): 100.0, #This value will need updating when the HS cals are investigated
+        ("H", "HR", False): 30.0,
+        ("H", "HR", True): 90.0,
+
+        ("H", "MR", False): 20.0,
+        ("H", "MR", True): 45.0,
+        ("H", "LR", False): 10.0,
+        ("H", "LR", True): 120.0,
+
+        ("R", "HS", False): 40.0,
+        ("R", "HS", True): 50.0,
+        ("R", "HR", False): 30.0,
+        ("R", "HR", True): 40.0,
+
+        ("R", "MR", False): 20.0,
+        ("R", "MR", True): 25.0,
+        ("R", "LR", False): 10.0,
+        ("R", "LR", True): 10.0,
+    }
+    
+    flat_exptime = flat_map[(arm[0],mode,new_flat)]
+        
     for file in files:
         with fits.open(file) as hdul:
             hdr = hdul[0].header
@@ -111,8 +142,9 @@ def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False,propid=None):
                     continue
                     
                 if hdr["OBSMODE"] == modefull:
-                    if np.logical_and(hdr["OBSTYPE"] == "Flat field",hdr["PROPID"] == "CAL_FLAT"):
-                        flat_files.append(file)
+                    if np.logical_and(hdr["OBSTYPE"] == "Flat field",hdr["PROPID"] == flat_propid):
+                        if np.logical_and(hdr["LAMPID"] == lampid, hdr["EXPTIME"] == flat_exptime):
+                            flat_files.append(file)
                     elif np.logical_and(hdr["OBSTYPE"] == "Arc",(hdr["PROPID"] == "CAL_ARC" or hdr["PROPID"] == "CAL_STABLE")):
                         arc_files.append(file)
                     elif hdr["OBSTYPE"] == "Science":
