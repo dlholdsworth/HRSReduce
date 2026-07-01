@@ -5,7 +5,7 @@ import logging
 
 from .sort_files import SortFiles
 
-def FindNearestFiles(type,night,m,base_dir,arm_colour,logger):
+def FindNearestFiles(type,night,m,base_dir,arm_colour,logger,new_flat=False):
     """
     Locate the nearest available calibration files when none exist for a target night.
 
@@ -64,7 +64,7 @@ def FindNearestFiles(type,night,m,base_dir,arm_colour,logger):
         prev_year=prev_night[0:4]
         prev_mmdd=prev_night[4:8]
         prev_data_location = os.path.join(base_dir, arm_colour+'/'+prev_year+'/'+prev_mmdd+'/raw/')
-        result = SortFiles(prev_data_location,logger,arm,mode=m)
+        result = SortFiles(prev_data_location,logger,arm,mode=m,new_flat=new_flat)
         files = result[idx]
         if idx == 1 and len(files)<3:
             files = []
@@ -81,7 +81,7 @@ def FindNearestFiles(type,night,m,base_dir,arm_colour,logger):
         next_year=next_night[0:4]
         next_mmdd=next_night[4:8]
         next_data_location = os.path.join(base_dir, arm_colour+'/'+next_year+'/'+next_mmdd+'/raw/')
-        result = SortFiles(next_data_location,logger,arm,mode=m)
+        result = SortFiles(next_data_location,logger,arm,mode=m,new_flat=new_flat)
         files = result[idx]
         if idx == 1 and len(files)<3:
             files = []

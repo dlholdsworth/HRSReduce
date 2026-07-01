@@ -259,7 +259,7 @@ def main(
             )
             
             # Now search to find a night with the files.
-            files['flat'], nights['flat'] = FindNearestFiles('Flat', yyyymmdd, m, base_dir, arm_colour, logger)
+            files['flat'], nights['flat'] = FindNearestFiles('Flat', yyyymmdd, m, base_dir, arm_colour, logger,new_flat=new_way)
 
             # Create the corresponding output directory if needed.
             output_dir_flat = arm_colour + "/" + nights['flat'][0:4] + "/" + nights['flat'][4:8] + "/reduced/"

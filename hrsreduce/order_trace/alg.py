@@ -3392,7 +3392,7 @@ class OrderTraceAlg():
             
             if self.sarm == "R":
                 if np.min(fit) > 30 and len(ii) > 8000:
-                    if(len(xrange) >2500 and np.min(xrange) < 500):
+                    if(len(xrange) >2500 and np.min(xrange) < 520):
                         for i in ii:
                             index2.append(new_index)
                             x2.append(x[i])

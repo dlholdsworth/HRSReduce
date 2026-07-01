@@ -106,24 +106,33 @@ def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False,propid=None,new_flat=
         flat_propid = 'CAL_FLAT'
         lampid = 'QTH1 - QTH2'
         
+    #Temp fix to run HS frames -- DLH 15/06/2026
+    if mode =="HS":
+        flat_propid = 'CAL_FLAT'
+        lampid = 'QTH1 - QTH2'
+        
     flat_map = {
         ("H", "HS", False): 40.0,
-        ("H", "HS", True): 100.0, #This value will need updating when the HS cals are investigated
+        ("H", "HS", True): 40.0, #This value will need updating when the HS cals are investigated
+
         ("H", "HR", False): 30.0,
         ("H", "HR", True): 90.0,
 
         ("H", "MR", False): 20.0,
         ("H", "MR", True): 45.0,
+ 
         ("H", "LR", False): 10.0,
         ("H", "LR", True): 120.0,
 
         ("R", "HS", False): 40.0,
-        ("R", "HS", True): 50.0,
+        ("R", "HS", True): 40.0,#This value will need updating when the HS cals are investigated
+
         ("R", "HR", False): 30.0,
         ("R", "HR", True): 40.0,
 
         ("R", "MR", False): 20.0,
         ("R", "MR", True): 25.0,
+ 
         ("R", "LR", False): 10.0,
         ("R", "LR", True): 10.0,
     }
