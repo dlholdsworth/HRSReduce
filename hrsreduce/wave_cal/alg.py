@@ -308,6 +308,7 @@ class WaveCalAlg:
         axBR.axhline(0, linewidth=0.8, alpha=0.7)
 
         plt.savefig(str(diag_plot+fibre),dpi=600)
+        plt.close()
         return (rms)
         
     C_KMS = 299792.458
@@ -1055,6 +1056,7 @@ class WaveCalAlg:
 
         plt.tight_layout()
         plt.savefig(str(diag_plot+fibre),dpi=600)
+        plt.close()
         return order_rms, global_rms
         
     def apply_velocity_correction(self,waves, rv_kms,relativistic=True):

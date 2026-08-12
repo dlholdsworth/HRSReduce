@@ -216,12 +216,14 @@ def main(
         
         #This decides if we are using the older flats and Super Flats or the new flats.
         date_obj = datetime.strptime(yyyymmdd, "%Y%m%d")
-        ref_date = datetime.strptime("20260515", "%Y%m%d")
+        ref_date = datetime.strptime("20260618", "%Y%m%d")
         
         if date_obj < ref_date:
             new_way=False
         else:
             new_way = True
+            
+        
         
         # Find input files and sort them by type.
         files = {}
@@ -533,12 +535,12 @@ def main(
             OrderMerge(sci_file, master_flat, arm, m, plot=False).execute()
         
         # Optional cleanup of remaining intermediate files.
-#        if clean:
-#            for type in ['sci', 'arc', 'lfc', 'flat']:
-#                for file in files[type]:
-#                    try:
-#                        os.remove(file)
-#                    except:
-#                        pass
+        if clean:
+            for type in ['sci', 'arc', 'lfc', 'flat']:
+                for file in files[type]:
+                    try:
+                        os.remove(file)
+                    except:
+                        pass
 
     return output

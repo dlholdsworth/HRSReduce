@@ -2253,15 +2253,6 @@ class OrderTraceAlg():
         new_index_sort = np.zeros(np.size(m_index), dtype=int)
         new_coeffs_sort = np.zeros(np.shape(m_coeffs))
         
-#        #DLH MOD for commented below
-#        test=np.where((new_index - m_index) != 0)[0] # this shouldn't happen, for debugging
-#        if test.size == 0:
-#            import pdb;pdb.set_trace()
-#            print("new_index and m_index not the same")
-#
-#        if np.where((new_index - m_index) != 0)[0]:   # this shouldn't happen, for debugging
-#            import pdb;pdb.set_trace()
-#            print("new_index and m_index not the same")
 
         for i, v_sort in enumerate(sorted_index):
             if i != 0:
@@ -3344,6 +3335,561 @@ class OrderTraceAlg():
         df.attrs['POLY_DEG'] = self.poly_degree
         return df
 
+    def _robust_standardise(self,values):
+        """
+        Robustly standardise each column using its median and MAD.
+        """
+
+        values = np.asarray(values, dtype=float)
+
+        if values.ndim == 1:
+            values = values[:, np.newaxis]
+
+        standardised_values = np.zeros_like(values)
+
+        for column_index in range(values.shape[1]):
+            column = values[:, column_index]
+
+            centre = np.median(column)
+            scale = 1.4826 * np.median(np.abs(column - centre))
+
+            if not np.isfinite(scale) or scale <= np.finfo(float).eps:
+                scale = np.std(column)
+
+            if not np.isfinite(scale) or scale <= np.finfo(float).eps:
+                standardised_values[:, column_index] = 0.0
+            else:
+                standardised_values[:, column_index] = (
+                    column - centre
+                ) / scale
+
+        return standardised_values
+
+
+    def _scale_metric_zero_to_one(self,values):
+        """
+        Scale an anomaly metric to the interval zero to one.
+        """
+
+        values = np.asarray(values, dtype=float)
+        scaled_values = np.zeros_like(values)
+
+        valid = np.isfinite(values)
+
+        if not np.any(valid):
+            return scaled_values
+
+        minimum_value = np.min(values[valid])
+        maximum_value = np.max(values[valid])
+
+        if maximum_value <= minimum_value:
+            return scaled_values
+
+        scaled_values[valid] = (
+            values[valid] - minimum_value
+        ) / (
+            maximum_value - minimum_value
+        )
+
+        return scaled_values
+
+
+    def identify_outlying_order(self,
+            traces,
+            order_numbers=None,
+            polynomial_degree=5,
+            include_constant_coefficient=False,
+            nearest_coefficient_neighbours=3,
+            point_count_weight=1.0,
+            coefficient_weight=1.0,
+            plot_result=True):
+        """
+        Identify an anomalous order using point counts and polynomial coefficients.
+
+        Each order is fitted independently. No order shape is predicted from
+        neighbouring traces.
+
+        Parameters
+        ----------
+        traces : list of tuples
+            Each element must contain:
+
+                (x_coordinates, y_coordinates)
+
+            The list must be in the correct order sequence.
+
+        order_numbers : array-like or None
+            Physical order numbers corresponding to the traces. When None,
+            indices zero, one, two, ... are used.
+
+        polynomial_degree : int
+            Polynomial degree fitted to every trace. The requested default is 5.
+
+        include_constant_coefficient : bool
+            Include coefficient c0 in the coefficient comparison. This should
+            normally remain False because c0 describes vertical order position.
+
+        nearest_coefficient_neighbours : int
+            Number of closest coefficient vectors used to calculate the
+            coefficient-isolation score.
+
+        point_count_weight : float
+            Relative contribution from the point-count anomaly.
+
+        coefficient_weight : float
+            Relative contribution from the coefficient anomaly.
+
+        plot_result : bool
+            Plot the traces and anomaly metrics.
+
+        Returns
+        -------
+        outlying_trace_index : int
+            Index of the most anomalous trace.
+
+        outlying_order_number
+            Physical order number corresponding to the anomalous trace.
+
+        combined_scores : numpy.ndarray
+            Combined anomaly score for every order.
+
+        results : dict
+            Detailed counts, coefficients and anomaly metrics.
+        """
+
+        number_of_traces = len(traces)
+
+        if number_of_traces < 3:
+            raise ValueError("At least three traces are required.")
+
+        if polynomial_degree != 5:
+            print(
+                f"Warning: polynomial_degree is {polynomial_degree}; "
+                "the requested degree is 5."
+            )
+
+        if order_numbers is None:
+            order_numbers = np.arange(number_of_traces)
+        else:
+            order_numbers = np.asarray(order_numbers)
+
+        if len(order_numbers) != number_of_traces:
+            raise ValueError(
+                "order_numbers must contain one value for every trace."
+            )
+
+        if point_count_weight < 0.0:
+            raise ValueError("point_count_weight cannot be negative.")
+
+        if coefficient_weight < 0.0:
+            raise ValueError("coefficient_weight cannot be negative.")
+
+        total_weight = point_count_weight + coefficient_weight
+
+        if total_weight <= 0.0:
+            raise ValueError(
+                "At least one anomaly weight must be greater than zero."
+            )
+
+        cleaned_traces = []
+        point_counts = np.zeros(number_of_traces, dtype=int)
+
+        all_valid_x = []
+
+        for trace_index, trace in enumerate(traces):
+            if len(trace) != 2:
+                raise ValueError(
+                    f"Trace {trace_index} must contain x and y arrays."
+                )
+
+            trace_x = np.asarray(trace[0], dtype=float)
+            trace_y = np.asarray(trace[1], dtype=float)
+
+            if trace_x.shape != trace_y.shape:
+                raise ValueError(
+                    f"Trace {trace_index}: x and y shapes do not match."
+                )
+
+            valid = np.isfinite(trace_x) & np.isfinite(trace_y)
+
+            trace_x = trace_x[valid]
+            trace_y = trace_y[valid]
+
+            point_counts[trace_index] = trace_x.size
+
+            if trace_x.size < polynomial_degree + 1:
+                raise ValueError(
+                    f"Trace {trace_index} has only {trace_x.size} valid "
+                    f"points. At least {polynomial_degree + 1} are required."
+                )
+
+            sort_index = np.argsort(trace_x)
+
+            trace_x = trace_x[sort_index]
+            trace_y = trace_y[sort_index]
+
+            cleaned_traces.append((trace_x, trace_y))
+            all_valid_x.append(trace_x)
+
+        all_valid_x = np.concatenate(all_valid_x)
+
+        global_x_minimum = np.min(all_valid_x)
+        global_x_maximum = np.max(all_valid_x)
+
+        if global_x_maximum <= global_x_minimum:
+            raise ValueError("The x-coordinate range is zero.")
+
+        polynomial_coefficients = np.zeros(
+            (
+                number_of_traces,
+                polynomial_degree + 1
+            ),
+            dtype=float
+        )
+
+        fitted_traces = []
+
+        for trace_index, (trace_x, trace_y) in enumerate(
+                cleaned_traces):
+
+            # All traces are scaled using the same transformation. This is
+            # essential if their polynomial coefficients are to be compared.
+            scaled_x = (
+                2.0 *
+                (
+                    trace_x - global_x_minimum
+                ) /
+                (
+                    global_x_maximum - global_x_minimum
+                )
+                - 1.0
+            )
+
+            # polyfit from np.polynomial.polynomial returns coefficients as:
+            #
+            # c0, c1, c2, ..., c5
+            #
+            # so y = c0 + c1*x + c2*x**2 + ... + c5*x**5.
+            coefficients = np.polynomial.polynomial.polyfit(
+                scaled_x,
+                trace_y,
+                polynomial_degree
+            )
+
+            polynomial_coefficients[trace_index, :] = coefficients
+
+            fitted_y = np.polynomial.polynomial.polyval(
+                scaled_x,
+                coefficients
+            )
+
+            fitted_traces.append(fitted_y)
+
+        median_point_count = np.median(point_counts)
+
+        if median_point_count <= 0:
+            raise RuntimeError(
+                "The median number of trace points is zero."
+            )
+
+        # Fractional difference from the typical number of points.
+        point_count_metric = (
+            np.abs(
+                point_counts - median_point_count
+            ) /
+            median_point_count
+        )
+
+        if include_constant_coefficient:
+            coefficients_for_comparison = (
+                polynomial_coefficients.copy()
+            )
+
+            coefficient_labels = [
+                f"c{coefficient_index}"
+                for coefficient_index in range(
+                    polynomial_degree + 1
+                )
+            ]
+        else:
+            coefficients_for_comparison = (
+                polynomial_coefficients[:, 1:].copy()
+            )
+
+            coefficient_labels = [
+                f"c{coefficient_index}"
+                for coefficient_index in range(
+                    1,
+                    polynomial_degree + 1
+                )
+            ]
+
+        # Each coefficient is standardised independently because the numerical
+        # scales of c1, c2, ..., c5 can differ substantially.
+        standardised_coefficients = self._robust_standardise(
+            coefficients_for_comparison
+        )
+
+        # Calculate the distance between every pair of coefficient vectors.
+        coefficient_differences = (
+            standardised_coefficients[:, np.newaxis, :]
+            -
+            standardised_coefficients[np.newaxis, :, :]
+        )
+
+        pairwise_coefficient_distances = np.sqrt(
+            np.mean(
+                coefficient_differences ** 2,
+                axis=2
+            )
+        )
+
+        # Exclude each trace's zero distance from itself.
+        np.fill_diagonal(
+            pairwise_coefficient_distances,
+            np.inf
+        )
+
+        number_of_neighbours = min(
+            nearest_coefficient_neighbours,
+            number_of_traces - 1
+        )
+
+        if number_of_neighbours < 1:
+            raise ValueError(
+                "nearest_coefficient_neighbours must be at least one."
+            )
+
+        nearest_coefficient_distances = np.partition(
+            pairwise_coefficient_distances,
+            number_of_neighbours - 1,
+            axis=1
+        )[:, :number_of_neighbours]
+
+        # An incorrect polynomial should be isolated from the coefficient
+        # vectors belonging to the normal traces.
+        coefficient_metric = np.median(
+            nearest_coefficient_distances,
+            axis=1
+        )
+
+        # This additional metric compares each order with all other orders.
+        all_order_coefficient_metric = np.median(
+            np.where(
+                np.isfinite(pairwise_coefficient_distances),
+                pairwise_coefficient_distances,
+                np.nan
+            ),
+            axis=1
+        )
+
+        scaled_point_count_metric = self._scale_metric_zero_to_one(
+            point_count_metric
+        )
+
+        scaled_coefficient_metric = self._scale_metric_zero_to_one(
+            coefficient_metric
+        )
+
+        combined_scores = (
+            point_count_weight * scaled_point_count_metric
+            +
+            coefficient_weight * scaled_coefficient_metric
+        ) / total_weight
+
+        outlying_trace_index = int(
+            np.nanargmax(combined_scores)
+        )
+
+        outlying_order_number = order_numbers[
+            outlying_trace_index
+        ]
+
+        ranking = np.argsort(combined_scores)[::-1]
+
+#        print("")
+#        print("Order anomaly ranking")
+#        print("")
+#        print(
+#            "Index   Order    Points   Point-count metric   "
+#            "Coefficient metric   Combined score"
+#        )
+#        print(
+#            "------------------------------------------------"
+#            "------------------------------------"
+#        )
+#
+#        for trace_index in ranking:
+#            print(
+#                f"{trace_index:5d}   "
+#                f"{str(order_numbers[trace_index]):>7s}   "
+#                f"{point_counts[trace_index]:6d}   "
+#                f"{point_count_metric[trace_index]:18.5f}   "
+#                f"{coefficient_metric[trace_index]:18.5f}   "
+#                f"{combined_scores[trace_index]:14.5f}"
+#            )
+#
+#        print("")
+#        print(
+#            f"Most anomalous trace index: "
+#            f"{outlying_trace_index}"
+#        )
+#
+#        print(
+#            f"Most anomalous order number: "
+#            f"{outlying_order_number}"
+#        )
+#
+#        print(
+#            f"Number of valid points: "
+#            f"{point_counts[outlying_trace_index]}"
+#        )
+#
+#        print(
+#            f"Median number of valid points: "
+#            f"{median_point_count:.1f}"
+#        )
+#
+#        print("")
+#        print("Polynomial coefficients for detected order")
+#
+#        for coefficient_index in range(
+#                polynomial_degree + 1):
+#            print(
+#                f"c{coefficient_index}: "
+#                f"{polynomial_coefficients[
+#                    outlying_trace_index,
+#                    coefficient_index
+#                ]:.12e}"
+#            )
+
+        if plot_result:
+            plt.figure(figsize=(11, 7))
+
+            for trace_index, (trace_x, trace_y) in enumerate(
+                    cleaned_traces):
+
+                if trace_index == outlying_trace_index:
+                    continue
+
+                plt.plot(
+                    trace_x,
+                    trace_y,
+                    ".",
+                    markersize=2,
+                    alpha=0.45
+                )
+
+            outlying_x, outlying_y = cleaned_traces[
+                outlying_trace_index
+            ]
+
+            plt.plot(
+                outlying_x,
+                outlying_y,
+                ".",
+                markersize=5,
+                label=(
+                    f"Detected order "
+                    f"{outlying_order_number}"
+                )
+            )
+
+            plt.plot(
+                outlying_x,
+                fitted_traces[outlying_trace_index],
+                linewidth=2,
+                label="Degree-5 polynomial fit"
+            )
+
+            plt.xlabel("x pixel")
+            plt.ylabel("y pixel")
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+            plt.figure(figsize=(10, 4))
+
+            plt.plot(
+                order_numbers,
+                scaled_point_count_metric,
+                "o-",
+                label="Point-count anomaly"
+            )
+
+            plt.plot(
+                order_numbers,
+                scaled_coefficient_metric,
+                "o-",
+                label="Coefficient anomaly"
+            )
+
+            plt.plot(
+                order_numbers,
+                combined_scores,
+                "o-",
+                label="Combined anomaly"
+            )
+
+            plt.xlabel("Order number")
+            plt.ylabel("Scaled anomaly score")
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+            plt.figure(figsize=(10, 5))
+
+            for coefficient_index in range(
+                    standardised_coefficients.shape[1]):
+
+                plt.plot(
+                    order_numbers,
+                    standardised_coefficients[
+                        :,
+                        coefficient_index
+                    ],
+                    "o-",
+                    label=coefficient_labels[
+                        coefficient_index
+                    ]
+                )
+
+            plt.xlabel("Order number")
+            plt.ylabel("Robust standardised coefficient")
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+        results = {
+            "order_numbers": order_numbers,
+            "point_counts": point_counts,
+            "median_point_count": median_point_count,
+            "polynomial_degree": polynomial_degree,
+            "polynomial_coefficients": polynomial_coefficients,
+            "coefficients_for_comparison":
+                coefficients_for_comparison,
+            "standardised_coefficients":
+                standardised_coefficients,
+            "pairwise_coefficient_distances":
+                pairwise_coefficient_distances,
+            "coefficient_metric": coefficient_metric,
+            "all_order_coefficient_metric":
+                all_order_coefficient_metric,
+            "point_count_metric": point_count_metric,
+            "scaled_point_count_metric":
+                scaled_point_count_metric,
+            "scaled_coefficient_metric":
+                scaled_coefficient_metric,
+            "combined_scores": combined_scores,
+            "fitted_traces": fitted_traces
+        }
+
+        return (
+            outlying_trace_index,
+            outlying_order_number,
+            combined_scores,
+            results
+        )
 
     def HRS_clean(self, x,y,index,yyyymmdd):
         """
@@ -3446,11 +3992,56 @@ class OrderTraceAlg():
         x3 = np.asarray(x2,dtype=np.int32)
         y3 = np.asarray(y2,dtype=np.int32)
         
-        
         uniq = len(np.unique(index3))
-        if uniq != expected_ords:
-            self.logger.warning("Not the right number of orders found. Found {}, expected {}. Exiting.".format(uniq,expected_ords))
-            exit()
-        
-        return x3,y3,index3
+        if uniq == expected_ords:
+            return x3,y3,index3
+            
+        elif uniq > expected_ords:
+            while uniq > expected_ords:
+            
+                traces = []
+                order_numbers = np.unique(index3)
+                for ord in np.unique(index3):
+                    ii=np.where(index3 == ord)[0]
+                    traces.append([x3[ii], y3[ii]])
+
+                outlying_index, outlying_order, scores, results = (
+                    self.identify_outlying_order(
+                        traces,
+                        order_numbers=order_numbers,
+                        polynomial_degree=5,
+                        include_constant_coefficient=False,
+                        nearest_coefficient_neighbours=3,
+                        point_count_weight=1.0,
+                        coefficient_weight=1.0,
+                        plot_result=False
+                    )
+                    )
+                
+                index4 = []
+                x4 = []
+                y4 = []
+                for ord in np.unique(index3):
+                    diff = 0
+                    if ord !=outlying_order:
+                        ii=np.where(index3 == ord)[0]
+                        if ord > outlying_order:
+                            diff=-1
+                        for i in range(len(ii)):
+                            index4.append(index3[ii[i]]+diff)
+                            x4.append(x3[ii[i]])
+                            y4.append(y3[ii[i]])
+
+                index5 = np.asarray(index4,dtype=np.int32)
+                x5 = np.asarray(x4,dtype=np.int32)
+                y5 = np.asarray(y4,dtype=np.int32)
+                        
+                uniq = len(np.unique(index5))
+            return x5,y5,index5
+            
+        else:
+            if uniq != expected_ords:
+                self.logger.warning("Not the right number of orders found. Found {}, expected {}. Exiting.".format(uniq,expected_ords))
+                exit()
+            
         
