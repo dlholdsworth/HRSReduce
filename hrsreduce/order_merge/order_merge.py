@@ -8,6 +8,7 @@ from itertools import chain
 import matplotlib.pyplot as plt
 
 import logging, os
+from .. import __version__   # pipeline version, written to the product header
 
 logger = logging.getLogger(__name__)
 
@@ -491,12 +492,21 @@ class OrderMerge():
         smooth_initial = 1e5
             
         # Create new equispaced wavelength grid
-        tmp = wave.compressed()
-        wmin = np.min(tmp)
-        wmax = np.max(tmp)
-        dwave = np.abs(tmp[tmp.size // 2] - tmp[tmp.size // 2 - 1]) * 0.5
-        nwave = np.ceil((wmax - wmin) / dwave) + 1
-        new_wave = np.linspace(wmin, wmax, int(nwave), endpoint=True)
+        tmp = np.asarray(wave.compressed(), dtype=np.float64)
+
+        wmin = float(np.min(tmp))
+        wmax = float(np.max(tmp))
+
+        dwave = abs(tmp[tmp.size // 2] - tmp[tmp.size // 2 - 1]) * 0.5
+        nwave = int(np.ceil((wmax - wmin) / dwave) + 1)
+
+        new_wave = np.linspace(
+            wmin,
+            wmax,
+            nwave,
+            endpoint=True,
+            dtype=np.float64,
+        )
 
         # Combine all orders into one big spectrum, sorted by wavelength
         wsort, j, index = np.unique(tmp, return_index=True, return_inverse=True)
@@ -527,6 +537,41 @@ class OrderMerge():
 
         return new_wave,ssB
         
+    @staticmethod
+    def add_wavelength_header(hdu, wave, spectrum):
+        wave = np.asarray(wave, dtype=np.float64)
+
+        if wave.size < 2:
+            raise ValueError("At least two wavelength samples are required")
+
+        wave_step = (wave[-1] - wave[0]) / (wave.size - 1)
+
+        hdu.header["CRPIX1"] = (1.0, "Reference pixel")
+        hdu.header["CRVAL1"] = (float(wave[0]), "Wavelength at reference pixel")
+        hdu.header["CDELT1"] = (float(wave_step), "Wavelength increment per pixel")
+        hdu.header["CTYPE1"] = ("WAVELENGTH", "Coordinate type")
+        hdu.header["CUNIT1"] = ("Angstrom", "Wavelength unit")
+        hdu.header["BUNIT"] = ("FLUX", "Units of data values")
+        hdu.header["DATAMAX"] = (float(np.nanmax(spectrum)), "Maximum data value")
+        hdu.header["DATAMIN"] = (float(np.nanmin(spectrum)), "Minimum data value")
+
+    @staticmethod
+    def add_order_table_wavelength_header(hdu, wave):
+        """Add numeric wavelength metadata to a resampled order table."""
+        wave = np.asarray(wave, dtype=np.float64)
+
+        if wave.size < 2:
+            raise ValueError("At least two wavelength samples are required")
+
+        wave_step = (wave[-1] - wave[0]) / (wave.size - 1)
+
+        hdu.header["CRPIX1"] = (1.0, "Reference pixel")
+        hdu.header["CRVAL1"] = (float(wave[0]), "Wavelength at reference pixel")
+        hdu.header["CDELT1"] = (float(wave_step), "Wavelength increment per pixel")
+        hdu.header["CTYPE1"] = ("WAVELENGTH", "Coordinate type")
+        hdu.header["CUNIT1"] = ("Angstrom", "Wavelength unit")
+        hdu.header["BUNIT"] = ("COUNTS", "Flux and blaze units")
+
     def execute(self):
         """
         Execute the full order-merging workflow and write merged products to disk.
@@ -759,38 +804,21 @@ class OrderMerge():
                 pass
                 
             HDU[0].header['MSTRFLAT'] = (str(os.path.basename(self.flat)),"Master Flat File")
+            HDU[0].header['PIPEVERS'] = (str(__version__), "HRSReduce pipeline version")
         
-            FIBRE_L_SPEC_hdu = fits.ImageHDU(data=spectrum_L,name="FIBRE_L_SPEC_MERGED")
-            FIBRE_L_SPEC_hdu.header.insert(8,('COMMENT','Reduced FIBRE L Merged Spectrum'))
-            FIBRE_L_SPEC_hdu.header['CRPIX1']  = (str(1), "Reference pixel")
-            FIBRE_L_SPEC_hdu.header['CRVAL1']  = (str(np.min(wave_L)), "Coordinate at reference pixel")
-            FIBRE_L_SPEC_hdu.header['CDELT1']  = (str(wave_step_L), "Coord. incr. per pixel (original value)")
-            FIBRE_L_SPEC_hdu.header['CTYPE1']  = (str('WAVELENGTH'), "Units of coordinate (Angstrom)")
-            FIBRE_L_SPEC_hdu.header['BUNIT']  = (str('FLUX'), "Units of data values")
-            FIBRE_L_SPEC_hdu.header['DATAMAX']  = (str(np.max(spectrum_L)), "Maximum data value")
-            FIBRE_L_SPEC_hdu.header['DATAMIN']  = (str(np.min(spectrum_L)), "Minimum data value")
+            FIBRE_L_SPEC_hdu = fits.ImageHDU(data=spectrum_L,name="FIBRE_L_SPEC_MERGED",)
+            FIBRE_L_SPEC_hdu.header.insert(8, ("COMMENT", "Reduced FIBRE L Merged Spectrum"))
+            self.add_wavelength_header(FIBRE_L_SPEC_hdu, wave_L, spectrum_L)
             HDU.append(FIBRE_L_SPEC_hdu)
             
-            FIBRE_U_SPEC_hdu = fits.ImageHDU(data=spectrum_U,name="FIBRE_U_SPEC_MERGED")
-            FIBRE_U_SPEC_hdu.header.insert(8,('COMMENT','Reduced FIBRE U Merged Spectrum'))
-            FIBRE_U_SPEC_hdu.header['CRPIX1']  = (str(1), "Reference pixel")
-            FIBRE_U_SPEC_hdu.header['CRVAL1']  = (str(np.min(wave_U)), "Coordinate at reference pixel")
-            FIBRE_U_SPEC_hdu.header['CDELT1']  = (str(wave_step_U), "Coord. incr. per pixel (original value)")
-            FIBRE_U_SPEC_hdu.header['CTYPE1']  = (str('WAVELENGTH'), "Units of coordinate (Angstrom)")
-            FIBRE_U_SPEC_hdu.header['BUNIT']  = (str('FLUX'), "Units of data values")
-            FIBRE_U_SPEC_hdu.header['DATAMAX']  = (str(np.max(spectrum_U)), "Maximum data value")
-            FIBRE_U_SPEC_hdu.header['DATAMIN']  = (str(np.min(spectrum_U)), "Minimum data value")
+            FIBRE_U_SPEC_hdu = fits.ImageHDU(data=spectrum_U,name="FIBRE_U_SPEC_MERGED",)
+            FIBRE_U_SPEC_hdu.header.insert(8, ("COMMENT", "Reduced FIBRE U Merged Spectrum"))
+            self.add_wavelength_header(FIBRE_U_SPEC_hdu, wave_U, spectrum_U)
             HDU.append(FIBRE_U_SPEC_hdu)
             
-            SKY_SUBTRACTED_SPEC_hdu = fits.ImageHDU(data=spectrum_sub,name="SKY_SUBTRACTED_SPEC_MERGED")
-            SKY_SUBTRACTED_SPEC_hdu.header.insert(8,('COMMENT','Reduced Merged Spectrum Target - Sky'))
-            SKY_SUBTRACTED_SPEC_hdu.header['CRPIX1']  = (str(1), "Reference pixel")
-            SKY_SUBTRACTED_SPEC_hdu.header['CRVAL1']  = (str(np.min(wave_sub)), "Coordinate at reference pixel")
-            SKY_SUBTRACTED_SPEC_hdu.header['CDELT1']  = (str(wave_step_sub), "Coord. incr. per pixel (original value)")
-            SKY_SUBTRACTED_SPEC_hdu.header['CTYPE1']  = (str('WAVELENGTH'), "Units of coordinate (Angstrom)")
-            SKY_SUBTRACTED_SPEC_hdu.header['BUNIT']  = (str('FLUX'), "Units of data values")
-            SKY_SUBTRACTED_SPEC_hdu.header['DATAMAX']  = (str(np.max(spectrum_sub)), "Maximum data value")
-            SKY_SUBTRACTED_SPEC_hdu.header['DATAMIN']  = (str(np.min(spectrum_sub)), "Minimum data value")
+            SKY_SUBTRACTED_SPEC_hdu = fits.ImageHDU(data=spectrum_sub,name="SKY_SUBTRACTED_SPEC_MERGED",)
+            SKY_SUBTRACTED_SPEC_hdu.header.insert(8, ("COMMENT", "Reduced Merged Spectrum Target - Sky"))
+            self.add_wavelength_header(SKY_SUBTRACTED_SPEC_hdu,wave_sub,spectrum_sub,)
             HDU.append(SKY_SUBTRACTED_SPEC_hdu)
             
             #TODO: ADD in the individual orders as uniform lam vs int and uniform lam vs int/cont. Add BCORR to HEADER.
@@ -826,44 +854,46 @@ class OrderMerge():
                 sigma_o = SIGMA_L[ord]
                 sigma_p = SIGMA_U[ord]
                 
-                tmp_wave_o = (np.arange(np.min(wave_o), np.max(wave_o),wave_step_L))
+                tmp_wave_o = np.arange(
+                    float(np.min(wave_o)),
+                    float(np.max(wave_o)),
+                    float(wave_step_L),
+                    dtype=np.float64,
+                )
                 tmp_flux_o = (np.interp(tmp_wave_o, wave_o, flux_o))
                 tmp_blaze_o = (np.interp(tmp_wave_o, wave_o, blaze_o))
                 
-                col0 = fits.Column(name='Wave', format='D',array=tmp_wave_o)
-                col1 = fits.Column(name='Flux', format='D',array=tmp_flux_o)
-                col2 = fits.Column(name='Blaze', format='D',array=tmp_blaze_o)
+                col0 = fits.Column(name='Wave', format='D', unit='Angstrom', array=tmp_wave_o)
+                col1 = fits.Column(name='Flux', format='D', unit='count', array=tmp_flux_o)
+                col2 = fits.Column(name='Blaze', format='D', unit='count', array=tmp_blaze_o)
                 coldefs = fits.ColDefs([col0,col1,col2])
                 try:
                     HDU.pop("ORD"+str((ord*-1)+starting_ord)+"_L")
                 except:
                     pass
                 col_hdu_L = fits.BinTableHDU.from_columns(coldefs,name="ORD"+str((ord*-1)+starting_ord)+"_L")
-                col_hdu_L.header['CRPIX1']  = (str(1), "Reference pixel")
-                col_hdu_L.header['CRVAL1']  = (str(np.min(tmp_wave_o)), "Coordinate at reference pixel")
-                col_hdu_L.header['CDELT1']  = (str(wave_step_L), "Coord. incr. per pixel (original value)")
-                col_hdu_L.header['CTYPE1']  = (str('WAVELENGTH'), "Units of coordinate (Angstrom)")
-                col_hdu_L.header['BUNIT']  = (str('COUNTS'), "Units of data values")
+                self.add_order_table_wavelength_header(col_hdu_L, tmp_wave_o)
                 HDU.append(col_hdu_L)
                 
-                tmp_wave_p = (np.arange(np.min(wave_p), np.max(wave_p),wave_step_U))
+                tmp_wave_p = np.arange(
+                    float(np.min(wave_p)),
+                    float(np.max(wave_p)),
+                    float(wave_step_U),
+                    dtype=np.float64,
+                )
                 tmp_flux_p = (np.interp(tmp_wave_p, wave_p, flux_p))
                 tmp_blaze_p = (np.interp(tmp_wave_p, wave_p, blaze_p))
                 
-                col0 = fits.Column(name='Wave', format='D',array=tmp_wave_p)
-                col1 = fits.Column(name='Flux', format='D',array=tmp_flux_p)
-                col2 = fits.Column(name='Blaze', format='D',array=tmp_blaze_p)
+                col0 = fits.Column(name='Wave', format='D', unit='Angstrom', array=tmp_wave_p)
+                col1 = fits.Column(name='Flux', format='D', unit='count', array=tmp_flux_p)
+                col2 = fits.Column(name='Blaze', format='D', unit='count', array=tmp_blaze_p)
                 coldefs = fits.ColDefs([col0,col1,col2])
                 try:
                     HDU.pop("ORD"+str((ord*-1)+starting_ord)+"_U")
                 except:
                     pass
                 col_hdu_U = fits.BinTableHDU.from_columns(coldefs,name="ORD"+str((ord*-1)+starting_ord)+"_U")
-                col_hdu_U.header['CRPIX1']  = (str(1), "Reference pixel")
-                col_hdu_U.header['CRVAL1']  = (str(np.min(tmp_wave_p)), "Coordinate at reference pixel")
-                col_hdu_U.header['CDELT1']  = (str(wave_step_U), "Coord. incr. per pixel (original value)")
-                col_hdu_U.header['CTYPE1']  = (str('WAVELENGTH'), "Units of coordinate (Angstrom)")
-                col_hdu_U.header['BUNIT']  = (str('COUNTS'), "Units of data values")
+                self.add_order_table_wavelength_header(col_hdu_U, tmp_wave_p)
                 HDU.append(col_hdu_U)
                 
             HDU.writeto(self.spec,overwrite='True')
@@ -885,5 +915,3 @@ class OrderMerge():
             short_HDU.writeto(out_file,overwrite='True')
 
         return wave_L, spectrum_L
-
-

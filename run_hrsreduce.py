@@ -51,6 +51,7 @@ if __name__ == '__main__':
                 loc,
                 clean=cln,
                 cal_rvst=rv,
+                plot=False,
                 propid=propid
             )
             #Run the code for RED data
@@ -61,5 +62,6 @@ if __name__ == '__main__':
                 loc,
                 clean=cln,
                 cal_rvst=rv,
+                plot=False,
                 propid=propid
             )

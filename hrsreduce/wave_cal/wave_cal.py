@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 import logging
 
 from hrsreduce.wave_cal.alg import WaveCalAlg
-from hrsreduce.wave_cal.build_wavemodel import BuildWaveModel
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +206,6 @@ class WavelengthCalibration():
                         ord_lens = np.zeros(U_fluxs.shape[0])
                         for o in range(len(ord_lens)):
                             ord_lens[o] = len(U_fluxs[o])
-                        #self.rough_wls, self.echelle_ord = BuildWaveModel(self.arm,self.mode,ord_lens).execute()
                         
                         #### lfc ####
                         if self.cal_type == 'LFC':
@@ -267,15 +265,19 @@ class WavelengthCalibration():
                             
                         
                         wl_soln_U, order_precisions_U,absolute_precision_U  = self.alg.run_wavelength_cal_nonHS(U_fluxs,Su_U_fluxes,ref_U_fluxes,self.linelist_path_U,self.nord, self.arm,self.mode,diag_plot,'_U.png',obs_date)
+                        stats_U = dict(getattr(self.alg, 'fit_stats', {}))
                         self.logger.info("Overall rms (all orders U): {}".format(absolute_precision_U))
                         
                         wl_soln_L, order_precisions_L, absolute_precision_L = self.alg.run_wavelength_cal_nonHS(L_fluxs,Su_L_fluxes,ref_L_fluxes,self.linelist_path_L,self.nord, self.arm,self.mode,diag_plot,'_L.png',obs_date)
+                        stats_L = dict(getattr(self.alg, 'fit_stats', {}))
                         self.logger.info("Overall rms (all orders L): {}".format(absolute_precision_L))
                         
                         
                     #Save the wavelength solution to a new fits extension
                     Ext_wave_U = fits.ImageHDU(data=wl_soln_U, name="WAVE_U")
                     Ext_wave_U.header["WAVE_RMS"] = ((absolute_precision_U),"Overall rms (all orders)")
+                    for k, v in (locals().get('stats_U') or {}).items():
+                        Ext_wave_U.header[k] = v
                     hdul.append(Ext_wave_U)
                     Ext_wave_U2 = fits.ImageHDU(name='WAVE_U_PRE', data=order_precisions_U)
                     hdul.append(Ext_wave_U2)
@@ -283,6 +285,8 @@ class WavelengthCalibration():
                     #Save the wavelength solution to a new fits extension
                     Ext_wave_L = fits.ImageHDU(data=wl_soln_L, name="WAVE_L")
                     Ext_wave_L.header["WAVE_RMS"] = ((absolute_precision_L),"Overall rms (all orders)")
+                    for k, v in (locals().get('stats_L') or {}).items():
+                        Ext_wave_L.header[k] = v
                     hdul.append(Ext_wave_L)
                     Ext_wave_L2 = fits.ImageHDU(name='WAVE_L_PRE', data=order_precisions_L)
                     hdul.append(Ext_wave_L2)

@@ -41,6 +41,7 @@ import logging
 import os
 import glob
 from os.path import dirname, join
+import os.path as _osp
 import numpy as np
 import arrow
 
@@ -71,6 +72,8 @@ from hrsreduce.var_ext.var_ext import VarExts
 from hrsreduce.order_trace.order_trace import OrderTrace
 from hrsreduce.extraction.order_rectification import OrderRectification
 from hrsreduce.extraction.slit_correction import SlitCorrection
+   
+RECT_KERNEL = 'lanczos2'   # Interpolation kernel of the one-pass rectification: 'linear' (safe) or 'lanczos2'
 
 # Spectral extraction
 from hrsreduce.extraction.extraction import SpectralExtraction
@@ -222,8 +225,6 @@ def main(
             new_way=False
         else:
             new_way = True
-            
-        
         
         # Find input files and sort them by type.
         files = {}
@@ -414,63 +415,44 @@ def main(
         # Trace the echelle orders using the selected Super Flat.
         order_file = OrderTrace(super_flat, nights, base_dir, arm_colour, m, plot).order_trace()
         
-        
-        # Find the closest previous Super Arc for slit tilt correction.
-        super_arc = []
-        prev_night = yyyymmdd
-        while not super_arc:
-            prev_night = arrow.get(prev_night).shift(days=-1).format('YYYYMMDD')
-            prev_year = prev_night[0:4]
-            prev_mmdd = prev_night[4:8]
-            prev_data_location = os.path.join(base_dir, arm_colour + '/????/Super_Arcs/')
-            super_arcs = glob.glob(prev_data_location + m + '_Super_Arc_' + arm[0] + '*.fits')
-            s_difference = []
-            sup_files = []
-            for sfiles in super_arcs:
-                s_date = (os.path.basename(sfiles)[-13:-5])
-                tmp = ((arrow.get(int(yyyymmdd[0:4]), int(yyyymmdd[4:6]), int(yyyymmdd[6:8])) - arrow.get(int(s_date[0:4]), int(s_date[4:6]), int(s_date[6:8]))).days)
-                if tmp > 0:
-                    s_difference.append(tmp)
-                    sup_files.append(sfiles)
-            s_difference = np.array(s_difference)
-            ii = np.where(s_difference > 0)[0]
-            index_of_closest = (np.abs(s_difference[ii])).argmin()
-            if s_difference[index_of_closest] < 365:
-                super_arc = sup_files[index_of_closest]
-                logger.info(f"Using Super Arc file: {super_arc}")
-            else:
-                super_arc = super_arcs[index_of_closest]
-                logger.warning(f"Please update the Super Arc files, currently using potentially outdated file: {super_arc}")
-        
-        #super_arc = files['arc'][0]
+        super_arc = files['arc'][0]
+        logger.info(f"Using the first arc of the night as tilt source: {super_arc}")
+        tilt_file = None
         
         if m == "HS" and arm[0] == 'R':
             # Fully process the Super LFC frame
-            super_lfc = "/Users/daniel/Desktop/SALT_HRS_DATA/Red/2026/Super_LFCs/HS_Super_LFC_R20260314.fits"
+            super_lfc = "/Users/daniel/Desktop/SALT_HRS_DATA/Red/2026/Super_LFCs/HS_Super_LFC_R20260622.fits"
             logger.info(f"Processing Super LFC file: {super_lfc}")
             order_file_rect = OrderRectification(super_lfc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc).perform()
             SlitCorrection(super_lfc, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
             VarExts(super_lfc, master_bias, master_flat).run()
 
-            # Fully process the Super Arc and Super Flat in the correct order.
-            logger.info(f"Processing Super arc file: {super_arc}")
+            # Fully process the first arc (HS keeps the two-pass straightening: the comb
+            # frame is the hard-wired tilt source and the per-line measurement does not
+            # apply to it).
+            logger.info(f"Processing arc file: {super_arc}")
             order_file_rect = OrderRectification(super_arc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
             SlitCorrection(super_arc, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
             VarExts(super_arc, master_bias, master_flat).run()
             super_lfc = super_arc
         else:
-            # Fully process the Super Arc and Super Flat in the correct order.
-            logger.info(f"Processing Super arc file: {super_arc}")
+            logger.info(f"Processing arc file: {super_arc}")
+            VarExts(super_arc, master_bias, master_flat).run()
             order_file_rect = OrderRectification(super_arc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
             SlitCorrection(super_arc, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_arc).correct()
-            VarExts(super_arc, master_bias, master_flat).run()
-            
+            tilt_file = _osp.splitext(super_arc)[0] + '_Curvature.npz'
+            if _osp.isfile(tilt_file):
+                order_file_rect = OrderRectification(super_arc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc,
+                                                     tilt_file=tilt_file, kernel=RECT_KERNEL, overwrite=True).perform()
+            else:
+                logger.error(f"No tilt solution written for {super_arc}; continuing with the two-pass straightening")
+                tilt_file = None
             super_lfc = super_arc
             
         logger.info(f"Processing Master Flat file: {master_flat}")
         # Rectify and tilt-correct the master flat once, since this product
         # is reused later in the pipeline.
-        _ = OrderRectification(master_flat, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc).perform()
+        _ = OrderRectification(master_flat, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc, tilt_file=tilt_file, kernel=RECT_KERNEL).perform()
         SlitCorrection(master_flat, 'RECT', order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=False, super_arc=super_lfc).correct()
         
         # Extract the Super Arc spectrum.
@@ -489,7 +471,7 @@ def main(
 
             if len(master_wave) == 0:
                 VarExts(arc_file, master_bias, master_flat).run()
-                _ = OrderRectification(arc_file, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc).perform()
+                _ = OrderRectification(arc_file, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc, tilt_file=tilt_file, kernel=RECT_KERNEL).perform()
                 SlitCorrection(arc_file, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
             else:
                 logger.info("Arc file already processed")
@@ -505,7 +487,7 @@ def main(
         for lfc_file in files['lfc']:
             logger.info(f"Processing LFC file: {lfc_file}")
             VarExts(lfc_file, master_bias, master_flat).run()
-            _ = OrderRectification(lfc_file, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc).perform()
+            _ = OrderRectification(lfc_file, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc, tilt_file=tilt_file, kernel=RECT_KERNEL).perform()
             SlitCorrection(lfc_file, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
             SpectralExtraction(lfc_file, master_flat, files['arc'][0], order_file_rect, arm_colour, m, base_dir).extraction()
  
@@ -529,7 +511,7 @@ def main(
         for sci_file in files['sci']:
             logger.info(f"Processing Science file: {sci_file}")
             VarExts(sci_file, master_bias, master_flat).run()
-            _ = OrderRectification(sci_file, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc).perform()
+            _ = OrderRectification(sci_file, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc, tilt_file=tilt_file, kernel=RECT_KERNEL).perform()
             SlitCorrection(sci_file, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
             SpectralExtraction(sci_file, master_flat, MasterWave, order_file_rect, arm_colour, m, base_dir).extraction()
             OrderMerge(sci_file, master_flat, arm, m, plot=False).execute()

@@ -217,8 +217,8 @@ class OrderTraceAlg():
         if self.mode == "HS":
             if self.sarm == "R":
                 self.pixel_range = 35
-                self.top_edge = 20
-                self.bottom_edge = 20
+                self.top_edge = 18
+                self.bottom_edge = 18
                 self.fit_degree = 7
                 self.pix_ext = 2
                 self.img_sigma = 4
@@ -329,36 +329,6 @@ class OrderTraceAlg():
         poly_info[power+4] = np.amax(y_set)
         errors = math.sqrt(np.square(np.polyval(poly_info[0:power + 1], x_set) - y_set).mean())
         return poly_info, errors
-
-    @staticmethod
-    def opt_filter(y_data: np.ndarray, par: int, weight: np.ndarray = None):
-        """A smoothing filter."""
-
-        n = y_data.size
-
-        # Check for some input preliminaries
-        try:
-            assert(y_data.ndim == 1)
-            assert(par >= 0)
-        except AssertionError:
-            return y_data
-
-        if weight is None:
-            # a weight is not provided as input
-            wgt = np.ones(n, dtype=np.float64)
-        else:
-            wgt = np.reshape(weight, (1, -1))[0]
-        # f (array): solution of A^t * f = y_data*weight,
-        # A is banded matrix formed based on par & weight
-        r = y_data*wgt
-        a = np.ones((1, n), dtype=np.float64)[0] * (-abs(par))
-        b = np.hstack([[wgt[0]+abs(par)], wgt[1:n-1]+2.0*abs(par), [wgt[n-1]+abs(par)]])
-        c = a.copy()
-        a[0] = c[-1] = 0
-        # resolve banded matrix by combining a, b, c, abc*f = r
-        f = linalg.solve_banded((1, 1), np.vstack([a, b, c]), r)
-
-        return f
         
     @staticmethod
     def get_segments_from_index_list(id_list: np.ndarray,  loc: np.ndarray):
@@ -468,172 +438,6 @@ class OrderTraceAlg():
         center_index = np.argsort(centers)
         idx = np.where(center_index == cluster_no)[0]
         return {'idx': idx[0], 'index_v_pos': center_index}
-        
-    @staticmethod
-    def count_max_ones(unique_x):
-        x_dist = unique_x - np.roll(unique_x, 1)
-        x_cont_max = 0
-        total_count = 0
-        for dist in x_dist:
-            total_count = total_count + 1 if dist == 1 else 0
-            if total_count > x_cont_max:
-                x_cont_max = total_count
-
-        return x_cont_max
-        
-    @staticmethod
-    def mirror_data(x_set: np.ndarray, y_set: np.ndarray, mirror_side: int):
-        """Mirror y value to the left or right side of x_set.
-
-        Args:
-            x_set (numpy.ndarray): Array of x values.
-            y_set (numpy.ndarray): Array of y values paired to each of  `x_set`.
-            mirror_side (int): Mirror direction. Mirror to the left side of `x_set` at if 0, or to the right side of
-                `x_set` if 1.
-
-        Returns:
-            tuple: Data after mirroring,
-
-                * **x_new_set** (*numpy.ndarray*): Array containing x coordinates from left to the right
-                  after mirroring.
-                * **y_new_set** (*numpy.ndarray*): Array containing y coordinates relevant to `x_new_set`.
-
-        """
-        total = np.size(x_set) - 1
-
-        if mirror_side == 0:   # left side
-            x_other_side = x_set[0:total]-total
-            y_other_side = np.flip(y_set[1:])
-            x_new_set = np.concatenate((x_other_side, x_set))
-            y_new_set = np.concatenate((y_other_side, y_set))
-        else:                  # ride side
-            x_other_side = x_set[1:]+total
-            y_other_side = np.flip(y_set[0:total])
-            x_new_set = np.concatenate((x_set, x_other_side))
-            y_new_set = np.concatenate((y_set, y_other_side))
-
-        return x_new_set, y_new_set
-
-    @staticmethod
-    def fit_width_by_gaussian(x_set: np.ndarray, y_set: np.ndarray, center_y: float, xs: int,
-                              sigma: float = 3.0):
-        """Find the width using Gaussian fitting.
-
-        Fit the x, y set of data using Gaussian and find the width by looking at sigma of the Gaussian fit.
-
-        Parameters:
-            x_set (numpy.ndarray): x data set.
-            y_set (numpy.ndarray): y data set.
-            center_y (float): Estimation of y value at the center from `x_set`.
-            xs (int): x location for `center_y`.
-            sigma (float, optional): Magnitude of standard deviation to get the width. Defaults to 3.0.
-
-        Returns:
-            tuple: Gaussian fit results:
-
-                * **gaussian_fit**: Gaussian fit object.
-                * **width** (*float*): Width found by Gaussian fit.
-                * **gaussian_center** (*float*): Mean of Gaussian fit.
-
-        """
-
-        g_init = models.Gaussian1D(mean=center_y)
-
-        if np.amax((y_set-np.amin(y_set))) > 2**16:
-            gaussian_fit = FIT_G(g_init, x_set, (y_set-np.amin(y_set))/2**16)
-        else:
-            gaussian_fit = FIT_G(g_init, x_set, y_set - np.amin(y_set))
-        max_w = abs(x_set[0] - x_set[-1])//2
-        v_at_std = gaussian_fit.stddev.value*sigma
-        if abs(gaussian_fit.mean.value - center_y) <= 1.0:
-            width = v_at_std
-            gaussian_center = gaussian_fit.mean.value
-        else:
-            gaussian_center = gaussian_fit.mean.value
-            width = v_at_std  # need more consideration
-
-        # width = v_at_std if abs(v_at_std - max_w) < 1.0 else min(v_at_std, max_w)
-        # print(xs, v_at_std, max_w, width)
-        # width = min(max_w, width)
-        return gaussian_fit, width, gaussian_center
-
-    @staticmethod
-    def find_mean_from_histogram(vals: np.ndarray, bin_no: int = 4, c_range: list = None, cut_at: float = None):
-        """Find the mean value based on the histogram of the data set.
-
-        Calculate the mean of the data selected from the given data set based on the histogram of the set.
-
-        Args:
-            vals (numpy.ndarray): Array of values.
-            bin_no (int): Bin number for the histogram.
-            c_range (list, optional): Range for making histogram.
-            cut_at (float, optional): Upper limit of the mean value. Defaults to None.
-
-        Returns:
-           float: Mean value of the data set.
-
-        """
-
-        if c_range is None:
-            r = None
-        else:
-            r = (c_range[0], c_range[1])
-
-        hist, bin_edge = np.histogram(vals, bins=bin_no, range=r)
-
-        if np.size(np.where(hist != 0)[0]) == 0:
-            if cut_at is None:
-                mean_val = np.mean(vals)
-            else:
-                mean_val = cut_at
-            return mean_val
-
-        max_hist_idx = np.argmax(hist)
-        if max_hist_idx > 1 and (hist[max_hist_idx-1] > hist[max_hist_idx]*0.6):
-            edge_min = bin_edge[max_hist_idx-1]
-        else:
-            edge_min = bin_edge[max_hist_idx]
-
-        if max_hist_idx < (len(hist)-1) and (hist[max_hist_idx+1] > hist[max_hist_idx]*0.6):
-            edge_max = bin_edge[max_hist_idx+2]
-        else:
-            edge_max = bin_edge[max_hist_idx+1]
-
-        data_idx = np.where(np.logical_and(vals >= edge_min,
-                                           vals <= edge_max))[0]
-
-        mean_val = np.mean(vals[data_idx])
-
-        if cut_at is not None and mean_val > cut_at:
-            mean_val = cut_at
-        return mean_val
-
-
-    def in_peaks(self, index, c_idx, x, y, power, unique_x):
-        poly, error, area = self.curve_fitting_on_one_cluster(index, c_idx, x, y, power)
-        spec, nx, ny = self.get_spectral_data()
-        check_x_pts = []
-        t_dist = 10.0
-        t_gap = 10
-        for x_idx in range(unique_x[0:-1].size):
-            if abs(unique_x[x_idx+1] - unique_x[x_idx]) >= t_gap:
-                check_x_pts.append((unique_x[x_idx+1] + unique_x[x_idx])//2)
-                if len(check_x_pts) >= 3:
-                    break
-        check_x_pts = np.array(check_x_pts, dtype=int)
-        check_y_dist = np.ones(check_x_pts.size) * t_dist
-        for x_pt_idx, x_pt in enumerate(check_x_pts):
-            peaks, prop = signal.find_peaks(spec[:, x_pt], distance=self.trace_vertical_gap)
-            y_val = np.polyval(poly[0:power+1], x_pt)
-            high_peaks = np.where(peaks > y_val)[0]
-            y_peaks_collection = peaks[0:(high_peaks[0]+1)] if high_peaks.size >= 1 else peaks
-            for y_p in y_peaks_collection:
-                y_dist = abs(y_p - y_val)
-                check_y_dist[x_pt_idx] = y_dist  if y_dist < check_y_dist[x_pt_idx] else t_dist
-        close_to_peak = np.all(check_y_dist <= 2.0)
-
-        return close_to_peak
-
 
     def cross_other_cluster(self, polys: np.ndarray, cluster_nos_for_polys: np.ndarray, cluster_nos: np.ndarray,
                             x: np.ndarray, y: np.ndarray, index: np.ndarray, power: int,
@@ -2204,8 +2008,6 @@ class OrderTraceAlg():
         new_y = m_y.copy()
         new_index = m_index.copy()
         
-        #new_x, new_y, new_index = self.remove_broken_cluster(m_index, m_x, m_y)
-        
         return new_x, new_y, new_index
 
         
@@ -2266,117 +2068,6 @@ class OrderTraceAlg():
         
         
         return m_x, m_y, m_index, m_coeffs
-
-    def remove_broken_cluster(self, index: np.ndarray, x: np.ndarray, y: np.ndarray):
-        """Remove the cluster which has big opening around the center of the image.
-
-        Parameters:
-            index (numpy.ndarray): Array of cluster id on cluster pixels.
-            x (numpy.ndarray): Array of x coordinates of cluster pixels.
-            y (numpy.ndarray): Array of y coordinates of cluster pixels.
-
-        Returns:
-            tuple: Information of cluster pixels after processing,
-
-            * **new_x** (*numpy.ndarray*): Array of  x coordinates of cluster pixels after processing.
-            * **new_y** (*numpy.ndarray*): Array of  y coordinates of cluster pixels after processing.
-            * **new_index** (*numpy.ndarray*): Array of cluster id on cluster pixels after processing.
-
-        """
-        _, nx, _ = self.get_spectral_data()
-        gap = max(nx//40, 1)
-        # gap = nx//200
-        data_x_center = nx//2
-        max_idx = np.amax(index)
-        changed = 0
-
-        stats = np.zeros((max_idx+1, 6))      # y at 0, center, nx-1, and actual height, curve height, dist
-
-        power = self.poly_degree
-        # stats of all merged curves
-        for c_idx in range(1, max_idx+1):
-            poly, error, area = self.curve_fitting_on_one_cluster(index, c_idx, x, y, power)
-            stats[c_idx, 0:3] = np.polyval(poly[0:power+1], np.array([0, data_x_center, nx-1])) # 3 y positions
-            stats[c_idx, 3] = abs(area[2]-area[3])                                      # real height
-            stats[c_idx, 4] = np.amax([abs(stats[c_idx, 0] - stats[c_idx, 2]),
-                                      abs(stats[c_idx, 0] - stats[c_idx, 1]),
-                                      abs(stats[c_idx, 2] - stats[c_idx, 1])]) + 1      # fitting curve heights
-            stats[c_idx, 5] = abs(stats[c_idx, 1]-stats[c_idx-1, 1])                    # y dist in the middle
-
-        for c in range(1, max_idx+1):
-            e_case = 0
-            border_idx = np.where(index == c)[0]
-            x_border_set = x[border_idx]
-            x_before_center = x_border_set[np.where(x_border_set <= data_x_center)[0]]
-            x_after_center = x_border_set[np.where(x_border_set > data_x_center)[0]]
-            x_before = np.amax(x_before_center) if x_before_center.size > 0 else 0
-            x_after = np.amin(x_after_center) if x_after_center.size > 0 else (nx - 1)
-
-            unique_x = np.unique(x_border_set)
-            max_x_dist = np.amax(unique_x - np.roll(unique_x, 1))
-
-            # the curve around the image center is usually most traceable.
-            if (x_after - x_before) > gap:
-                changed = 1
-                index[border_idx] = 0
-                # print('cluster ', c, ' case -1')
-                continue
-
-            # the merged curve not pass through the image center, or off the image center
-            if max_x_dist == 1 and (unique_x[-1]-unique_x[0] + 1 > nx//2):   # no gap and more than half of the image
-                continue
-            width_c = unique_x[-1]-unique_x[0]+1
-            half_width_c = max(width_c//2, 1)
-
-            # curve black pixels takes small portion and the gap takes bigger portion along the merged trace
-            if unique_x.size < half_width_c:              # majority pixel is zero
-                                                          # gap is larger than 1/2 width and short trace
-                if (max_x_dist > half_width_c) or ((unique_x[-1]-unique_x[0]+1) < nx//3):
-                    e_case = 1
-                elif stats[c, 4] > stats[c, 3] * 2.0:     # the fitting is off the trace a lot at the ends
-                    e_case = 4
-                elif unique_x.size < half_width_c//2:     # few pixels
-                    x_cont_max = self.count_max_ones(unique_x)
-                    if max_x_dist > 200 and max_x_dist > x_cont_max * 4.0:  # gap longer than continuous pixels
-                        e_case = 5
-                elif not self.in_peaks(index, c, x, y, power, unique_x):     # no peaks meet with the poly
-                    x_cont_max = self.count_max_ones(unique_x)
-                    if max_x_dist > gap and max_x_dist > x_cont_max * 4.0:
-                        e_case = 6
-            elif width_c < nx//2 and stats[c, 4] > stats[c, 3] * 4.0:   # check if curve fitting out of the track
-                e_case = 2
-            else:                           # gap larger than maximum continuous pixels
-                """
-                x_dist = unique_x - np.roll(unique_x, 1)
-                x_cont_max = 0
-                total_count = 0
-                for dist in x_dist:
-                    if dist == 1:
-                        if total_count == 0:
-                            total_count = 1
-                        else:
-                            total_count = total_count + 1
-                        if total_count > x_cont_max:
-                            x_cont_max = total_count
-                    else:
-                        total_count = 0
-                """
-                x_cont_max = self.count_max_ones(unique_x)
-
-                if max_x_dist > x_cont_max * 1.5:
-                    e_case = 3
-            # print('cluster ', c, ' case ', e_case)
-            if e_case > 0:
-                changed = 1
-                index[border_idx] = 0
-        new_x = x.copy()
-        new_y = y.copy()
-        new_index = index.copy()
-
-        if changed == 1:
-            new_x, new_y, new_index = self.reorganize_index(new_index, new_x, new_y)
-
-        return new_x, new_y, new_index
 
 
     def one_step_merge_cluster(self, crt_coeffs: np.ndarray, crt_index: np.ndarray,
@@ -2679,177 +2370,6 @@ class OrderTraceAlg():
             cluster_points[c, s_x:e_x] = pt_vals
 
         return cluster_points
-        
-    def find_cluster_width_by_gaussian(self, cluster_no: int, poly_coeffs: np.ndarray, cluster_points: np.ndarray):
-        """Find the width of the cluster using Gaussian to approximate the distribution of collected spectral data.
-
-        Parameters:
-            cluster_no (int): Cluster id.
-            poly_coeffs (numpy.ndarray): Polynomial fitting information and the covered area of all clusters.
-            cluster_points (numpy.ndarray): Pixel position (y values) along the polynomial fit of every cluster.
-
-        Returns:
-            dict: cluster width information like::
-
-                {
-                    'cluster_no': int,   # cluster id.
-                    'avg_pwidth': float, # bottom width of cluster.
-                    'avg_nwidth': float  # top width of cluster.
-                }
-        """
-
-        power = self.poly_degree
-        width_default = self.width_default
-        width_th = self.trace_vertical_gap
-        spec_data, nx, ny = self.get_spectral_data()
-        max_cluster_no = np.shape(poly_coeffs)[0]-1
-        center_x = nx//2
-        index_pos = self.get_sorted_index(poly_coeffs, cluster_no, power, center_x)
-
-        # index of cluster_no in index_pos list
-        idx = index_pos['idx']
-        idx_v_post = index_pos['index_v_pos']
-        prev_idx = idx - 1 if idx > 1 else idx
-        next_idx = idx + 1 if idx < max_cluster_no else idx
-
-        three_clusters = np.array([cluster_no, idx_v_post[prev_idx], idx_v_post[next_idx]])
-        min_x = int(np.amax(poly_coeffs[three_clusters, power+1]))
-        max_x = int(np.amin(poly_coeffs[three_clusters, power+2]))
-
-        x_range = np.array([min_x, max_x])
-
-        # compute the width along x direction at each step along the opposite sides of the center
-        step = 100
-        x_loc1 = np.arange(center_x, int(x_range[1])+1, step)
-        x_loc2 = np.arange(center_x-step, int(x_range[0])-1, -step)
-        x_loc = np.concatenate((np.flip(x_loc2), x_loc1))
-        # cluster_width_info = list()
-        prev_widths = list()
-        next_widths = list()
-        prev_centers = list()
-        next_centers = list()
-        # max_upper = 0
-        # max_lower = 0
-
-        max_gap = self.max_order_distance
-        # print('sigma for width fitting: ', self.sigma_for_width_fititng)
-
-        for xs in x_loc:
-            cluster_y = cluster_points[cluster_no, xs]
-            cluster_y_next = cluster_points[idx_v_post[idx+1], xs] if idx < max_cluster_no else ny-1
-            cluster_y_prev = cluster_points[idx_v_post[idx-1], xs] if idx > 1 else 0
-
-            if max_gap > 0:
-                cluster_y_next = min(cluster_y + max_gap, cluster_y_next)
-                cluster_y_prev = max(cluster_y - max_gap, cluster_y_prev)
-
-            if idx == 1 and idx < max_cluster_no:
-                cluster_y_prev = max(cluster_y - abs(cluster_y_next - cluster_y), 0)
-            if idx == max_cluster_no and idx > 1:
-                cluster_y_next = min(cluster_y + abs(cluster_y - cluster_y_prev), ny-1)
-
-            next_mid = min(ny-1, ((cluster_y+cluster_y_next)//2+1))
-            prev_mid = max(0, ((cluster_y+cluster_y_prev)//2-1))
-
-            # finding width at both sides
-            x_set = np.arange(prev_mid, cluster_y+1)
-            y_set = spec_data[prev_mid:(cluster_y+1), xs]
-            new_x_set, new_y_set = self.mirror_data(x_set, y_set, 1)
-            if new_x_set.size >= 3:
-                gaussian_fit_prev, prev_width, prev_center = \
-                    self.fit_width_by_gaussian(new_x_set, new_y_set, cluster_y, xs, self.sigma_for_width_fititng)
-                # max_lower = (new_x_set.size//2 + 1) if (new_x_set.size//2 + 1) > max_upper else max_lower
-                prev_widths.append(prev_width)
-                prev_centers.append(prev_center)
-
-            x_set = np.arange(cluster_y, next_mid+1)
-            y_set = spec_data[cluster_y:(next_mid+1), xs]
-            new_x_set, new_y_set = self.mirror_data(x_set, y_set, 0)
-            if new_x_set.size >= 3:
-                gaussian_fit_next, next_width, next_center = \
-                    self.fit_width_by_gaussian(new_x_set, new_y_set, cluster_y, xs, self.sigma_for_width_fititng)
-                # max_upper = (new_x_set.size//2 + 1) if (new_x_set.size//2 + 1) > max_upper else max_upper
-                next_widths.append(next_width)
-                next_centers.append(next_center)
-
-        cluster_h = poly_coeffs[cluster_no, power+4] - poly_coeffs[cluster_no, power+3]
-        avg_pwidth = self.find_mean_from_histogram(np.array(prev_widths), c_range=[0, cluster_h],
-                                                   bin_no=max(int(cluster_h//width_th), 1),
-                                                   cut_at=width_default)
-        avg_nwidth = self.find_mean_from_histogram(np.array(next_widths), c_range=[0, cluster_h],
-                                                   bin_no=max(int(cluster_h//width_th), 1),
-                                                   cut_at=width_default)
-                                                   
-
-        # self.values_at_width(avg_pwidth, avg_nwidth, cluster_points[cluster_no, center_x], center_x)
-
-        return {'cluster_no': cluster_no,
-                'avg_pwidth': avg_pwidth,
-                'avg_nwidth': avg_nwidth}
-                
-    def approximate_width_of_default(self, cluster_widths: list, cluster_points: np.ndarray,
-                                     cluster_coeffs: np.ndarray, poly_fit_power: int = 2):
-        """Approximate unresolved width using least square polynomial fit to determined widths.
-
-        Parameters:
-            cluster_widths (list): Top and bottom widths of all clusters, like
-                                  [{'top_edge': <number>, 'bottom_edge': <number>},...].
-            cluster_points (numpy.ndarray): Arrays contains cluster points (y values) along the trace based on
-                the polynomial fitting. Each row includes y values along x axis of one cluster.
-            cluster_coeffs (numpy.ndarray): Coefficients of Polynomial fit and area of all order traces.
-            poly_fit_power (int, optional): Degree of polynomial fit for width estimation, degree 2 or 3 is suggested.
-                Defaults to 2.
-
-        Returns:
-            list: top and bottom widths of all clusters after using polynomial approximation, like::
-
-                        [
-                            {
-                                'top_edge': float,     # top width of first cluster,
-                                'bottom_edge': float   # bottom width of first cluster
-                            },
-                            :
-                            {
-                                'top_edge': float,     # top width of last cluster,
-                                'bottom_edge': float   # bottom width of last cluster
-                            }
-                        ]
-
-        """
-        _, nx, ny = self.get_spectral_data()
-        power = self.poly_degree
-
-        h_center = nx//2
-        total_cluster = np.shape(cluster_points)[0] - 1
-
-        y_middle_list = np.zeros(total_cluster)
-        for c in range(1, np.shape(cluster_points)[0]):
-            if cluster_coeffs[c, power+1] <= h_center <= cluster_coeffs[c, power+2]:
-                y_middle_list[c-1] = cluster_points[c, h_center]
-            else:
-                y_middle_list[c-1] = np.polyval(cluster_coeffs[c, 0:power+1], h_center)
-
-        widths_all = list()   # [ <np.array of bottom_width>, <np.array of top widths> ]
-        width_default = self.width_default
-
-        widths_all.append(np.array([c_widths['bottom_edge'] for c_widths in cluster_widths]))
-        widths_all.append(np.array([c_widths['top_edge'] for c_widths in cluster_widths]))
-        for widths in widths_all:
-            c_idx = np.where(widths != width_default)[0]    # index set of non-cut widths
-            s_idx = np.where(widths == width_default)[0]    # index set of cut widths
-
-            if np.size(s_idx) == 0 or (np.size(c_idx) <= (poly_fit_power+1)):
-                continue
-
-            coeffs = np.polyfit(y_middle_list[c_idx], widths[c_idx], poly_fit_power)  # poly fit on all non-cut width
-            w_sel = np.polyval(coeffs, y_middle_list[s_idx])   # approximate the widths by poly fit
-            widths[s_idx] = w_sel
-
-        new_cluster_widths = [{'top_edge': widths_all[self.UPPER][i], 'bottom_edge': widths_all[self.LOWER][i]}
-                              for i in range(total_cluster)]
-
-        return new_cluster_widths
-
 
 
     def find_all_cluster_widths(self, index_t: np.ndarray, new_x: np.ndarray, new_y: np.ndarray,power_for_width_estimation: int = 3,cluster_set: list = None):
@@ -2978,6 +2498,11 @@ class OrderTraceAlg():
                             top_edge = nearest + self.ord_adj - 2
                         else:
                             top_edge = nearest + self.ord_adj
+                    elif self.sarm == 'R' and self.mode == 'HS':
+                        if n % 2 == 0:
+                            top_edge = nearest + self.ord_adj - 4
+                        else:
+                            top_edge = nearest + self.ord_adj - 2
                     else:
                         top_edge = nearest + self.ord_adj
                 else:
@@ -3938,7 +3463,7 @@ class OrderTraceAlg():
             
             if self.sarm == "R":
                 if np.min(fit) > 30 and len(ii) > 8000:
-                    if(len(xrange) >2500 and np.min(xrange) < 520):
+                    if(len(xrange) >2500 and np.min(xrange) < 600):
                         for i in ii:
                             index2.append(new_index)
                             x2.append(x[i])

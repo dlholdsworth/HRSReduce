@@ -108,7 +108,7 @@ def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False,propid=None,new_flat=
         
     flat_map = {
         ("H", "HS", False): 40.0,
-        ("H", "HS", True): 40.0, #This value will need updating when the HS cals are investigated
+        ("H", "HS", True): 180.0, #This value will need updating when the HS cals are investigated
 
         ("H", "HR", False): 30.0,
         ("H", "HR", True): 90.0,
@@ -150,7 +150,8 @@ def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False,propid=None,new_flat=
                         if np.logical_and(hdr["LAMPID"] == lampid, hdr["EXPTIME"] == flat_exptime):
                             flat_files.append(file)
                     elif np.logical_and(hdr["OBSTYPE"] == "Arc",(hdr["PROPID"] == "CAL_ARC" or hdr["PROPID"] == "CAL_STABLE")):
-                        arc_files.append(file)
+                        if hdr["LAMPID"] == "Th Ar":
+                            arc_files.append(file)
                     elif hdr["OBSTYPE"] == "Science":
                         if CAL_RVST:
                             if hdr["PROPID"] == "CAL_RVST":

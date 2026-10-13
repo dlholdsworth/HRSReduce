@@ -45,7 +45,6 @@ class SpectralExtractionAlg():
     OPTIMAL = 0
     SUM = 1
     NOEXTRACT = 2
-    FOX = 3
     V_UP = 0
     H_RIGHT = 1
     V_DOWN = 2
@@ -70,11 +69,11 @@ class SpectralExtractionAlg():
             raise TypeError('flat data type error, cannot construct object from SpectralExtractionAlg')
         if spectrum_data is not None and not isinstance(spectrum_data, np.ndarray):
             raise TypeError('flux data type error, cannot construct object from SpectralExtractionAlg')
-        if (spectrum_data is None or not spectrum_data.any()) and extraction_method in [self.SUM, self.OPTIMAL, self.FOX]:
+        if (spectrum_data is None or not spectrum_data.any()) and extraction_method in [self.SUM, self.OPTIMAL]:
             raise TypeError("no flux data for spectral extraction, cannot construct object from SpectralExtractAlg")
         if not isinstance(order_trace_data, np.ndarray) and not isinstance(order_trace_data, pd.DataFrame):
             raise TypeError('flux data type error, cannot construct object from SpectralExtractionAlg')
-        if not isinstance(spectrum_header, fits.header.Header) and extraction_method in [self.SUM, self.OPTIMAL, self.FOX] :
+        if not isinstance(spectrum_header, fits.header.Header) and extraction_method in [self.SUM, self.OPTIMAL] :
             raise TypeError('flux header type error, cannot construct object from SpectralExtractionAlg')
         if not isinstance(flat_header, fits.header.Header):
             raise TypeError('flat header type error, cannot construct object from SpectralExtractionAlg')
@@ -224,17 +223,6 @@ class SpectralExtractionAlg():
         """
         return self.total_order
 
-    def get_instrument(self):
-        """ Get imaging instrument.
-
-        Returns:
-            str: Instrument name.
-        """
-        return self.instrument
-
-    def var_of(self, x, y):
-        return 1.0 if self.var_data is None else self.var_data[y, x]
-
     def update_spectrum_flux(self, bleeding_cure_file=None):
         """ Update the spectrum flux per specified bleeding cure file or 'nan_pixels' set in config file.
 
@@ -315,9 +303,6 @@ class SpectralExtractionAlg():
             return self.optimal_extraction(out_data[self.SDATA][0:height], out_data[self.FDATA][0:height], height, 1, t_mask, f_var)
         elif self.extraction_method == SpectralExtractionAlg.SUM:
             return self.summation_extraction(out_data[self.SDATA][0:height])
-        elif self.extraction_method == SpectralExtractionAlg.FOX:
-            return self.flat_relative_optimal_extraction(out_data[self.SDATA][0:height], out_data[self.FDATA][0:height],
-                                                         height, 1, t_mask, f_var)
 
         # data_group should contain only the data set to be rectified.
         return {'extraction': out_data[data_group[0]['idx']][0:height]}
@@ -534,146 +519,6 @@ class SpectralExtractionAlg():
 
         return t_mask, s_data_outlier
 
-
-    @staticmethod
-    def outlier_rejection_fix_profile(s_data, f_data, input_x, outlier_sigma, y_mid, input_widths, input_y_dim, is_debug=False):
-        """
-
-        Args:
-            s_data (numpy.ndarray): spectrum pixels of one order trace (starightened trace)
-            f_data (numpy.ndarray): flat pixels of one order trace (straightened trace)
-            input_x (numpy.ndarray): x positions that cover the trace in input domain
-            outlier_sigma (float): thresold for the deviation to find the outlier.
-            y_mid (numpy.ndarray): y location of the trace in input domain
-            input_widths (numpy.ndarray): from lower to upper width in input domain
-            input_y_dim (int): height of original spectrum
-            is_debug (bool): prints out the analysis result if it is True.
-
-        Returns:
-            np.ndarray: t_mask in which each pixel indicates if the trace pixel is an outlier(0) or not (1).
-
-        """
-        t_mask = np.ones_like(s_data, dtype=int)
-        p_h, p_w = np.shape(s_data)
-
-        profile_order = np.nanmedian(f_data, axis=1)
-        profile_median = np.nanmedian(profile_order)
-
-        if profile_median == 0:
-            profile_median = 1
-        scaled_profile = np.zeros_like(f_data)
-
-        for i_x, p_x in enumerate(input_x):
-
-            y_input = np.floor(input_widths + y_mid[i_x]).astype(int)
-            y_valid_idx = np.where((y_input <= (input_y_dim - 1)) & (y_input >= 0))[0]
-
-            p_median = np.nanmedian(profile_order[y_valid_idx]) if y_valid_idx.size < y_input.size else profile_median
-
-            total_rejection = p_h//2
-            for i in range(total_rejection):
-                p_non_outlier = np.where(t_mask[y_valid_idx, i_x] != 0)[0]
-
-                if p_non_outlier.size == 0:
-                    break
-
-                eff_y = y_valid_idx[p_non_outlier]
-                c_flux = s_data[eff_y, i_x]
-                c_median = np.nanmedian(c_flux)
-                scaled_profile[:, i_x] = profile_order * (c_median/p_median)
-                c_residuals = c_flux - scaled_profile[eff_y, i_x]
-                c_std = mad_std(c_residuals)
-                if c_std == 0.0:
-                    c_std = mad_std(np.unique(c_residuals))
-                if c_std == 0.0:
-                    break
-
-                c_deviation = np.absolute(c_residuals/c_std)
-                outside_p = (np.min(scaled_profile) > s_data[eff_y, i_x]) | (s_data[eff_y, i_x] > np.max(scaled_profile))
-                outlier_idx = np.where((c_deviation >= outlier_sigma) & outside_p)[0]
-                if outlier_idx.size > 0:
-                    max_idx = outlier_idx[np.argmax(c_deviation[outlier_idx])]
-                    t_mask[eff_y[max_idx], i_x] = 0
-                    # t_mask[eff_y[outlier_idx[0]], i_x] = 0
-                else:
-                    break          # converge
-
-        if np.where(t_mask == 0)[0].size == 0:
-            t_mask = None
-        else:
-            if is_debug:
-                print("outlier at ", np.where(t_mask == 0)[1]+input_x[0])
-
-        return t_mask, scaled_profile
-
-    @staticmethod
-    def outlier_rejection_local_profile(s_data, f_data, input_x, outlier_sigma, y_mid, input_widths, input_y_dim, is_debug=False):
-        """
-
-        Args:
-            s_data (numpy.ndarray): spectrum pixels of one order trace (starightened trace)
-            f_data (numpy.ndarray): flat pixels of one order trace (straightened trace)
-            input_x (numpy.ndarray): x positions that cover the trace in input domain
-            outlier_sigma (float): thresold for the deviation to find the outlier.
-            y_mid (numpy.ndarray): y location of the trace in input domain
-            input_widths (numpy.ndarray): from lower to upper width in input domain
-            input_y_dim (int): height of original spectrum
-            is_debug (bool): prints out the analysis result if it is True.
-
-        Returns:
-            np.ndarray: t_mask in which each pixel indicates if the trace pixel is an outlier(0) or not (1).
-
-        """
-
-        t_mask = np.ones_like(s_data, dtype=int)
-        p_h, p_w = np.shape(s_data)
-
-        scaled_profile = np.zeros_like(f_data)
-
-        for i_x, p_x in enumerate(input_x):
-            y_input = np.floor(input_widths + y_mid[i_x]).astype(int)
-            y_valid_idx = np.where((y_input <= (input_y_dim - 1)) & (y_input >= 0))[0]
-
-            profile_order = f_data[:, i_x]
-            profile_median = np.nanmedian(profile_order[y_valid_idx])
-            total_rejection = y_valid_idx.size//2
-            i = 0
-            while i < total_rejection:
-                p_non_outlier = np.where(t_mask[y_valid_idx, i_x] != 0)[0]
-
-                if p_non_outlier.size == 0:
-                    break
-
-                eff_y = y_valid_idx[p_non_outlier]
-                c_flux = s_data[eff_y, i_x]
-                c_median = np.nanmedian(c_flux)
-
-                scaled_profile[:, i_x] = profile_order * (c_median/profile_median)
-                c_residuals = c_flux - scaled_profile[eff_y, i_x]
-                c_std = mad_std(c_residuals)
-                if c_std == 0.0:
-                    c_std = mad_std(np.unique(c_residuals))
-                if c_std == 0.0:
-                    break
-
-                c_deviation = np.absolute(c_residuals/c_std)
-                outside_p = (np.min(scaled_profile) > s_data[eff_y, i_x]) | (s_data[eff_y, i_x] > np.max(scaled_profile))
-                outlier_idx = np.where((c_deviation >= outlier_sigma) & outside_p)[0]
-                if outlier_idx.size > 0:
-                    max_idx = outlier_idx[np.argmax(c_deviation[outlier_idx])]         # max_idx: within area of eff_y
-                    t_mask[eff_y[max_idx], i_x] = 0
-                    i += 1
-                else:
-                    break          # converge
-
-        if np.where(t_mask == 0)[0].size == 0:
-            t_mask = None
-        else:
-            if is_debug:
-                print("outlier at ", np.where(t_mask == 0)[1] + input_x[0])
-        return t_mask, scaled_profile
-
-
     def collect_and_extract_spectrum_curve(self, data_group, order_idx, s_rate=1):
         """ Collect and extract the spectral data along the order per polynomial fit data and no rectification.
 
@@ -741,8 +586,7 @@ class SpectralExtractionAlg():
                                                                      input_widths, y_output_widths,
                                                                      input_x, x_output_step, mask_height, is_debug)
         if self.do_outlier_rejection and \
-                (self.extraction_method == SpectralExtractionAlg.OPTIMAL or
-                 self.extraction_method == SpectralExtractionAlg.FOX) and \
+                (self.extraction_method == SpectralExtractionAlg.OPTIMAL) and \
                 self.rectification_method == SpectralExtractionAlg.NoRECT and \
                 s_data is not None and f_data is not None:
             t_mask, s_data_outlier = self.outlier_rejection_for_optimal_extraction(s_data, f_data,
@@ -1939,89 +1783,6 @@ class SpectralExtractionAlg():
             o_set = np.array([])
 
         return o_set
-
-    @staticmethod
-    def write_clip_file(poly_file, y_center=None, edges=None, clip_areas=None, order=None):
-        """Write polygon clipping information to file.
-
-        Args:
-            poly_file (str): File name of the clip file
-            y_center (int): Y center location.
-            edges (list): Lower edge and uppper edge of the order
-            clip_areas (dict): Object containing polygon clipping information in format like::
-
-                {
-                    {
-                        y_loc_1: {x_loc_1: [(x_1, y_1, area_1), ..., (x_n, y_n, area_n)],
-                                  ...,  x_loc_n: [(...),..., (...)]},
-                            :
-                        y_loc_n: {x_loc_1: [...],..., x_loc_n: [...]}
-                    }
-
-                    # where output pixel [x_loc_i, y_loc_i] overlaps with
-                    # input pixel [x_i, y_i] and the overlapping area is area_n.
-                }
-            order (int): Order to be written.
-        Returns:
-            The polygon clipping information is written to .npy file.
-        """
-        order_clip = dict()
-        if y_center is not None:
-            order_clip['y_center'] = y_center
-        if edges is not None:
-            order_clip['edges'] = edges
-        if clip_areas is not None:
-            order_clip['clip_areas'] = clip_areas
-        # order_clip_array = np.array(list(order_clip.items()))
-
-        # if order is not None:
-        #    self.poly_clip_dict[int(order)] = order_clip
-
-        # f = open(poly_file, "wb")
-        if poly_file is not None:
-            with open(poly_file, "w") as outfile:
-                json.dump(order_clip, outfile)
-
-        #    order_set = self.poly_clip_dict.keys()
-        #    for od in order_set:
-        #        poly_file_order = poly_file + str(od) + '.json'
-        #        with open(poly_file_order, "w") as outfile:
-        #            json.dump(self.poly_clip_dict[od], outfile)
-
-        # np.save(poly_file, order_clip_array)
-        # f.close()
-
-    @staticmethod
-    def read_clip_file(poly_file):
-        """Read order polygon data from clip file.
-
-        Args:
-            poly_file (str): File name of the clip file
-
-        Returns:
-            tuple: Polygon clip information read from the clip file.
-
-                * **y_center** (*int*): y location of the rectified order.
-                * **lower_width** (*int*): lower edge of the rectified order.
-                * **upper_width** (*int*): upper edge of the rectified order.
-                * **clip_areas** (*dict*): polygon clip information for the order.
-
-        """
-        with open(poly_file) as clip_input:
-            order_poly = json.load(clip_input)
-
-        # if self.poly_clip_dict is None or len(self.poly_clip_dict)==0:
-        #    with open(poly_file) as clip_input:
-        #        f = json.load(clip_input)
-        #        self.poly_clip_dict = f
-
-        # order_poly = self.poly_clip_dict[str(c_order)]
-
-        y_center = order_poly['y_center'] if order_poly else None
-        widths = order_poly['edges'] if order_poly else [None, None]
-        clip_areas = order_poly['clip_areas'] if order_poly else None
-
-        return y_center, widths[0], widths[1], clip_areas
 
     def reset_clip_file(self):
         """Reset the flag to output the clip information.

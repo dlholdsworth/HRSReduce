@@ -7,6 +7,7 @@ from datetime import datetime
 from astropy.time import Time
 import pytz
 import os
+import shutil
 
 from hrsreduce.utils.frame_stacker import FrameStacker
 
@@ -230,12 +231,12 @@ class MasterArc():
                         exptime.append(float(hdu[0].header['EXPTIME']))
                     else:
                         logger.warning("Arc file {} found not to have enough range ({}). Rejecting it.".format(file,int(np.nanstd(hdu[0].data))))
-                        #Change the file name to show it is bad
+                        #Copy the file and rename to show it is bad
                         ngt = os.path.basename(file)
                         yr = ngt[-17:-13]
                         ngt = ngt[-13:-9]
                         bad_dir = (self.base_dir+self.arm+"/"+yr+"/"+ngt+"/reduced/")
-                        os.rename(file, str(bad_dir+"Bad_Arc_"+os.path.basename(file)))
+                        shutil.copy2(file,str(bad_dir+"Bad_Arc_"+os.path.basename(file)))
  
             jd_mean = np.array(jd_mean)
             jd_mean = np.mean(jd_mean)
