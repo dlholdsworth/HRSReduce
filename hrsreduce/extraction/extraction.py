@@ -66,7 +66,9 @@ class SpectralExtraction():
         
             self.spec_header = hdl[0].header
             self.spec_flux = hdl['STRAIGHT'].data
-            var_data = hdl['VAR'].data
+            # per-pixel variance in the geometry of the straightened image: RECT_VAR (propagated through the
+            # rectification) when present, otherwise the raw-frame VAR
+            var_data = hdl['RECT_VAR'].data if 'RECT_VAR' in hdl else hdl['VAR'].data
             data_type = self.spec_header['CCDTYPE']
             
             if data_type == 'Science' or data_type == 'Arc':
@@ -183,12 +185,19 @@ class SpectralExtraction():
             data_df = pd.DataFrame.from_dict(return_dict[0]['spectral_extraction_result'],dtype=float)
             data_U = pd.DataFrame(columns=data_df.columns,dtype=float)
             data_L = pd.DataFrame(columns=data_df.columns,dtype=float)
+            var_U = pd.DataFrame(columns=data_df.columns,dtype=float)
+            var_L = pd.DataFrame(columns=data_df.columns,dtype=float)
+            have_var = all('spectral_extraction_variance' in return_dict[i] for i in range(0,n_ord))
             
             for i in range(0,n_ord):
                 data_df = pd.concat([data_df,pd.DataFrame.from_dict(return_dict[i]['spectral_extraction_result'],dtype=float)],ignore_index=True)
                 tmp = pd.DataFrame.from_dict(return_dict[i]['spectral_extraction_result'],dtype=float)
                 data_U = pd.concat([data_U, tmp.iloc[[1]]],axis=0,ignore_index=True)
                 data_L = pd.concat([data_L, tmp.iloc[[0]]],axis=0,ignore_index=True)
+                if have_var:
+                    tmpv = pd.DataFrame.from_dict(return_dict[i]['spectral_extraction_variance'],dtype=float)
+                    var_U = pd.concat([var_U, tmpv.iloc[[1]]],axis=0,ignore_index=True)
+                    var_L = pd.concat([var_L, tmpv.iloc[[0]]],axis=0,ignore_index=True)
                 
 
             good_result = good_result and data_df is not None
@@ -201,10 +210,15 @@ class SpectralExtraction():
                 
                 data_U_np=data_U.to_numpy()
                 data_L_np=data_L.to_numpy()
-                U_VAR = np.array(data_U_np)
-                U_VAR = np.absolute(U_VAR)
-                L_VAR = np.array(data_L_np)
-                L_VAR = np.absolute(L_VAR)
+                # variance of the extracted flux, propagated from the per-pixel variance of the straightened image through
+                # the extraction weights; the earlier placeholder |flux| remains only as a fallback when no variance came back
+                U_VAR = var_U.to_numpy() if have_var else None
+                L_VAR = var_L.to_numpy() if have_var else None
+                if U_VAR is None or L_VAR is None or not np.isfinite(U_VAR).any() or not np.isfinite(L_VAR).any():
+                    if self.logger:
+                        self.logger.warning("SpectralExtraction: no propagated variance available, writing |flux| as the variance")
+                    U_VAR = np.absolute(np.array(data_U_np))
+                    L_VAR = np.absolute(np.array(data_L_np))
                 
                 try:
                     with fits.open(self.arc_frame) as hdul:
@@ -310,7 +324,7 @@ class SpectralExtraction():
                         BARYJD = BJD[0]
                         
                         hdul[0].header["BARYRV"] = (str(BARYCORR[0]),"Barycentric RV from barycorrpy")
-                        hdul[0].header["BRV_PRE"] = (str(Sub_ms),"BRV precision <3 m/s precision")
+                        hdul[0].header["BRV_PRE"] = (str(Sub_ms),"BRV precision below 3 m s^-1")
                         hdul[0].header["BJD"] = (str(BARYJD[0]),"BJD mid obs (using FWMT if not 0)")
                         
                         

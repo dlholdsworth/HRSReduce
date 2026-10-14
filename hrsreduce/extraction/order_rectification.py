@@ -16,7 +16,8 @@ written as both RECT and STRAIGHT so that the rest of the pipeline runs
 unchanged (SlitCorrection sees STRAIGHT and does nothing).
 
 The variance (VAR extension, if present) and the bad-pixel mask are mapped
-with the same weights and written as RECT_VAR and RECT_MASK.
+with the same weights and written as RECT_VAR and RECT_MASK (RECT_VAR keeps the input
+noise power, so sums over its pixels, i.e. extracted spectra, carry the right variance).
 
 Constructor:
     OrderRectification(sci_frame, flat_frame, order_trace_file, sarm, mode,
@@ -86,8 +87,13 @@ def resample_strip(data: np.ndarray, var: np.ndarray | None, mask: np.ndarray,
                    x_src: np.ndarray, y_src: np.ndarray, kernel: str = "linear"):
     """Sample ``data`` at the (non-integer) positions (x_src, y_src) with a separable kernel.
     Masked source pixels contribute zero (as in the original polygon mapping) and flag the
-    output pixel; the variance is propagated with the squared weights.  All arrays have the
-    shape of x_src/y_src on output."""
+    output pixel.  The variance is propagated with the (signed) kernel weights, not their squares:
+    resampling correlates neighbouring output pixels, so the squared-weight rule gives the variance
+    of one output pixel on its own (about half the input noise power for Lanczos-2) and under-
+    estimates every sum over pixels, which is what the extraction forms.  With the weights summing
+    to one per output pixel the propagated noise power equals the input's, so extracted variances
+    are right; the small negative Lanczos lobes are harmless on the smooth variance maps and the
+    result is clipped at zero by the caller.  All arrays have the shape of x_src/y_src on output."""
     ny, nx = data.shape
     fx = np.floor(x_src); fy = np.floor(y_src)
     ox, wx = _kernel_weights(x_src - fx, kernel)
@@ -103,7 +109,7 @@ def resample_strip(data: np.ndarray, var: np.ndarray | None, mask: np.ndarray,
             m = mask[iyc, ixc]
             out += np.where(m, 0.0, w * data[iyc, ixc])
             if var is not None:
-                outv += np.where(m, 0.0, w * w * var[iyc, ixc])
+                outv += np.where(m, 0.0, w * var[iyc, ixc])          # weights, not squared weights: see the docstring
             outm |= m & (np.abs(w) > 1e-9)
             cover += w
     # pixels whose stencil fell partly outside the detector
@@ -247,7 +253,7 @@ class OrderRectification:
             sl = slice(to_pos, to_pos + strip.shape[0])
             rect[sl, x] += strip                                             
             if rect_var is not None:
-                rect_var[sl, x] += strip_var
+                rect_var[sl, x] += np.clip(strip_var, 0.0, None)
             rect_mask[sl, x] |= strip_mask.astype(np.uint8)
             rows.append({"order": int(i), "Coeff0": coeff0, "BottomEdge": lower, "TopEdge": upper, "X1": 0, "X2": nx - 1})
 

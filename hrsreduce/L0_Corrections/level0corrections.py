@@ -2,6 +2,7 @@ import numpy as np
 import glob
 import logging
 from astropy.io import fits
+from hrsreduce.utils.header_comments import clean_comments
 import re
 import matplotlib.pyplot as plt
 import os
@@ -176,6 +177,7 @@ class L0Corrections():
                         in_dir = file[:-18]
                         file_out=str(self.base_dir+self.arm_col+"/"+night[0:4]+"/"+night[4:8]+"/reduced/o"+file.removeprefix(in_dir))
                         
+                    clean_comments(hdu)      # no slash in header comments (some FITS viewers cut the card there)
                     hdu.writeto(file_out,overwrite=True)
                     
                     return file_out
@@ -239,6 +241,7 @@ class L0Corrections():
                     else:
                         in_dir = file[:-18]
                         file_out=str(self.base_dir+self.arm_col+"/"+night[0:4]+"/"+night[4:8]+"/reduced/o"+file.removeprefix(in_dir))
+                    clean_comments(hdu)      # no slash in header comments (some FITS viewers cut the card there)
                     hdu.writeto(file_out,overwrite=True)
                     
                     return file_out
@@ -278,6 +281,7 @@ class L0Corrections():
                     else:
                         in_dir = file[:-18]
                         file_out=str(self.base_dir+self.arm_col+"/"+night[0:4]+"/"+night[4:8]+"/reduced/o"+file.removeprefix(in_dir))
+                    clean_comments(hdu)      # no slash in header comments (some FITS viewers cut the card there)
                     hdu.writeto(file_out,overwrite=True)
                     
                     return file_out
@@ -396,6 +400,7 @@ class L0Corrections():
                         in_dir = file[:-18]
                         file_out=str(self.base_dir+self.arm_col+"/"+night[0:4]+"/"+night[4:8]+"/reduced/o"+file.removeprefix(in_dir))
                         
+                    clean_comments(hdu)      # no slash in header comments (some FITS viewers cut the card there)
                     hdu.writeto(file_out,overwrite=True)
                     
                     return file_out
@@ -459,6 +464,7 @@ class L0Corrections():
                     os = float(hdr["OS_MEAN"])
                     hdr['AVG_GAIN'] = (gain,'Average gain for all amps')
                     hdr['OS_MEAN'] = str("%.4f" % (os * gain))
+                    clean_comments(hdu)      # no slash in header comments (some FITS viewers cut the card there)
                     hdu.writeto(file_out,overwrite=True)
                     return file_out
                     
@@ -508,6 +514,7 @@ class L0Corrections():
                         in_dir = file[:-19]
                         file_out=str(self.base_dir+self.arm_col+"/"+night[0:4]+"/"+night[4:8]+"/reduced/g"+file.removeprefix(in_dir))
                         
+                    clean_comments(hdu)      # no slash in header comments (some FITS viewers cut the card there)
                     hdu.writeto(file_out,overwrite=True)
                     
                     return file_out
@@ -537,6 +544,7 @@ class L0Corrections():
                     hdr['OS_MEAN'] = str("%.4f" % (os * gain))
                     
                     hdr['AVG_GAIN'] = (gain,'Average gain for all amps')
+                    clean_comments(hdu)      # no slash in header comments (some FITS viewers cut the card there)
                     hdu.writeto(file_out,overwrite=True)
                     
                     return file_out
@@ -609,6 +617,7 @@ class L0Corrections():
                         in_dir = file[:-19]
                         file_out=str(self.base_dir+self.arm_col+"/"+night[0:4]+"/"+night[4:8]+"/reduced/g"+file.removeprefix(in_dir))
                         
+                    clean_comments(hdu)      # no slash in header comments (some FITS viewers cut the card there)
                     hdu.writeto(file_out,overwrite=True)
                     
                     return file_out

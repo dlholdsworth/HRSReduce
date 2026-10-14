@@ -302,7 +302,7 @@ class SpectralExtractionAlg():
         if self.extraction_method == SpectralExtractionAlg.OPTIMAL:
             return self.optimal_extraction(out_data[self.SDATA][0:height], out_data[self.FDATA][0:height], height, 1, t_mask, f_var)
         elif self.extraction_method == SpectralExtractionAlg.SUM:
-            return self.summation_extraction(out_data[self.SDATA][0:height])
+            return self.summation_extraction(out_data[self.SDATA][0:height], f_var)
 
         # data_group should contain only the data set to be rectified.
         return {'extraction': out_data[data_group[0]['idx']][0:height]}
@@ -574,6 +574,7 @@ class SpectralExtractionAlg():
 
         # container to hold extracted or rectified result for one order
         extracted_data = np.zeros((y_size if self.extraction_method == self.NOEXTRACT else 1, output_x_dim))
+        extracted_var = np.full_like(extracted_data, np.nan)        # variance of the extracted flux, same layout
         y_output_widths = np.arange(-lower_width, upper_width)      # in parallel to input_widths
 
         is_debug = False
@@ -610,11 +611,14 @@ class SpectralExtractionAlg():
                                                        t_mask[:, s_x][:, np.newaxis] if t_mask is not None else None,
                                                        f_var[:, s_x][:, np.newaxis] if f_var is not None else None)
             extracted_data[:, o_x:o_x+1] = extracted_result['extraction']
+            if 'variance' in extracted_result:
+                extracted_var[:, o_x:o_x+1] = extracted_result['variance']
 
         # out data starting from origin [0, 0] contains the reduced flux associated with the data range
         result_data = {'y_center': y_output_mid,
                        'widths': [lower_width, upper_width],
-                       'extracted_data': extracted_data}
+                       'extracted_data': extracted_data,
+                       'extracted_var': extracted_var}
 
         return result_data
 
@@ -775,7 +779,8 @@ class SpectralExtractionAlg():
 
         result_data = {'y_center': y_output_mid,
                        'widths': [lower_width, upper_width],
-                       'extracted_data': extracted_data}
+                       'extracted_data': extracted_data,
+                       'extracted_var': np.full_like(extracted_data, np.nan)}      # no per-pixel variance on this path
         return result_data
 
     def intersect_cell_borders(self, vertex_1, vertex_2):
@@ -1079,6 +1084,7 @@ class SpectralExtractionAlg():
             raise Exception("get flux error on order "+str(order_idx))
 
         return {'extracted_data': flux_results['extracted_data'],
+                'extracted_var': flux_results.get('extracted_var'),
                 'edges': flux_results.get('widths'),
                 'out_y_center': flux_results.get('y_center')}
 
@@ -1136,6 +1142,12 @@ class SpectralExtractionAlg():
             num = pixel_mask[0:data_height, nz_idx] * p_data * s_data[0:data_height, nz_idx]/d_var
             dem = pixel_mask[0:data_height, nz_idx] * np.power(p_data, 2)/d_var
             w_data[0, nz_idx] = (np.sum(num, axis=0)/np.sum(dem, axis=0))
+        # variance of the estimator: F = sum(m p S/d_var) / sum(m p^2/d_var)  ->  Var(F) = sum(m p^2 V/d_var^2) / sum(m p^2/d_var)^2,
+        # with V the per-pixel variance collected along the order (RECT_VAR of the straightened image); NaN when none is available
+        v_data = np.full((1, data_width), np.nan)
+        if f_var is not None and nz_idx.size > 0:
+            v_num = pixel_mask[0:data_height, nz_idx] * np.power(p_data, 2) * f_var[0:data_height, nz_idx] / np.power(d_var, 2)
+            v_data[0, nz_idx] = np.sum(v_num, axis=0) / np.power(np.sum(dem, axis=0), 2)
 
         # for x in range(0, data_width):
         #    w_sum = sum(f_data[:, x])
@@ -1145,10 +1157,10 @@ class SpectralExtractionAlg():
         #        dem = np.power(p_data, 2) / d_var
         #        w_data[0, x] = np.sum(num) / np.sum(dem)
 
-        return {'extraction': w_data}
+        return {'extraction': w_data, 'variance': v_data}
 
     @staticmethod
-    def summation_extraction(s_data):
+    def summation_extraction(s_data, f_var=None):
         """ Spectrum extraction by summation on collected pixels (rectified or non-rectified)
 
         This summation extraction method does the calculation to extract the spectrum by summing the flux data.
@@ -1166,7 +1178,9 @@ class SpectralExtractionAlg():
         """
         out_data = np.sum(s_data, axis=0).reshape(1, -1)
 
-        return {'extraction': out_data}
+        # variance of a plain sum = sum of the per-pixel variances (NaN when no variance is available)
+        var_data = np.sum(f_var[0:s_data.shape[0], :], axis=0).reshape(1, -1) if f_var is not None else np.full((1, s_data.shape[1]), np.nan)
+        return {'extraction': out_data, 'variance': var_data}
 
     @staticmethod
     def flat_relative_optimal_extraction(s_data, f_data, data_height, data_width, t_mask=None, f_var=None):
@@ -1960,6 +1974,7 @@ class SpectralExtractionAlg():
         #    self.write_clip_file(self.get_clip_file())
         out_data_height, out_data_width = self.update_output_size(order_set, order_result, result_height)
         out_data = np.zeros((out_data_height, out_data_width))
+        out_var = np.full((out_data_height, out_data_width), np.nan)       # variance of the extracted flux
         order_rectification_result = list()
         # produce output data
 
@@ -1969,6 +1984,8 @@ class SpectralExtractionAlg():
                 order_result[c_order].get('out_y_center')-20 - order_result[c_order].get('edges')[0]
             y_size = np.sum(order_result[c_order].get('edges')) if self.extraction_method == self.NOEXTRACT else 1
             self.fill_2d_with_data(order_result[c_order].get('extracted_data'), out_data, to_pos, 0, height=y_size)
+            if order_result[c_order].get('extracted_var') is not None and self.extraction_method != self.NOEXTRACT:
+                self.fill_2d_with_data(order_result[c_order].get('extracted_var'), out_var, to_pos, 0, height=y_size)
             if self.extraction_method == self.NOEXTRACT:
                 order_rectification_result.append({"order": c_order, "rectification": order_result[c_order]})
             #t_start = self.time_check(t_start, '**** time ['+str(c_order)+']: ')
@@ -1998,7 +2015,8 @@ class SpectralExtractionAlg():
         else:
             data_df = self.write_data_to_dataframe(out_data, first_row=start_row_at)
             
-            return_dict[proc_no] = {'spectral_extraction_result': data_df}
+            var_df = self.write_data_to_dataframe(out_var, first_row=start_row_at)
+            return_dict[proc_no] = {'spectral_extraction_result': data_df, 'spectral_extraction_variance': var_df}
             #return {'spectral_extraction_result': data_df, 'rectification_on': rectification_on,
             #        'outlier_rejection_result':self.outlier_flux}
         return proc_no,return_dict[proc_no],out_data

@@ -3,6 +3,7 @@ import glob
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
+from hrsreduce.utils.header_comments import clean_comments
 from datetime import datetime
 from astropy.time import Time
 import pytz
@@ -399,11 +400,11 @@ class MasterArc():
             new_hdu.header['DETSER'] = (str(hdu[0].header['DETSER']), "Detector serial number")
             new_hdu.header['DETSWV'] = (str(hdu[0].header['DETSWV']),"Detector software version")
             new_hdu.header['EXPTIME'] = (str(hdu[0].header['EXPTIME']),"Exposure time (s)")
-            new_hdu.header['GAIN'] = (str(hdu[0].header['AVG_GAIN']),"AVG CCD gain over AMPS (photons/ADU)")
+            new_hdu.header['GAIN'] = (str(hdu[0].header['AVG_GAIN']),"AVG CCD gain over AMPS (photons per ADU)")
             new_hdu.header['GAINSET'] = (str(hdu[0].header['GAINSET']),"Gain Setting")
             new_hdu.header['INSTRUME'] = (str('HRS'),"Instrument name: High Resolution Spectrograph")
             new_hdu.header['NCCDS'] = (str(hdu[0].header['NCCDS']),"Number of CCDs")
-            new_hdu.header['NODCOUNT'] = (str(hdu[0].header['NODCOUNT']), "No. of Nod/Shuffles")
+            new_hdu.header['NODCOUNT'] = (str(hdu[0].header['NODCOUNT']), "No. of Nod and Shuffles")
             new_hdu.header['NODPER'] = (str(hdu[0].header['NODPER']), "Nod & Shuffle Period (s)")
             new_hdu.header['NODSHUFF'] = (str(hdu[0].header['NODSHUFF']), "Nod & Shuffle enabled?")
             new_hdu.header['OBSMODE'] = (str(hdu[0].header['OBSMODE']),"Observation mode")
@@ -446,6 +447,7 @@ class MasterArc():
                 master_file = str(super_dir)+self.mode+"_Super_Arc_"+str(self.sarm)+str(yyyymmdd)+".fits"
             else:
                 master_file = str(self.out_dir)+self.mode+"_Master_Arc_"+str(self.sarm)+str(yyyymmdd)+".fits"
+            clean_comments(hdul)      # no slash in header comments (some FITS viewers cut the card there)
             hdul.writeto(master_file,overwrite=True)
         
         else:
@@ -844,11 +846,11 @@ class MasterLFC():
             new_hdu.header['DETSER'] = (str(hdu[0].header['DETSER']), "Detector serial number")
             new_hdu.header['DETSWV'] = (str(hdu[0].header['DETSWV']),"Detector software version")
             new_hdu.header['EXPTIME'] = (str(hdu[0].header['EXPTIME']),"Exposure time (s)")
-            new_hdu.header['GAIN'] = (str(hdu[0].header['AVG_GAIN']),"AVG CCD gain over AMPS (photons/ADU)")
+            new_hdu.header['GAIN'] = (str(hdu[0].header['AVG_GAIN']),"AVG CCD gain over AMPS (photons per ADU)")
             new_hdu.header['GAINSET'] = (str(hdu[0].header['GAINSET']),"Gain Setting")
             new_hdu.header['INSTRUME'] = (str('HRS'),"Instrument name: High Resolution Spectrograph")
             new_hdu.header['NCCDS'] = (str(hdu[0].header['NCCDS']),"Number of CCDs")
-            new_hdu.header['NODCOUNT'] = (str(hdu[0].header['NODCOUNT']), "No. of Nod/Shuffles")
+            new_hdu.header['NODCOUNT'] = (str(hdu[0].header['NODCOUNT']), "No. of Nod and Shuffles")
             new_hdu.header['NODPER'] = (str(hdu[0].header['NODPER']), "Nod & Shuffle Period (s)")
             new_hdu.header['NODSHUFF'] = (str(hdu[0].header['NODSHUFF']), "Nod & Shuffle enabled?")
             new_hdu.header['OBSMODE'] = (str(hdu[0].header['OBSMODE']),"Observation mode")
@@ -891,6 +893,7 @@ class MasterLFC():
                 master_file = str(super_dir)+self.mode+"_Super_LFC_"+str(self.sarm)+str(yyyymmdd)+".fits"
             else:
                 master_file = str(self.out_dir)+self.mode+"_Master_LFC_"+str(self.sarm)+str(yyyymmdd)+".fits"
+            clean_comments(hdul)      # no slash in header comments (some FITS viewers cut the card there)
             hdul.writeto(master_file,overwrite=True)
         
         else:

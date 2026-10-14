@@ -1122,10 +1122,10 @@ class WaveCalAlg:
         lf = getattr(self, 'last_fit', {})
         if lf:
             om = np.array([np.median(lf['resid_ms'][lf['m'] == o]) for o in np.unique(lf['m']) if (lf['m'] == o).sum() >= 5])
-            self.fit_stats = {'WAVEWRMS': (float(lf['wrms_ms']), 'error-weighted rms of line residuals (m/s)'),
-                              'WAVEORMS': (float(np.std(om)) if len(om) else 0.0, 'rms of per-order median residuals (m/s)'),
+            self.fit_stats = {'WAVEWRMS': (float(lf['wrms_ms']), 'error-weighted rms of line residuals (m s^-1)'),
+                              'WAVEORMS': (float(np.std(om)) if len(om) else 0.0, 'rms of per-order median residuals (m s^-1)'),
                               'WAVENLIN': (int(lf['n_lines']), 'lines in the final fit'),
-                              'WAVECERR': (float(np.nanmedian(lf['sig_ms'])), 'median line centroid error (m/s)')}
+                              'WAVECERR': (float(np.nanmedian(lf['sig_ms'])), 'median line centroid error (m s^-1)')}
             self.logger.info("WavelengthCalibration -- fibre %s: %d lines, unweighted rms %.1f, weighted rms %.1f, per-order systematic rms %.1f, median centroid error %.1f m/s (error scale %.2f)"
                              % (fibre.strip('_.png'), lf['n_lines'], overall_rms, lf['wrms_ms'], self.fit_stats['WAVEORMS'][0], self.fit_stats['WAVECERR'][0], getattr(fitter, 'err_scale', 1.0)))
         
