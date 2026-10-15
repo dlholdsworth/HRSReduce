@@ -64,6 +64,69 @@ def _rebin_order(w, F, V, B, E):
     return counts, var, blaze, inside & ~touched_bad & (blaze > 0)
 
 
+# order ends: pixels whose raw blaze departs from its smoothed version by more than max(BLAZE_DEV_MIN, BLAZE_DEV_NSIG x the
+# order's own scatter) are left out of the merge (detector edges, truncated apertures, defect columns), and each order's
+# weight is faded to EDGE_FADE_MIN over EDGE_FADE_FRAC of its valid pixels at both ends
+BLAZE_DEV_MIN = 0.03
+BLAZE_DEV_NSIG = 5.0
+EDGE_FADE_FRAC = 0.03
+EDGE_FADE_MIN = 0.05
+
+
+def _smooth_blaze(B):
+    """Savitzky-Golay (61, 3) smoothing of the blaze, order by order, with NaN pixels bridged by linear interpolation."""
+    out = np.full_like(B, np.nan)
+    for o in range(B.shape[0]):
+        b = B[o].copy(); nans = ~np.isfinite(b); x = np.arange(b.size)
+        if (~nans).sum() < 100:
+            continue
+        b[nans] = np.interp(x[nans], x[~nans], b[~nans]); out[o] = savgol_filter(b, 61, 3)
+    return out
+
+
+def _clean_blaze(B):
+    """Smoothed blaze and the mask of pixels where the raw blaze departs from it.
+
+    The smoothing cannot follow the steep fall of the blaze over the last few columns at a detector edge, a truncated
+    aperture or a defect column, and the counts there fall with it, so dividing those pixels by the smoothed blaze makes
+    dips at the order ends.  Pixels departing by more than max(BLAZE_DEV_MIN, BLAZE_DEV_NSIG x the order's robust scatter)
+    are flagged and the blaze is smoothed again without them (two passes); the threshold follows each order's own noise,
+    so the faint blue-end blaze is not masked for its noise.  Returns (smoothed blaze with flagged pixels set to NaN, mask).
+    """
+    Bs = _smooth_blaze(B)
+    bad = np.zeros(B.shape, dtype=bool)
+    for _ in range(2):
+        with np.errstate(invalid='ignore', divide='ignore'):
+            dev = B / Bs - 1.0
+        scatter = np.full(B.shape[0], np.nan)
+        for o in range(B.shape[0]):
+            d = dev[o][np.isfinite(dev[o])]
+            if d.size > 50:
+                scatter[o] = 1.4826 * np.median(np.abs(d - np.median(d)))
+        thr = np.maximum(BLAZE_DEV_MIN, BLAZE_DEV_NSIG * np.nan_to_num(scatter, nan=BLAZE_DEV_MIN))[:, None]
+        with np.errstate(invalid='ignore'):
+            bad = ~np.isfinite(dev) | (np.abs(dev) > thr) | ~(B > 0)
+        Bs = _smooth_blaze(np.where(bad, np.nan, B))
+    return np.where(bad, np.nan, Bs), bad
+
+
+def _edge_fade(B):
+    """Weight of every pixel: a cosine fade from EDGE_FADE_MIN to 1 over EDGE_FADE_FRAC of each order's valid pixels at
+    both ends (at least 10 pixels), 1 elsewhere.  Counts, blaze and variance of a pixel are scaled together (variance by
+    the square), so a single order's counts/blaze is unchanged; only its share of an overlap falls off towards its end,
+    which removes the step where an order drops out."""
+    tau = np.ones(B.shape)
+    for o in range(B.shape[0]):
+        ok = np.where(np.isfinite(B[o]) & (B[o] > 0))[0]
+        if ok.size < 50:
+            continue
+        n = max(int(EDGE_FADE_FRAC * ok.size), 10)
+        ramp = EDGE_FADE_MIN + (1.0 - EDGE_FADE_MIN) * 0.5 * (1.0 - np.cos(np.pi * np.arange(n) / n))
+        tau[o, ok[:n]] = ramp
+        tau[o, ok[-n:]] = np.minimum(tau[o, ok[-n:]], ramp[::-1])
+    return tau
+
+
 def _merge_orders(W, F, V, B, E, have_var):
     """Normalised merged spectrum (counts / blaze) on the bins with edges E, combining overlapping orders with the
     blaze as weight (the photon-noise-optimal, data-independent weight), and its variance sum(w^2 v)/sum(w)^2."""
@@ -836,6 +899,9 @@ class OrderMerge():
                                      blaze; Var the variance of each)
             FIBRE_L/U, FIBRE_L/U_VAR, WAVE_L/U, BLAZE_L/U : the native per-order arrays (row r = echelle order ORDER0 - r)
         Optional, for old readers (module flags): the linear spectra as image extensions and per-order ORD tables.
+        Order ends: pixels whose raw blaze departs from its smoothed form (detector edges, truncated apertures, defect
+        columns) are left out, and each order's weight is faded out over its last few per cent (see _clean_blaze and
+        _edge_fade), so that orders join without dips or steps.
         Next to the product, when the extraction carried the variance: ``<frame>_SNR.png``, the quick-look S/N plot
         of the target fibre (see ``snr_plot``).
 
@@ -865,15 +931,16 @@ class OrderMerge():
         else:
             starting_ord = 85
         # smooth blaze per order, NaN columns bridged (as before); the flux keeps its NaNs (they invalidate the bins they touch)
-        def smooth_blaze(B):
-            out = np.full_like(B, np.nan)
-            for o in range(B.shape[0]):
-                b = B[o].copy(); nans = ~np.isfinite(b); x = np.arange(b.size)
-                if (~nans).sum() < 100:
-                    continue
-                b[nans] = np.interp(x[nans], x[~nans], b[~nans]); out[o] = savgol_filter(b, 61, 3)
-            return out
-        BLAZE_L_s = smooth_blaze(BLAZE_L); BLAZE_U_s = smooth_blaze(BLAZE_U)
+        # smoothed blaze, with the pixels whose raw blaze departs from it (detector edges, truncated apertures, defect
+        # columns) left out of the merge in both fibres
+        BLAZE_L_s, bad_L = _clean_blaze(BLAZE_L)
+        BLAZE_U_s, bad_U = _clean_blaze(BLAZE_U)
+        for a in (FIBRE_L, VAR_L):
+            a[bad_L] = np.nan
+        for a in (FIBRE_U, VAR_U):
+            a[bad_U] = np.nan
+        self.logger.info('OrderMerge: %d (L) and %d (U) pixels left out where the blaze departs from its smooth form',
+                         int(bad_L.sum()), int(bad_U.sum()))
         FS, WS, VS_, BS = (FIBRE_L, WAVE_L, VAR_L, BLAZE_L_s) if star == 'L' else (FIBRE_U, WAVE_U, VAR_U, BLAZE_U_s)
         FK, WK, VK = (FIBRE_U, WAVE_U, VAR_U) if star == 'L' else (FIBRE_L, WAVE_L, VAR_L)
         # star minus sky on the native pixels of the star fibre (the sky fibre interpolated to them), variances added
@@ -894,11 +961,17 @@ class OrderMerge():
         dlam = wmin * vstep / C_KMS; nl = int(np.ceil((wmax - wmin) / dlam)) + 1
         lam_lin = wmin + dlam * np.arange(nl); E_lin = wmin + dlam * (np.arange(nl + 1) - 0.5)
         self.logger.info('OrderMerge: flux-conserving merge, %s mode, %.1f km/s bins: log grid %d bins, linear grid %d bins (%.4f A)', self.mode, vstep, nb, nl, dlam)
+        # each order's weight faded out at its ends: counts, blaze and variance scaled together (see _edge_fade)
+        tau_L = _edge_fade(BLAZE_L_s); tau_U = _edge_fade(BLAZE_U_s)
+        tau_S = tau_L if star == 'L' else tau_U
+        merge_in = {'L': (FIBRE_L * tau_L, VAR_L * tau_L ** 2, BLAZE_L_s * tau_L),
+                    'U': (FIBRE_U * tau_U, VAR_U * tau_U ** 2, BLAZE_U_s * tau_U),
+                    'Sub': (F_sub * tau_S, V_sub * tau_S ** 2, BS * tau_S)}
         tables = {}
         for grid, lam, E in (('MERGED_LOG', lam_log, E_log), ('MERGED_LIN', lam_lin, E_lin)):
-            S_L, V_L = _merge_orders(WAVE_L, FIBRE_L, VAR_L, BLAZE_L_s, E, have_var)
-            S_U, V_U = _merge_orders(WAVE_U, FIBRE_U, VAR_U, BLAZE_U_s, E, have_var)
-            S_s, V_s = _merge_orders(WS, F_sub, V_sub, BS, E, have_var)
+            S_L, V_L = _merge_orders(WAVE_L, *merge_in['L'], E, have_var)
+            S_U, V_U = _merge_orders(WAVE_U, *merge_in['U'], E, have_var)
+            S_s, V_s = _merge_orders(WS, *merge_in['Sub'], E, have_var)
             cols = fits.ColDefs([fits.Column(name='Wave', format='D', unit='Angstrom', array=lam),
                                  fits.Column(name='Flux_L', format='E', unit='counts/blaze', array=S_L.astype(np.float32)),
                                  fits.Column(name='Var_L', format='E', unit='(counts/blaze)^2', array=V_L.astype(np.float32)),
@@ -918,6 +991,9 @@ class OrderMerge():
             h['STARFIB'] = (star, 'fibre holding the target; Sub = star - sky')
             h['MRGMETH'] = ('flux-conserving rebin', 'orders combined with blaze weights')
             h['VARNOTE'] = ('bins < 1 pixel are correlated', 'Var columns; see VSTEP')
+            h['BLZDEVMX'] = (BLAZE_DEV_MIN, 'blaze departure limit, at least this fraction')
+            h['BLZDEVNS'] = (BLAZE_DEV_NSIG, 'blaze departure limit, sigma of the order')
+            h['EDGEFADE'] = (EDGE_FADE_FRAC, 'order weight faded over this end fraction')
             tables[grid] = (t, lam, S_L, V_L, S_U, V_U, S_s, V_s)
         # ---- write into the science file ----
         with fits.open(self.spec) as HDU:
