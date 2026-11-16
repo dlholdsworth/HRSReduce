@@ -180,7 +180,7 @@ def main(
     input_dir = arm_colour + "/" + year + "/" + mmdd + "/raw/"
     output_dir = arm_colour + "/" + year + "/" + mmdd + "/reduced/"
     
-#    base_dir = "/Volumes/SALT_DATA/"
+    base_dir = "/Volumes/SALT_DATA/"
     
     # Placeholder return container.
     output = []
@@ -401,6 +401,10 @@ def main(
                     if tmp > 0:
                         s_difference.append(tmp)
                         sup_files.append(sfiles)
+                if not s_difference:
+                    logger.warning(f"No {m} Super Flat earlier than {yyyymmdd} found for the {arm_colour} arm in {prev_data_location}. "
+                                   f"Cannot trace the orders for this night. Exiting.")
+                    return 2
                 index_of_closest = (np.abs(s_difference)).argmin()
                 if s_difference[index_of_closest] < 365:
                     super_flat = sup_files[index_of_closest]

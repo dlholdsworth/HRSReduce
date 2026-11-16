@@ -100,7 +100,10 @@ class OrderTrace():
         #Open the flat file
         with fits.open(self.MFlat) as hdu:
             self.flat_data = hdu[0].data
-            
+            # Night whose geometry this flat shows: a Super Flat's first night (SF_START).
+            # Plain master flats have no SF_START and fall back to the observing night.
+            self.flat_start = str(hdu[0].header.get('SF_START', '')).strip()
+
         if self.sarm == "R":
             self.flat_data[:,4020:] = 0.
         self.alg = OrderTraceAlg(self.flat_data,self.mode, self.sarm, poly_degree=self.poly_degree, logger=self.logger)
@@ -210,7 +213,8 @@ class OrderTrace():
             
             # Clean the merged clusters to the expected number for arm / mode
             self.logger.info("OrderTrace: cleaning spurious orders...")
-            HRS_x, HRS_y, HRS_index = self.alg.HRS_clean(c_x, c_y, c_index,yyyymmdd)
+            flat_date = self.flat_start if self.flat_start else yyyymmdd
+            HRS_x, HRS_y, HRS_index = self.alg.HRS_clean(c_x, c_y, c_index, yyyymmdd, flat_date)
             
             # 6) Find width
             if self.logger:

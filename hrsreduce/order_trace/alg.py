@@ -3416,7 +3416,7 @@ class OrderTraceAlg():
             results
         )
 
-    def HRS_clean(self, x,y,index,yyyymmdd):
+    def HRS_clean(self, x,y,index,yyyymmdd,flat_date=None):
         """
         Apply final HRS-specific filtering to traced orders.
 
@@ -3434,6 +3434,10 @@ class OrderTraceAlg():
             Cluster identifier for each pixel.
         yyyymmdd : str
             Date of the observation.
+        flat_date : str, optional
+            First night of the flat being traced (a Super Flat's SF_START).
+            Decides whether the flat predates the 2018-11 Blue jump. Defaults
+            to ``yyyymmdd``.
 
         Returns
         -------
@@ -3485,7 +3489,14 @@ class OrderTraceAlg():
                             y2.append(y_ord[i])
                         new_index +=1
             if self.sarm == "H" and (self.mode == "HR" or self.mode =="MR" or self.mode =="LR"):
-                if yyyymmdd[0:4] == '2018':
+                # Blue geometry was stable at +23 px from 2016-02-01 until it moved ~24 px
+                # down between 2018-10-28 and 2018-11-13. This cut (lowest y > 40) fits that
+                # whole era; the general cut there keeps the partial order at the bottom and
+                # loses the top one, slipping every order by one. After the jump the orders
+                # sit where they do in 2019, so the general rule below applies.
+                if flat_date is None:
+                    flat_date = yyyymmdd
+                if '20160201' <= flat_date < '20181112':
                     if np.min(fit) > 40 and len(xrange) > 1200:
                         if np.polyval(fit_coeffs,600)< 4050:
                             if np.min(x_ord) < 250 and np.min(fit)<4050:
@@ -3562,7 +3573,8 @@ class OrderTraceAlg():
                 y5 = np.asarray(y4,dtype=np.int32)
                         
                 uniq = len(np.unique(index5))
-            return x5,y5,index5
+                index3, x3, y3 = index5, x5, y5
+            return x3,y3,index3
             
         else:
             if uniq != expected_ords:

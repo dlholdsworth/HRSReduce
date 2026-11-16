@@ -22,6 +22,50 @@ from hrsreduce.extraction.alg import SpectralExtractionAlg
 
 logger = logging.getLogger(__name__)
 
+
+MAX_START_OFFSET_S = 30.  # normal TIME-OBS - ENVMJD is +3 to +6 s; stale frames are off by >= 130 s
+
+
+def observation_start(header, logger=None, max_offset_s=MAX_START_OFFSET_S):
+    """Return (start, source, offset_s): the UTC start of the exposure as an astropy Time.
+
+    In some raw frames (seen in mid-2018, mostly the Blue arm) DATE-OBS/TIME-OBS, UTC-OBS, LST-OBS and JD are
+    copied from the previous exposure. ENVMJD (it holds a JD, despite the name) is written separately and stays
+    correct, normally a few seconds before TIME-OBS. When the two disagree by more than max_offset_s the start
+    is taken from ENVMJD and a warning is logged. offset_s is TIME-OBS minus ENVMJD in seconds (None if either
+    is missing).
+    """
+    t_hdr = None
+    date, ut = header.get("DATE-OBS"), header.get("TIME-OBS")
+    if date and ut:
+        t_hdr = Time(f"{date}T{ut}", scale="utc", format="isot")
+
+    try:
+        env = float(header.get("ENVMJD"))
+    except (TypeError, ValueError):
+        env = None
+    if env is not None and env < 2400000.:
+        env += 2400000.5  # a true MJD, in case SALT ever writes one
+    t_env = Time(env, format="jd", scale="utc") if env is not None else None
+
+    if t_hdr is None and t_env is None:
+        raise ValueError("No usable start time: DATE-OBS/TIME-OBS and ENVMJD are both missing")
+    if t_hdr is None:
+        if logger: logger.warning("observation_start: no DATE-OBS/TIME-OBS, using ENVMJD")
+        return t_env, "ENVMJD", None
+    if t_env is None:
+        return t_hdr, "TIME-OBS", None
+
+    offset_s = (t_hdr.jd - t_env.jd) * 86400.
+    if abs(offset_s) > max_offset_s:
+        if logger:
+            logger.warning("observation_start: TIME-OBS %sT%s is %.1f s from ENVMJD %s; TIME-OBS looks stale "
+                           "(copied from another exposure), using ENVMJD (%s)"
+                           % (date, ut, offset_s, header.get("ENVMJD"), t_env.isot))
+        return t_env, "ENVMJD", offset_s
+    return t_hdr, "TIME-OBS", offset_s
+
+
 class SpectralExtraction():
 
     def __init__(self, sci_frame, flat_frame,arc_frame,order_trace_file, sarm,mode,base_dir,extraction_method=0):
@@ -286,10 +330,8 @@ class SpectralExtraction():
                     if hdul[0].header["CCDTYPE"] == 'Science':
                         
                         #Calculate and add the Barycentric correction value
-                        obs_date = hdul[0].header["DATE-OBS"]
-                        ut = hdul[0].header["TIME-OBS"]
-                        if obs_date is not None and ut is not None:
-                            obs_date = f"{obs_date}T{ut}"
+                        #Start time from DATE-OBS/TIME-OBS, or from ENVMJD when TIME-OBS is stale
+                        t_start, t_src, t_off = observation_start(hdul[0].header, self.logger)
                         fwmt = hdul[0].header["EXP-MID"]
                         et = hdul[0].header["EXPTIME"]
                         
@@ -298,7 +340,7 @@ class SpectralExtraction():
                         else:
                             mid =  float(float(et)/2./86400.)
         
-                        jd = Time(obs_date,scale='utc',format='isot').jd + mid
+                        jd = t_start.jd + mid
         
                         lat = -32.3722685109
                         lon = 20.806403441
@@ -326,6 +368,10 @@ class SpectralExtraction():
                         hdul[0].header["BARYRV"] = (str(BARYCORR[0]),"Barycentric RV from barycorrpy")
                         hdul[0].header["BRV_PRE"] = (str(Sub_ms),"BRV precision below 3 m s^-1")
                         hdul[0].header["BJD"] = (str(BARYJD[0]),"BJD mid obs (using FWMT if not 0)")
+                        hdul[0].header["TSTART"] = (t_start.isot, "UTC start used for BJD and BARYRV")
+                        hdul[0].header["TSTARTSR"] = (t_src, "Source of TSTART: TIME-OBS or ENVMJD")
+                        if t_off is not None:
+                            hdul[0].header["TOBSOFF"] = (round(t_off, 1), "TIME-OBS minus ENVMJD (s)")
                         
                         
                     hdul.writeto(self.input_spectrum,overwrite='True')

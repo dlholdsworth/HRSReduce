@@ -137,6 +137,7 @@ def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False,propid=None,new_flat=
     for file in files:
         with fits.open(file) as hdul:
             hdr = hdul[0].header
+            if hdr["PROPID"].strip().upper() == "JUNK": continue
             if hdr["NAXIS1"] == ax1 and hdr["NAXIS2"] == ax2:
                 try:
                     if np.logical_and((hdr["OBSTYPE"] == "Bias" or hdr["CCDTYPE"] == "Bias") ,(hdr["PROPID"] == "CAL_BIAS" or hdr["PROPID"] == "ENG_HRS")):
