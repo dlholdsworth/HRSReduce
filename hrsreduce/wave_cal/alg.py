@@ -1015,9 +1015,9 @@ class WaveCalAlg:
             if mode == 'HS':
                 HRS_lines = np.loadtxt("./hrsreduce/wave_cal/thar_list_orig.txt", usecols=0, unpack=True)
             if mode == 'HR':
-                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/HRS_HR_linelist_2026.txt", usecols=0, unpack=True)
+                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/HRS_HR_linelist_2027.txt", usecols=0, unpack=True)
             if mode =='MR':
-                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/HRS_MR_linelist_2026.txt", usecols=0, unpack=True)
+                HRS_lines = np.loadtxt("./hrsreduce/wave_cal/HRS_MR_linelist_2027.txt", usecols=0, unpack=True)
             if mode =='LR':
                 HRS_lines = np.loadtxt("./hrsreduce/wave_cal/HRS_LR_linelist_2026.txt", usecols=0, unpack=True)
             

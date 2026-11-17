@@ -126,17 +126,17 @@ class WavelengthCalibration():
             self.linelist_path_U = "./hrsreduce/wave_cal/HS_R_linelist_U_2026.npy"
             self.linelist_path_L = "./hrsreduce/wave_cal/HS_R_linelist_L_2026.npy"
         if self.mode == 'HR' and self.arm == 'H':
-            self.linelist_path_U = "./hrsreduce/wave_cal/HR_H_linelist_U_2026.npy"
-            self.linelist_path_L = "./hrsreduce/wave_cal/HR_H_linelist_L_2026.npy"
+            self.linelist_path_U = "./hrsreduce/wave_cal/HR_H_linelist_U_2027.npy"
+            self.linelist_path_L = "./hrsreduce/wave_cal/HR_H_linelist_L_2027.npy"
         if self.mode == 'HR' and self.arm == 'R':
-            self.linelist_path_U = "./hrsreduce/wave_cal/HR_R_linelist_U_2026.npy"
-            self.linelist_path_L = "./hrsreduce/wave_cal/HR_R_linelist_L_2026.npy"
+            self.linelist_path_U = "./hrsreduce/wave_cal/HR_R_linelist_U_2027.npy"
+            self.linelist_path_L = "./hrsreduce/wave_cal/HR_R_linelist_L_2027.npy"
         if self.mode == 'MR' and self.arm == 'H':
-            self.linelist_path_U = "./hrsreduce/wave_cal/MR_H_linelist_U_2026.npy"
-            self.linelist_path_L = "./hrsreduce/wave_cal/MR_H_linelist_L_2026.npy"
+            self.linelist_path_U = "./hrsreduce/wave_cal/MR_H_linelist_U_2027.npy"
+            self.linelist_path_L = "./hrsreduce/wave_cal/MR_H_linelist_L_2027.npy"
         if self.mode == 'MR' and self.arm == 'R':
-            self.linelist_path_U = "./hrsreduce/wave_cal/MR_R_linelist_U_2026.npy"
-            self.linelist_path_L = "./hrsreduce/wave_cal/MR_R_linelist_L_2026.npy"
+            self.linelist_path_U = "./hrsreduce/wave_cal/MR_R_linelist_U_2027.npy"
+            self.linelist_path_L = "./hrsreduce/wave_cal/MR_R_linelist_L_2027.npy"
         if self.mode == 'LR' and self.arm == 'H':
             self.linelist_path_U = "./hrsreduce/wave_cal/LR_H_linelist_U_2026.npy"
             self.linelist_path_L = "./hrsreduce/wave_cal/LR_H_linelist_L_2026.npy"
