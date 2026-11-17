@@ -98,9 +98,67 @@ class MasterBias():
         self.night = night
     
         logger.info('Started {}'.format(self.__class__.__name__))
-        
-        
-        
+
+
+    @staticmethod
+    def _clipped_std(data, n_sigma=5.0, n_iter=5):
+        """Iteratively sigma-clipped standard deviation about the median."""
+        data = np.asarray(data, dtype=float).ravel()
+        data = data[np.isfinite(data)]
+        if data.size < 2:
+            return np.nan
+        data = data - np.median(data)
+        sigma = np.std(data)
+        for _ in range(n_iter):
+            keep = np.abs(data) < n_sigma * sigma
+            if keep.sum() < 2:
+                break
+            new_sigma = np.std(data[keep])
+            if new_sigma == 0 or np.isclose(new_sigma, sigma, rtol=1e-4):
+                sigma = new_sigma
+                break
+            sigma = new_sigma
+        return sigma
+
+    def measure_read_noise(self, bias_data, master):
+        """
+        Single-frame read noise from the scatter between bias frames.
+
+        Each pair of consecutive frames is differenced, which removes the fixed
+        bias structure, and the clipped scatter of the difference divided by
+        sqrt(2) is the noise of one frame. The median over all pairs is
+        returned. The result does not depend on the number of frames and
+        includes any pickup noise that changes from frame to frame.
+
+        With a single bias frame the spatial scatter of that frame is used
+        instead (an upper limit, as it includes fixed structure).
+
+        Parameters
+        ----------
+        bias_data : numpy.ndarray
+            Stack of gain-corrected bias frames, shape (n_frames, ny, nx).
+        master : numpy.ndarray
+            Stacked master bias, used only for the single-frame fallback.
+
+        Returns
+        -------
+        float
+            Read noise in the units of the input frames (electrons).
+        """
+        n = len(bias_data)
+        if n >= 2:
+            pairs = [self._clipped_std(bias_data[i + 1] - bias_data[i]) / np.sqrt(2.)
+                     for i in range(n - 1)]
+            read_noise = float(np.nanmedian(pairs))
+            logger.info('Read noise from %d bias pairs: %.2f e- (pair range %.2f - %.2f)'
+                        % (len(pairs), read_noise, np.nanmin(pairs), np.nanmax(pairs)))
+        else:
+            read_noise = float(self._clipped_std(master))
+            logger.warning('Only one bias frame: read noise %.2f e- taken from its '
+                           'spatial scatter (upper limit)' % read_noise)
+        return read_noise
+
+
     def create_masterbias(self):
     
         """
@@ -219,8 +277,10 @@ class MasterBias():
             fs=FrameStacker(bias_data,2.1,logger)
             avg,var,cnt,unc = fs.compute()
             
-            #Fit a gaussian to the data to find the read noise (2*sigma)
-            (mu, sigma) = norm.fit(avg)
+            #Single-frame read noise (e-) from the frame-to-frame scatter.
+            #The spatial scatter of the master is NOT the read noise: it scales as
+            #1/sqrt(N) and includes fixed structure.
+            read_noise = self.measure_read_noise(bias_data, avg)
 
             #Write the master bias to file with approraite header info
             new_hdu = fits.PrimaryHDU(data=avg.astype(np.float32))
@@ -323,7 +383,7 @@ class MasterBias():
             new_hdu.header['OBSMODE'] = (str(hdu[0].header['OBSMODE']),"Observation mode")
             new_hdu.header['OBSTYPE'] = (str('Bias'), "Observation type")
             new_hdu.header['ROSPEED'] = (str(hdu[0].header['ROSPEED']),"CCD readout speed (Hz)")
-            new_hdu.header['RONOISE'] = (str(sigma*2.), "Read out noise calculated from the Bias (e-)")
+            new_hdu.header['RONOISE'] = (str(read_noise), "Read out noise calculated from the Bias (e-)")
 
             new_hdu.header['TEM-AIR'] = (str(np.mean(TEM_AIR)),"HRS environment air temperature (K)")
             new_hdu.header['TEM-BCAM'] = (str(np.mean(TEM_BCAM)),"Blue camera temperature (K)")
