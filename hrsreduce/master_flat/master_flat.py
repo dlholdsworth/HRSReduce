@@ -9,7 +9,7 @@ from astropy.time import Time
 import pytz
 import os
 
-from hrsreduce.utils.frame_stacker import FrameStacker
+from hrsreduce.utils.frame_stacker import FrameStacker, read_noise_from_headers
 
 logger = logging.getLogger(__name__)
 
@@ -411,8 +411,10 @@ class MasterFlat():
 
             normalised_frames_data = np.array(normalised_frames_data)
             
+            #Stack, rejecting outliers against the expected noise (photon + read noise)
+            read_noise = read_noise_from_headers(Flat_files, logger=logger)
             fs = FrameStacker(normalised_frames_data,2.1,logger)
-            flat_avg,flat_var,cnt,flat_unc = fs.compute()
+            flat_avg,flat_var,cnt,flat_unc = fs.compute_noise_model(read_noise, np_exptimes)
             
             '''
             plt.imshow(flat_avg,origin='lower',vmin=0,vmax=5)

@@ -274,13 +274,22 @@ class MasterBias():
                     OS.append(float(hdu[0].header["OS_MEAN"]))
                     
             bias_data = np.array(bias_data)
-            fs=FrameStacker(bias_data,2.1,logger)
-            avg,var,cnt,unc = fs.compute()
-            
+
+            #Bring all frames to the mean pedestal before stacking. The bias level drifts
+            #from frame to frame (the first frames after an idle period sit high); left in,
+            #the drift makes the outlier rejection patchy and adds noise to the master.
+            #The master keeps the mean level, consistent with its OS_MEAN keyword.
+            os_offsets = np.array(OS) - np.mean(OS)
+            bias_data = bias_data - os_offsets[:, None, None].astype(bias_data.dtype)
+
             #Single-frame read noise (e-) from the frame-to-frame scatter.
             #The spatial scatter of the master is NOT the read noise: it scales as
             #1/sqrt(N) and includes fixed structure.
-            read_noise = self.measure_read_noise(bias_data, avg)
+            read_noise = self.measure_read_noise(bias_data, bias_data[0])
+
+            #Stack, rejecting outliers against the expected noise (not the scatter of the stack)
+            fs=FrameStacker(bias_data,2.1,logger)
+            avg,var,cnt,unc = fs.compute_noise_model(read_noise, photon_noise=False)
 
             #Write the master bias to file with approraite header info
             new_hdu = fits.PrimaryHDU(data=avg.astype(np.float32))

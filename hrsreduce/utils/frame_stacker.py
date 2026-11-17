@@ -164,6 +164,68 @@ class FrameStacker:
 
         return avg,var,cnt,unc
 
+    def compute_noise_model(self, read_noise, exptimes=None, n_sigma=5.0, flux_tol=0.01, photon_noise=True):
+        """
+        Stack frames, rejecting outliers against the EXPECTED noise.
+
+        Unlike compute(), the rejection threshold does not come from the scatter
+        of the few frames in the stack but from the detector noise model
+        (photon noise + read noise), so good frames are not rejected by chance
+        and the method works with as few as two frames.
+
+        Parameters
+        ----------
+        read_noise : float
+            Single-frame read noise (e-), e.g. the RONOISE header value.
+        exptimes : array-like, optional
+            Exposure time of each frame if the stack was divided by EXPTIME
+            (flats, arcs). None for frames in electrons (biases).
+        n_sigma : float
+            Rejection threshold in units of the expected single-frame noise.
+        flux_tol : float
+            Fractional frame-to-frame flux change tolerated without rejection
+            (lamp drift); added in quadrature to the noise.
+
+        photon_noise : bool
+            Include photon noise from the signal level. Set False for bias
+            frames, whose level is an electronic pedestal, not detected light.
+
+        Returns
+        -------
+        avg, var, cnt, unc : as compute(). `var` is the expected variance of a
+            single frame and `unc` the uncertainty of the stacked mean.
+        """
+        a = np.asarray(self.frames_data, dtype=float)
+        n = a.shape[0]
+        t = np.ones(n) if exptimes is None else np.asarray(exptimes, dtype=float)
+        t = t.reshape((n,) + (1,) * (a.ndim - 1))
+
+        # Reference level: median, or the lower frame when there are only two
+        # (cosmic rays are positive, so the minimum is the clean one).
+        ref = np.median(a, axis=0) if n >= 3 else np.min(a, axis=0)
+
+        # Expected variance of each frame in the units of the stack.
+        signal = np.clip(ref, 0.0, None) if photon_noise else np.zeros_like(ref)
+        var_i = (signal * t + read_noise ** 2) / t ** 2
+        tol2 = (flux_tol * signal) ** 2
+
+        dev = a - ref
+        if n >= 3:
+            mask = np.abs(dev) > n_sigma * np.sqrt(var_i + tol2)
+        elif n == 2:
+            # reference is itself one noisy frame: compare with the noise of a difference
+            mask = dev > n_sigma * np.sqrt(2.0 * var_i + tol2)
+        else:
+            mask = np.zeros(a.shape, dtype=bool)
+
+        mx = ma.masked_array(a, mask)
+        avg = ma.getdata(mx.mean(axis=0))
+        cnt = ma.getdata(ma.count(mx, axis=0))
+        kept_var = ma.getdata(ma.masked_array(np.broadcast_to(var_i, a.shape), mask).sum(axis=0))
+        unc = np.sqrt(kept_var) / cnt          # uncertainty of the mean of the kept frames
+        var = kept_var / cnt                   # mean single-frame variance
+        return avg, var, cnt, unc
+
 #
 # Method similar to compute() to be called in case of insufficient number of frames in stack,
 # in which case the estimator of the expected value will be the stack median.
@@ -214,3 +276,25 @@ class FrameStacker:
                 format(self.__class__.__name__,med.mean(),cnt.mean(),unc.mean()))
 
         return med,var,cnt,unc
+
+
+def read_noise_from_headers(files, default=5.0, logger=None):
+    """
+    Median RONOISE (e-) from the headers of a list of FITS files.
+
+    Falls back to `default` with a warning if no file carries the keyword,
+    so that stacking never fails for want of a read-noise value.
+    """
+    from astropy.io import fits
+    values = []
+    for file in files:
+        try:
+            values.append(float(fits.getheader(file)['RONOISE']))
+        except Exception:
+            pass
+    values = [v for v in values if np.isfinite(v) and v > 0]
+    if values:
+        return float(np.median(values))
+    if logger:
+        logger.warning('No RONOISE keyword in the frames to stack; assuming {} e-'.format(default))
+    return default
