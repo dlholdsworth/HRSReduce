@@ -10,6 +10,7 @@ import pytz
 import os
 
 from hrsreduce.utils.frame_stacker import FrameStacker, read_noise_from_headers
+from hrsreduce.utils.flat_check import MIN_FLAT_SPREAD
 
 logger = logging.getLogger(__name__)
 
@@ -295,8 +296,9 @@ class MasterFlat():
 
         Returns
         -------
-        str
-            Path to the existing or newly created master flat FITS file.
+        str or None
+            Path to the existing or newly created master flat FITS file, or None (with an error logged) when
+            there are no flats or none of them has enough light.
         """
         
         #Set the night for the master flat data
@@ -322,8 +324,8 @@ class MasterFlat():
 
             n=len(Flat_files)
             if n <1:
-                logger.error("\n   !!! No Flat files found in {}. Check arm ({}) and night ({}). Exiting.\n".format(self.out_dir,self.arm,yyyymmdd))
-                exit()
+                logger.error("\n   !!! No Flat files found in {}. Check arm ({}) and night ({}). No Master Flat made.\n".format(self.out_dir,self.arm,yyyymmdd))
+                return None
                 
             Flat_concat = []
             Flat_files_short = []
@@ -346,7 +348,7 @@ class MasterFlat():
                 Flat_files_short.append(os.path.basename(file))
                 with fits.open(file) as hdu:
                     #Perform a test to reject bad files
-                    if np.nanstd(hdu[0].data) > 200:
+                    if np.nanstd(hdu[0].data) > MIN_FLAT_SPREAD:
                         #Subtract master bias
                         flat_data = (hdu[0].data).astype(np.float32)
                         Flat_concat.append(flat_data)#/flat_mean)
@@ -381,6 +383,11 @@ class MasterFlat():
                         bad_dir = (self.base_dir+self.arm+"/"+yr+"/"+ngt+"/reduced/")
                         os.rename(file, str(bad_dir+"Bad_Flat_"+os.path.basename(file)))
  
+            if not Flat_concat:
+                logger.error("All {} Flat files for {} {} {} were rejected for too little light. No Master Flat made.".format(
+                    n, self.arm, self.mode, yyyymmdd))
+                return None
+
             jd_mean = np.array(jd_mean)
             jd_mean = np.mean(jd_mean)
         
@@ -710,8 +717,8 @@ class FlatBackground():
             hdul_out.writeto(self.master_flat, overwrite=True)
 
 #            self.logger.info("FlatBackground: {} {} scattered light removed ({} model, {} nodes, node scatter {:.2f} % of the order peak, "
-                             "largest share {:.0f} %)".format(self.mode, self.arm, info['method'], info['n_used'],
-                                                             info.get('node_scatter_pct', np.nan), 100 * sh_max))
+#                             "largest share {:.0f} %)".format(self.mode, self.arm, info['method'], info['n_used'],
+#                                                             info.get('node_scatter_pct', np.nan), 100 * sh_max))
             if stale:
                 self.logger.info("FlatBackground: extensions made before the subtraction removed, to be rebuilt: {}".format(', '.join(stale)))
             if info['flags']:

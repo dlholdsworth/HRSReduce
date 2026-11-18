@@ -133,6 +133,7 @@ def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False,propid=None,new_flat=
     }
     
     flat_exptime = flat_map[(arm[0],mode,new_flat)]
+    flat_groups = {}            # EXPTIME -> flats that match in every other respect
         
     for file in files:
         with fits.open(file) as hdul:
@@ -148,8 +149,8 @@ def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False,propid=None,new_flat=
                     
                 if hdr["OBSMODE"] == modefull:
                     if np.logical_and(hdr["OBSTYPE"] == "Flat field",hdr["PROPID"] == flat_propid):
-                        if np.logical_and(hdr["LAMPID"] == lampid, hdr["EXPTIME"] == flat_exptime):
-                            flat_files.append(file)
+                        if hdr["LAMPID"] == lampid:
+                            flat_groups.setdefault(float(hdr["EXPTIME"]), []).append(file)
                     elif np.logical_and(hdr["OBSTYPE"] == "Arc",(hdr["PROPID"] == "CAL_ARC" or hdr["PROPID"] == "CAL_STABLE")):
                         if hdr["LAMPID"] == "Th Ar":
                             arc_files.append(file)
@@ -170,6 +171,18 @@ def SortFiles(input_dir, logger, arm, mode, CAL_RVST=False,propid=None,new_flat=
                     if np.logical_and(hdr["OBSTYPE"] == "Arc", (hdr["PROPID"] == "CAL_STABLE" or hdr["PROPID"] == "CAL_STABLE")):
                         if hdr["I2STAGE"] == "Reference Fibre":
                             hs_arc_files.append(file)
+
+    # Flats: those of the standard exposure time when the night has them (as before). Archive nights often used
+    # another one (2015-2016 all modes, HS to 2020): then the exposure time with the most frames, ties going to
+    # the one nearest the standard.
+    if flat_exptime in flat_groups:
+        flat_files = flat_groups[flat_exptime]
+    elif flat_groups:
+        et = max(flat_groups, key=lambda e: (len(flat_groups[e]), -abs(np.log(e / flat_exptime))))
+        flat_files = flat_groups[et]
+        logger.warning("No %s flats of the standard %g s in %s; using %d of %g s (also there: %s)", mode, flat_exptime,
+                       input_dir, len(flat_files), et,
+                       ", ".join("%d x %g s" % (len(v), e) for e, v in sorted(flat_groups.items()) if e != et) or "none")
 
     if mode == "HS":
         return bias_files,flat_files,hs_arc_files,lfc_files,sci_files

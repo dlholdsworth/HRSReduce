@@ -56,6 +56,7 @@ from . import __version__, util
 from hrsreduce.utils.sort_files import SortFiles
 from hrsreduce.utils.cr_masking import CosmicRayMasking
 from hrsreduce.utils.find_nearest_files import FindNearestFiles
+from hrsreduce.utils.flat_check import usable_flats
 
 # Level-0 detector corrections
 from hrsreduce.L0_Corrections.level0corrections import L0Corrections
@@ -231,7 +232,11 @@ def main(
         nights = {}
         types = ['sci', 'arc', 'lfc', 'flat', 'bias']
         files['bias'], files['flat'], files['arc'], files['lfc'], files['sci'] = SortFiles(input_dir, logger, arm, mode=m, CAL_RVST=cal_rvst,propid=propid,new_flat=new_way)
-        
+
+        # Saturated flats and flats without light are not used. If none of the night's flats are left, the nearest night with
+        # usable flats is used (below), as for a night without flats.
+        files['flat'] = usable_flats(files['flat'], logger)
+
         # Record the nominal night associated with each file type.
         # These may be updated later if fallback calibration files are used.
         nights['bias'] = yyyymmdd
@@ -247,6 +252,9 @@ def main(
             )
             # Now search to find a night with the files.
             files['bias'], nights['bias'] = FindNearestFiles('Bias', yyyymmdd, m, base_dir, arm_colour, logger)
+            if not files['bias']:
+                logger.error(f"No BIAS files within a year of {yyyymmdd}: {arm_colour} {m} is not reduced")
+                continue
             # Create the corresponding output directory if needed.
             output_dir_bias = arm_colour + "/" + nights['bias'][0:4] + "/" + nights['bias'][4:8] + "/reduced/"
             try:
@@ -263,6 +271,9 @@ def main(
             
             # Now search to find a night with the files.
             files['flat'], nights['flat'] = FindNearestFiles('Flat', yyyymmdd, m, base_dir, arm_colour, logger,new_flat=new_way)
+            if not files['flat']:
+                logger.error(f"No usable FLAT files within a year of {yyyymmdd}: {arm_colour} {m} is not reduced")
+                continue
 
             # Create the corresponding output directory if needed.
             output_dir_flat = arm_colour + "/" + nights['flat'][0:4] + "/" + nights['flat'][4:8] + "/reduced/"
@@ -278,6 +289,9 @@ def main(
             )
             # Now search to find a night with the files.
             files['arc'], nights['arc'] = FindNearestFiles('Arc', yyyymmdd, m, base_dir, arm_colour, logger)
+            if not files['arc']:
+                logger.error(f"No ARC files within a year of {yyyymmdd}: {arm_colour} {m} is not reduced")
+                continue
 
             # Create the corresponding output directory if needed.
             output_dir_arc = arm_colour + "/" + nights['arc'][0:4] + "/" + nights['arc'][4:8] + "/reduced/"
@@ -323,6 +337,9 @@ def main(
 
         # Calculate the master bias frame.
         master_bias = MasterBias(files['bias'], input_dir, output_dir, arm_colour, yyyymmdd, plot).create_masterbias()
+        if master_bias is None:
+            logger.error(f"No master bias for {yyyymmdd}: {arm_colour} {m} is not reduced")
+            continue
         
         # Remove intermediate bias frames after master bias creation.
         for redundant in files['bias']:
@@ -355,6 +372,9 @@ def main(
                 files_tmp2 = L0Corrections(files_tmp, tmp_nights, nights[type], input_dir_tmp, output_dir_tmp, base_dir, arm).run()
                 
                 master_bias_tmp = MasterBias(files_tmp2['bias'], input_dir_tmp, output_dir_tmp, arm_colour, nights[type], plot).create_masterbias()
+                if master_bias_tmp is None:
+                    logger.warning(f"No master bias for {nights[type]}; the {type} frames use the master bias of {nights['bias']}")
+                    master_bias_tmp = master_bias
                 files_out[type] = SubtractBias(master_bias_tmp, files_type, base_dir, arm_colour, nights[type], type).subtract()
 
                 # Remove intermediate temporary bias frames.
@@ -377,7 +397,11 @@ def main(
                 os.remove(ff)
             except:
                 pass
-                
+
+        if master_flat is None:
+            logger.error(f"No master flat for {nights['flat']}: {arm_colour} {m} is not reduced")
+            continue
+
         # Run cosmic ray masking on current files.
         _ = CosmicRayMasking(files, arm)
         

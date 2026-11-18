@@ -4,6 +4,9 @@ import glob
 import logging
 
 from .sort_files import SortFiles
+from .flat_check import usable_flats
+
+MAX_SEARCH_DAYS = 365     # nights searched either side of the target night
 
 def FindNearestFiles(type,night,m,base_dir,arm_colour,logger,new_flat=False):
     """
@@ -12,7 +15,8 @@ def FindNearestFiles(type,night,m,base_dir,arm_colour,logger,new_flat=False):
     This helper routine searches the nightly directory structure for calibration
     frames (bias, flat, arc, or LFC) when none are present for the requested
     observing night. The search proceeds outward in time, alternating between
-    earlier and later nights, until suitable files are found.
+    earlier and later nights, for at most MAX_SEARCH_DAYS on either side.
+    Saturated flats and flats without light are not counted; a flat set needs at least three usable frames.
 
     The routine relies on the `SortFiles` utility to classify files within each
     nightly raw-data directory and returns the first set of matching calibration
@@ -40,6 +44,7 @@ def FindNearestFiles(type,night,m,base_dir,arm_colour,logger,new_flat=False):
         A tuple containing:
             - list of matching calibration files
             - the observing night (YYYYMMDD) from which the files were selected
+        or ([], None), with an error logged, when nothing is found within MAX_SEARCH_DAYS.
     """
     
     if type == "Bias":
@@ -56,43 +61,24 @@ def FindNearestFiles(type,night,m,base_dir,arm_colour,logger,new_flat=False):
     if arm_colour == "Red":
         arm = ["R"]
 
-    files = []
-    prev_night = night
-    next_night = night
-    while not files:
-        prev_night = arrow.get(prev_night).shift(days=-1).format('YYYYMMDD')
-        prev_year=prev_night[0:4]
-        prev_mmdd=prev_night[4:8]
-        prev_data_location = os.path.join(base_dir, arm_colour+'/'+prev_year+'/'+prev_mmdd+'/raw/')
-        result = SortFiles(prev_data_location,logger,arm,mode=m,new_flat=new_flat)
-        files = result[idx]
-        if idx == 1 and len(files)<3:
-            files = []
-        else:
-            if len(files)>0:
-                logger.info(
-                f"Using %s files found in folder: %s\n", type,
-                prev_data_location,
-                )
-                files_night = str(prev_year+prev_mmdd)
-                break
-
-        next_night = arrow.get(next_night).shift(days=+1).format('YYYYMMDD')
-        next_year=next_night[0:4]
-        next_mmdd=next_night[4:8]
-        next_data_location = os.path.join(base_dir, arm_colour+'/'+next_year+'/'+next_mmdd+'/raw/')
-        result = SortFiles(next_data_location,logger,arm,mode=m,new_flat=new_flat)
-        files = result[idx]
-        if idx == 1 and len(files)<3:
-            files = []
-        else:
-            if len(files)>0:
-                logger.info(
-                f"Using %s files found in folder: %s\n", type,
-                next_data_location,
-                )
-                files_night = str(next_year+next_mmdd)
-                break
-            else:
+    for step in range(1, MAX_SEARCH_DAYS + 1):
+        for shift in (-step, step):          # the night before first, then the night after
+            cand = arrow.get(night).shift(days=shift).format('YYYYMMDD')
+            data_location = os.path.join(base_dir, arm_colour+'/'+cand[0:4]+'/'+cand[4:8]+'/raw/')
+            if not os.path.isdir(data_location):
                 continue
-    return files,files_night
+            result = SortFiles(data_location,logger,arm,mode=m,new_flat=new_flat)
+            files = result[idx]
+            if idx == 1:
+                files = usable_flats(files, logger)
+                if len(files) < 3:
+                    continue
+            if len(files) > 0:
+                logger.info(
+                f"Using %s files found in folder: %s\n", type,
+                data_location,
+                )
+                return files, cand
+
+    logger.error(f"No {type} files for the {arm_colour} arm ({m}) within {MAX_SEARCH_DAYS} days of {night}")
+    return [], None

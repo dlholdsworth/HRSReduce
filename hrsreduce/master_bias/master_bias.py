@@ -188,8 +188,9 @@ class MasterBias():
 
         Returns
         -------
-        str
-            Path to the existing or newly created master bias FITS file.
+        str or None
+            Path to the existing or newly created master bias FITS file, or None when the night has no
+            usable bias frames and none are found within a year.
         """
 
         #Test if Master Bias exists
@@ -217,6 +218,9 @@ class MasterBias():
                 m='HS' #Dummy for Bias as it is not used
                 base_dir = self.in_dir[:-18]
                 files['bias'],b_night['bias']= FindNearestFiles("Bias",self.night,m,base_dir,self.arm,logger)
+                if not files['bias']:
+                    logger.error("No Bias files within a year of {} for arm {}; no Master Bias made".format(self.night, self.arm))
+                    return None
                 #Create the output directory if it does not exist
                 self.out_dir = self.arm+"/"+b_night['bias'][0:4]+"/"+b_night['bias'][4:8]+"/reduced/"
                 self.in_dir = self.arm+"/"+b_night['bias'][0:4]+"/"+b_night['bias'][4:8]+"/raw/"

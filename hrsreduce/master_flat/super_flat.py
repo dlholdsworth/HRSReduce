@@ -8,6 +8,7 @@ from datetime import date, timedelta
 from hrsreduce.L0_Corrections.level0corrections import L0Corrections
 from hrsreduce.master_bias.master_bias import MasterBias, SubtractBias
 from hrsreduce.master_flat.master_flat import MasterFlat
+from hrsreduce.utils.flat_check import usable_flats
 
 
 logger = logging.getLogger(__name__)
@@ -133,6 +134,14 @@ class SuperFlat():
                 self.arm, self.mode, self.s_date, self.e_date))
             return None
 
+        # Saturated flats and flats without light are left out (before thinning, so up to max_flats usable ones are kept)
+        usable = set(usable_flats([c[3] for c in candidates], logger))
+        candidates = [c for c in candidates if c[3] in usable]
+        if not candidates:
+            logger.error("All {} {} flats between {} and {} are saturated or without light; no Super Flat made".format(
+                self.arm, self.mode, self.s_date, self.e_date))
+            return None
+
         # 2. Keep at most max_flats frames, spread evenly through the range
         if len(candidates) > self.max_flats:
             keep = np.unique(np.round(np.linspace(0, len(candidates) - 1, self.max_flats)).astype(int))
@@ -181,6 +190,9 @@ class SuperFlat():
         nights = {'flat': self.s_date}
         master_file = MasterFlat(flat_files, nights, ' ', ' ', self.base_dir, self.arm, self.tn, self.mode,
                                  self.plot, super=True).create_masterflat()
+        if master_file is None:
+            logger.error("No {} {} Super Flat made between {} and {}".format(self.arm, self.mode, self.s_date, self.e_date))
+            return None
         with fits.open(master_file, mode='update') as hdul:
             hdr = hdul[0].header
             hdr['SF_START'] = (self.s_date, 'First night of the Super Flat range')
