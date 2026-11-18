@@ -612,7 +612,115 @@ class MasterFlat():
             plt.imshow(master_flat, vmin=bot, vmax=top, origin="lower")
             plt.savefig(self.out_dir+self.mode+"_Master_Flat_Frame.png",bbox_inches='tight',dpi=600)
             plt.close()
-            
+
         return master_file
 
-        
+
+class FlatBackground():
+
+    """
+    Remove the scattered light from a master flat with the trace-masked model.
+
+    The light between the fibres is sampled in the gaps that the order trace leaves clear, and a smooth surface
+    through those samples is subtracted from the flat (hrsreduce.utils.scattered_light, flat variant).  Without
+    this the blaze of the bluest blue orders carries 5 to 25 per cent of scattered light in HR, MR and HS and more
+    than half in LR.
+
+    The step runs once per master flat, after the order trace (it needs the trace) and before the flat is
+    rectified:
+
+        - the primary image becomes flat minus scattered light
+        - the surface that was removed is kept in a ``BKG`` extension (VarExts adds it back for the photon noise)
+        - what was done is recorded in the primary header (BKGTYPE, BKGMETH, BKGNODE, BKGRMS, BKGSHIFT, BKGFLAG,
+          BKGPRE, BKGTRACE, BKGSHMAX, BKGSH50)
+        - extensions derived from the flat before the subtraction (RECT, STRAIGHT, NORMALISED, BLAZE ...) are
+          removed, so that the pipeline rebuilds them from the corrected flat
+
+    Red master flats still have the minima-polynomial background (MasterFlat.rm_bkg) removed when they are
+    stacked, because the red order tracer is tuned on such flats.
+
+    Parameters
+    ----------
+    master_flat : str
+        Path to the master flat FITS file (changed in place).
+    order_file : str
+        Path to the order-trace CSV of this flat.
+    arm : str
+        "Blu" or "Red".
+    mode : str
+        Observing mode (for the log only).
+    """
+
+    KEEP = ('PRIMARY', 'CNT', 'UNC', 'BKG')     # everything else in the file is derived from the primary image
+    SHARE_LIMIT = 0.5                           # orders with more scattered light than this are named in the log
+
+    def __init__(self, master_flat, order_file, arm, mode):
+
+        self.master_flat = master_flat
+        self.order_file = order_file
+        self.arm = arm
+        self.mode = mode
+        self.logger = logger
+        self.logger.info('Started {}'.format(self.__class__.__name__))
+
+    def run(self):
+        """
+        Subtract the scattered light from the master flat, unless that was already done.
+
+        Returns
+        -------
+        str
+            Path to the master flat.
+        """
+
+        try:
+            from hrsreduce.utils.scattered_light import fit_background, header_cards, order_shares
+
+            with fits.open(self.master_flat) as hdul:
+                if 'BKGTYPE' in hdul[0].header:
+                    self.logger.info("FlatBackground: scattered light already removed from {}".format(os.path.basename(self.master_flat)))
+                    return self.master_flat
+                header = hdul[0].header.copy()
+                data = np.array(hdul[0].data)
+                kept = [h.copy() for h in hdul[1:] if h.name.upper() in self.KEEP and h.name.upper() != 'BKG']
+                stale = [h.name for h in hdul[1:] if h.name.upper() not in self.KEEP]
+
+            bkg, info = fit_background(data.astype(float), self.order_file)
+            pre = 'minima-poly' if self.arm == 'Red' else 'none'
+            if pre != 'none' and 'NEGATIVE' in info['flags']:
+                # expected: the minima polynomial takes a little too much, so what is left is below zero in places
+                info['flags'].remove('NEGATIVE')
+
+            shares = order_shares(data, bkg, self.order_file)
+            sh_max = float(np.nanmax(shares)) if shares is not None and np.isfinite(shares).any() else np.nan
+            high = np.flatnonzero(shares > self.SHARE_LIMIT) if shares is not None else np.array([], int)
+
+            for key, value, comment in header_cards(info):
+                header[key] = (value if not (isinstance(value, float) and not np.isfinite(value)) else 'nan', comment)
+            header['BKGPRE'] = (pre, 'background removed when the flat was stacked')
+            header['BKGTRACE'] = (os.path.basename(str(self.order_file)), 'order trace used for the scattered light')
+            header['BKGSHMAX'] = (round(100 * sh_max, 1) if np.isfinite(sh_max) else 'nan', 'largest scattered-light share of an order (%)')
+            header['BKGSH50'] = (int(len(high)), 'orderlets with more than 50 % scattered light')
+
+            new_hdu = fits.PrimaryHDU(data=(data - bkg).astype(data.dtype), header=header)
+            bkg_hdu = fits.ImageHDU(data=bkg.astype(np.float32), name="BKG")
+            bkg_hdu.header['COMMENT'] = "Scattered light removed from the Master Flat"
+            hdul_out = fits.HDUList([new_hdu] + kept + [bkg_hdu])
+            clean_comments(hdul_out)
+            hdul_out.writeto(self.master_flat, overwrite=True)
+
+#            self.logger.info("FlatBackground: {} {} scattered light removed ({} model, {} nodes, node scatter {:.2f} % of the order peak, "
+                             "largest share {:.0f} %)".format(self.mode, self.arm, info['method'], info['n_used'],
+                                                             info.get('node_scatter_pct', np.nan), 100 * sh_max))
+            if stale:
+                self.logger.info("FlatBackground: extensions made before the subtraction removed, to be rebuilt: {}".format(', '.join(stale)))
+            if info['flags']:
+                self.logger.warning("FlatBackground: scattered-light model flags for {}: {}".format(os.path.basename(self.master_flat), ','.join(info['flags'])))
+            if len(high):
+                self.logger.warning("FlatBackground: more than {:.0f} % of the flat is scattered light in order rows {} (counted from the first "
+                                    "traced order); the blaze of these orders is uncertain".format(100 * self.SHARE_LIMIT, sorted(set((high // 2).tolist()))))
+
+        except Exception as e:
+            self.logger.warning("FlatBackground: could not remove the scattered light from {} ({}); the flat is used as stacked".format(self.master_flat, repr(e)))
+
+        return self.master_flat

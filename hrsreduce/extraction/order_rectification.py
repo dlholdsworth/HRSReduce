@@ -32,6 +32,11 @@ Constructor:
     overwrite : replace an existing RECT/STRAIGHT instead of returning early
                 (needed to re-rectify the arc once its tilt is known).
 
+Scattered light of SCIENCE frames (other frame types are not touched here) is removed before the resampling
+with the trace-masked model, science variant (hrsreduce.utils.scattered_light): it samples the gaps the trace
+leaves clear, so light in the second fibre (sky, reference lamp) is not taken for background.  What was done is
+written to the primary header (BKGTYPE, BKGMETH, BKGNODE, BKGRMS, BKGSHIFT, BKGFLAG).
+
 Typical use (per mode, per night, no super arc):
     rect = OrderRectification(arc, flat, trace, arm, mode, base_dir, super_arc=arc).perform()
     SlitCorrection(arc, 'RECT', rect, arm[0], mode, base_dir, night, super_arc=arc).correct()
@@ -53,7 +58,7 @@ import numpy as np
 import pandas as pd
 from astropy.io import fits
 
-import hrsreduce.utils.background_subtraction as BkgAlg
+from hrsreduce.utils.scattered_light import fit_background, header_cards
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +146,7 @@ class OrderRectification:
         self.tilt_file = tilt_file
         self.kernel = kernel
         self.overwrite = overwrite
+        self._bkg_cards = []
         self.mapping_cache_hit = False
 
         if self.arm == "Blu":
@@ -161,10 +167,7 @@ class OrderRectification:
             self._data_type = hdul[0].header["OBSTYPE"]
             self._var = np.ascontiguousarray(hdul["VAR"].data, dtype=np.float64) if "VAR" in hdul else None
         if self._data_type == "Science":
-            # background subtraction
-            spectrum_data, _ = BkgAlg.BkgAlg(np.ma.masked_array(data, mask=self._bpm, copy=False),
-                                             self.order_trace_file, self.arm, self.mode, self.logger)
-            data = np.ascontiguousarray(np.ma.getdata(spectrum_data), dtype=np.float64)
+            data = self._subtract_background(data)
         self._data = data
         self._image_shape = data.shape
         if self._bpm.shape != self._image_shape:
@@ -186,6 +189,30 @@ class OrderRectification:
                 raise ValueError(f"tilt solution {self.tilt_file} has shape {self._tilt.shape}, expected "
                                  f"({len(self.o_set)}, {self._image_shape[1]}): different order table?")
 
+
+    def _subtract_background(self, data: np.ndarray) -> np.ndarray:
+        """Scattered light of a science frame, subtracted (trace-masked model, science variant).
+
+        The model handles a missing or mismatched trace itself (order positions from the frame, or a constant
+        level) and says so in its flags.  If it fails altogether the frame goes on as it is.  Every case is logged
+        and written to the header (BKGMETH, BKGFLAG), and none of them stops the reduction."""
+        try:
+            self.logger.info("Subtracting Background (trace-masked model, science variant)...")
+            bkg, info = fit_background(data, self.order_trace_file, frame="science",
+                                       bpm=self._bpm if self._bpm.shape == data.shape else None)
+            self._bkg_cards = [(k, v if not (isinstance(v, float) and not np.isfinite(v)) else "nan", c)
+                               for k, v, c in header_cards(info)]
+            if info["method"] != "trace":
+                self.logger.warning("OrderRectification: scattered light fitted without the order trace (%s)", info["method"])
+            if info["flags"]:
+                self.logger.info("OrderRectification: scattered-light model flags: %s", ",".join(info["flags"]))
+            return np.ascontiguousarray(data - bkg, dtype=np.float64)
+        except Exception as e:
+            self.logger.warning("OrderRectification: background subtraction failed (%r); frame used as it is", e)
+            self._bkg_cards = [("BKGTYPE", "science", "scattered-light model variant: flat or science"),
+                               ("BKGMETH", "none", "scattered light from: trace, image or constant"),
+                               ("BKGFLAG", "FAILED", "scattered-light model flags")]
+            return data
 
     def _order_geometry(self, i: int, previous=None):
         """Centre row, edges and x range of orderlet ``i`` in the output, as the original module defines
@@ -271,6 +298,8 @@ class OrderRectification:
             if rect_var is not None:
                 hdul.append(fits.ImageHDU(data=rect_var, name="RECT_VAR"))
             hdul.append(fits.ImageHDU(data=rect_mask, name="RECT_MASK"))
+            for key, value, comment in self._bkg_cards:                      # science frames: how the scattered light was removed
+                hdul[0].header[key] = (value, comment)
             hdul.writeto(self.input_spectrum, overwrite=True)
 
         pd.DataFrame(rows).to_csv(order_output)

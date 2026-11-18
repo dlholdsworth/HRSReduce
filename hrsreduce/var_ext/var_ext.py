@@ -112,7 +112,13 @@ class VarExts():
             
             # Assemble Readnoise variance image.
             rn_var, ccdimg = self.assemble_read_noise_var_image(self.sci_frame)
-            
+
+            # A master flat whose scattered light was removed (FlatBackground) keeps it in BKG.
+            # The photon noise is that of all the light that fell on the pixel, so add it back here.
+            with fits.open(self.sci_frame) as hdul:
+                if 'BKG' in hdul and np.shape(hdul['BKG'].data) == np.shape(ccdimg):
+                    ccdimg = ccdimg + np.array(hdul['BKG'].data)
+
             ccdimg = np.where(ccdimg >= 0.0, ccdimg , 0.0)
             
             

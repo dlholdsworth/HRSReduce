@@ -62,7 +62,7 @@ from hrsreduce.L0_Corrections.level0corrections import L0Corrections
 
 # Calibration frame construction
 from hrsreduce.master_bias.master_bias import MasterBias, SubtractBias
-from hrsreduce.master_flat.master_flat import MasterFlat
+from hrsreduce.master_flat.master_flat import MasterFlat, FlatBackground
 from hrsreduce.master_flat.normalisation import FlatNormalisation
 
 # Variance frame generation
@@ -180,7 +180,7 @@ def main(
     input_dir = arm_colour + "/" + year + "/" + mmdd + "/raw/"
     output_dir = arm_colour + "/" + year + "/" + mmdd + "/reduced/"
     
-    base_dir = "/Volumes/SALT_DATA/"
+#    base_dir = "/Volumes/SALT_DATA/"
     
     # Placeholder return container.
     output = []
@@ -307,6 +307,7 @@ def main(
             --  Calculate the master bias, or read it for the night if already created. This also calculates the read noise
             --  Calculate the master flat, or read it for the night/mode if already created.
             --  Define the orders, or read them from file
+            --  Remove the scattered light from the master flat (trace-masked model)
             --  Calculate the slit curvature, or read from file
             --  Calculate background scatter
             --  Normalise the Flat
@@ -418,6 +419,9 @@ def main(
         
         # Trace the echelle orders using the selected Super Flat.
         order_file = OrderTrace(super_flat, nights, base_dir, arm_colour, m, plot).order_trace()
+        
+        # Remove the scattered light from the master flat (needs the trace; before the flat is rectified).
+        FlatBackground(master_flat, order_file, arm_colour, m).run()
         
         super_arc = files['arc'][0]
         logger.info(f"Using the first arc of the night as tilt source: {super_arc}")
