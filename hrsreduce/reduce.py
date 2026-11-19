@@ -405,44 +405,9 @@ def main(
         # Run cosmic ray masking on current files.
         _ = CosmicRayMasking(files, arm)
         
-        if date_obj < ref_date:
-                
-            # Find the closest previous Super Flat for order tracing.
-            # Restricting to previous frames helps avoid configuration mismatches
-            # after instrument interventions such as tank openings.
-            super_flat = []
-            prev_night = yyyymmdd
-            while not super_flat:
-                prev_night = arrow.get(prev_night).shift(days=-1).format('YYYYMMDD')
-                prev_year = prev_night[0:4]
-                prev_mmdd = prev_night[4:8]
-                prev_data_location = os.path.join(base_dir, arm_colour + '/????/Super_Flats/')
-                super_flats = glob.glob(prev_data_location + m + '_Super_Flat_' + arm[0] + '*.fits')
-                s_difference = []
-                sup_files = []
-                for sfiles in super_flats:
-                    s_date = (os.path.basename(sfiles)[-13:-5])
-                    tmp = ((arrow.get(int(yyyymmdd[0:4]), int(yyyymmdd[4:6]), int(yyyymmdd[6:8])) - arrow.get(int(s_date[0:4]), int(s_date[4:6]), int(s_date[6:8]))).days)
-                    if tmp > 0:
-                        s_difference.append(tmp)
-                        sup_files.append(sfiles)
-                if not s_difference:
-                    logger.warning(f"No {m} Super Flat earlier than {yyyymmdd} found for the {arm_colour} arm in {prev_data_location}. "
-                                   f"Cannot trace the orders for this night. Exiting.")
-                    return 2
-                index_of_closest = (np.abs(s_difference)).argmin()
-                if s_difference[index_of_closest] < 365:
-                    super_flat = sup_files[index_of_closest]
-                    logger.info(f"Using Super Flat file: {super_flat}")
-                else:
-                    super_flat = super_flats[index_of_closest]
-                    logger.warning(f"Please update the Super Flat files, currently using potentially outdated file: {super_flat}")
-        
-        else:
-            super_flat = master_flat
-        
-        # Trace the echelle orders using the selected Super Flat.
-        order_file = OrderTrace(super_flat, nights, base_dir, arm_colour, m, plot).order_trace()
+        # Trace the echelle orders on the night's own master flat, against the stored reference of the arm and mode
+        # (hrsreduce/order_trace/references; no Super Flat). OrderTrace falls back to the cluster tracer when it cannot.
+        order_file = OrderTrace(master_flat, nights, base_dir, arm_colour, m, plot).order_trace()
         
         # Remove the scattered light from the master flat (needs the trace; before the flat is rectified).
         FlatBackground(master_flat, order_file, arm_colour, m).run()
@@ -455,7 +420,7 @@ def main(
             # Fully process the Super LFC frame
             super_lfc = "/Users/daniel/Desktop/SALT_HRS_DATA/Red/2026/Super_LFCs/HS_Super_LFC_R20260622.fits"
             logger.info(f"Processing Super LFC file: {super_lfc}")
-            order_file_rect = OrderRectification(super_lfc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc).perform()
+            order_file_rect = OrderRectification(super_lfc, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc).perform()
             SlitCorrection(super_lfc, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
             VarExts(super_lfc, master_bias, master_flat).run()
 
@@ -463,18 +428,18 @@ def main(
             # frame is the hard-wired tilt source and the per-line measurement does not
             # apply to it).
             logger.info(f"Processing arc file: {super_arc}")
-            order_file_rect = OrderRectification(super_arc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
+            order_file_rect = OrderRectification(super_arc, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
             SlitCorrection(super_arc, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
             VarExts(super_arc, master_bias, master_flat).run()
             super_lfc = super_arc
         else:
             logger.info(f"Processing arc file: {super_arc}")
             VarExts(super_arc, master_bias, master_flat).run()
-            order_file_rect = OrderRectification(super_arc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
+            order_file_rect = OrderRectification(super_arc, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc).perform()
             SlitCorrection(super_arc, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_arc).correct()
             tilt_file = _osp.splitext(super_arc)[0] + '_Curvature.npz'
             if _osp.isfile(tilt_file):
-                order_file_rect = OrderRectification(super_arc, super_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc,
+                order_file_rect = OrderRectification(super_arc, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_arc,
                                                      tilt_file=tilt_file, kernel=RECT_KERNEL, overwrite=True).perform()
             else:
                 logger.error(f"No tilt solution written for {super_arc}; continuing with the two-pass straightening")
