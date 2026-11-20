@@ -82,8 +82,9 @@ class MasterBias():
         Observing night associated with the requested master bias.
     """
 
-    def __init__(self,files,in_dir,out_dir,arm,night,plot):
-    
+    def __init__(self,files,in_dir,out_dir,arm,night,plot,fallback=True):
+
+        self.fallback = fallback      # search the nearest night when these files hold no usable bias frames
         self.EXPTIME = 0.
         self.propid = "CAL_BIAS"
         self.propid2 = "ENG_HRS"
@@ -216,6 +217,8 @@ class MasterBias():
 
             if len(Bias_files) <1:
                 logger.error ("No correct Bias files found in night {} for arm {}. Check night and arm.".format(self.night,self.arm))
+                if not self.fallback:
+                    return None
                 logger.info ("Looking for the nearest Bias files and creating a Master Bias from them.")
                 files = {}
                 b_night = {}
@@ -236,9 +239,16 @@ class MasterBias():
                     pass
                 #Now apply the L0 Corrections to these Bias files
                 files = L0Corrections(files,b_night,self.night,self.in_dir,self.out_dir,base_dir,self.sarm).run()
-                self.out_dir = base_dir+self.arm+"/"+self.night[0:4]+"/"+self.night[4:8]+"/reduced/"
-                Bias_files = files['bias']
-                
+                # The Master Bias belongs to the night its frames come from: named for that night, kept in its reduced
+                # folder and reused from there when it is already made and current.
+                logger.info("Master Bias for {} is made from the Bias files of {}".format(self.night, b_night['bias']))
+                master_file = MasterBias(files['bias'], base_dir+self.in_dir, base_dir+self.out_dir, self.arm, b_night['bias'],
+                                         self.plot, fallback=False).create_masterbias()
+                for file in files['bias']:          # left over when that night's Master Bias already existed
+                    if os.path.exists(file):
+                        os.remove(file)
+                return master_file
+
             n = len(Bias_files)
             
             bias_data = []
@@ -568,7 +578,7 @@ class SubtractBias():
                 Sci_overscan = float(hdu[0].header['OS_MEAN'])
                 ratio = Sci_overscan / MB_overscan
                 hdu[0].data = hdu[0].data - (master_bias * ratio)
-                out_file = str(out_dir+"b"+file.removeprefix(out_dir))
+                out_file = os.path.join(out_dir, "b" + os.path.basename(file))
                 clean_comments(hdu)      # no slash in header comments (some FITS viewers cut the card there)
                 hdu.writeto(out_file,overwrite=True)
                 files_out.append(out_file)

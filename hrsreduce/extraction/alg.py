@@ -288,19 +288,21 @@ class SpectralExtractionAlg():
         return self.extracted_flux_pixels
 
     def extraction_handler(self, out_data, height, data_group, t_mask=None, f_var=None):
-        """Perform the spectral extraction on one column of rectification data based on the extraction method.
+        """Perform the spectral extraction on columns of rectification data based on the extraction method.
 
         Args:
-            out_data (np.ndarray) : The rectification data of 1 column.
+            out_data (np.ndarray) : The rectification data, (data group, height, columns): one column in the
+                rectifying path, all columns of an order otherwise.
             height (int): Height of the rectification data.
             data_group (list): Container contains the data set for the process.
 
         Returns:
-            dict: Spectral extraction or rectification result of one column.
+            dict: Spectral extraction or rectification result of the columns.
         """
 
+        width = np.shape(out_data[self.SDATA])[1]
         if self.extraction_method == SpectralExtractionAlg.OPTIMAL:
-            return self.optimal_extraction(out_data[self.SDATA][0:height], out_data[self.FDATA][0:height], height, 1, t_mask, f_var)
+            return self.optimal_extraction(out_data[self.SDATA][0:height], out_data[self.FDATA][0:height], height, width, t_mask, f_var)
         elif self.extraction_method == SpectralExtractionAlg.SUM:
             return self.summation_extraction(out_data[self.SDATA][0:height], f_var)
 
@@ -432,25 +434,20 @@ class SpectralExtractionAlg():
         f_data = np.zeros((p_height, p_width), dtype=float) if f_dt is not None else None
         v_data = np.zeros((p_height, p_width), dtype=float) if self.var_data is not None else None
 
-        for i_x, p_x in enumerate(input_x):
-            y_input = np.floor(input_widths + y_mid[i_x]).astype(int)
-            y_input_idx = np.where((y_input <= (input_y_dim - 1)) & (y_input >= 0))[0]
-            y_input = y_input[y_input_idx]
+        # all columns at once: y_input[k, i] is the input row of row k of the order at column input_x[i]
+        y_input = np.floor(input_widths[:, np.newaxis] + y_mid[np.newaxis, :]).astype(int)
+        rows, cols = np.nonzero((y_input <= (input_y_dim - 1)) & (y_input >= 0))
+        y_raw, x_raw = y_input[rows, cols], input_x[cols]                               # pixel in the input frame
+        y_rect, x_rect = output_widths[rows] + y_output_mid, x_output_step[cols]        # same pixel, rectified frame
 
-            if s_data is not None:
-                if s_dt['is_raw_data']:
-                    s_data[y_input_idx, i_x] = s_dt['data'][y_input, p_x]
-                else:
-                    s_data[y_input_idx, i_x] = s_dt['data'][output_widths[y_input_idx] + y_output_mid, x_output_step[i_x]]
+        if s_data is not None:
+            s_data[rows, cols] = s_dt['data'][y_raw, x_raw] if s_dt['is_raw_data'] else s_dt['data'][y_rect, x_rect]
 
-            if f_data is not None:
-                if f_dt['is_raw_data']:
-                    f_data[y_input_idx, i_x] = f_dt['data'][y_input, p_x]
-                else:
-                    f_data[y_input_idx, i_x] = f_dt['data'][output_widths[y_input_idx] + y_output_mid, x_output_step[i_x]]
+        if f_data is not None:
+            f_data[rows, cols] = f_dt['data'][y_raw, x_raw] if f_dt['is_raw_data'] else f_dt['data'][y_rect, x_rect]
 
-            if v_data is not None:
-                v_data[y_input_idx, i_x] = self.var_data[y_input, p_x]
+        if v_data is not None:
+            v_data[rows, cols] = self.var_data[y_raw, x_raw]
 
         return s_data, f_data, is_sdata_raw, v_data
 
@@ -599,20 +596,23 @@ class SpectralExtractionAlg():
             s_data_outlier = None
             t_mask = None
 
-        for s_x, o_x in enumerate(x_output_step):               # ox: 0...x_dim-1, out_data: 0...x_dim-1, corners: 0...
-
+        # extract all columns of the order in one call: the estimators work on each column separately (sums along
+        # axis 0), so this gives the column-by-column result. The columns go to their output positions x_output_step.
+        # The arrays are column-major so that numpy sums each column as one contiguous run, exactly as it did for a
+        # single column; the result is then the same to the last bit as extracting column by column.
+        if x_output_step.size > 0:
+            col_data = np.zeros((total_data_group, x_output_step.size, mask_height)).transpose(0, 2, 1)
             if f_data is not None:
-                out_data[self.FDATA][:] = f_data[:, s_x][:, np.newaxis]
+                col_data[self.FDATA] = f_data
             if s_data is not None:
-                out_data[self.SDATA][:] = s_data[:, s_x][:, np.newaxis] \
-                    if s_data_outlier is None else s_data_outlier[:, s_x][:, np.newaxis]
+                col_data[self.SDATA] = s_data if s_data_outlier is None else s_data_outlier
+            col_var = np.asfortranarray(f_var) if f_var is not None else None
+            col_mask = np.asfortranarray(t_mask) if t_mask is not None else None
 
-            extracted_result = self.extraction_handler(out_data, y_size, data_group,
-                                                       t_mask[:, s_x][:, np.newaxis] if t_mask is not None else None,
-                                                       f_var[:, s_x][:, np.newaxis] if f_var is not None else None)
-            extracted_data[:, o_x:o_x+1] = extracted_result['extraction']
+            extracted_result = self.extraction_handler(col_data, y_size, data_group, col_mask, col_var)
+            extracted_data[:, x_output_step] = extracted_result['extraction']
             if 'variance' in extracted_result:
-                extracted_var[:, o_x:o_x+1] = extracted_result['variance']
+                extracted_var[:, x_output_step] = extracted_result['variance']
 
         # out data starting from origin [0, 0] contains the reduced flux associated with the data range
         result_data = {'y_center': y_output_mid,

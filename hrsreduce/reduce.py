@@ -203,7 +203,7 @@ def main(
     input_dir = arm_colour + "/" + year + "/" + mmdd + "/raw/"
     output_dir = arm_colour + "/" + year + "/" + mmdd + "/reduced/"
     
-    base_dir = "/Volumes/SALT_DATA/"
+#    base_dir = "/Volumes/SALT_DATA/"
     
     # Placeholder return container.
     output = []
@@ -357,8 +357,10 @@ def main(
         # Apply detector-level corrections (e.g. overscan, gain, orientation).
         files = L0Corrections(files, nights, yyyymmdd, input_dir, output_dir, base_dir, arm).run()
 
-        # Calculate the master bias frame.
-        master_bias = MasterBias(files['bias'], input_dir, output_dir, arm_colour, yyyymmdd, plot).create_masterbias()
+        # Calculate the master bias frame. It belongs to the night its bias frames come from: named for that night and
+        # kept in its reduced folder, also when they were borrowed for this night.
+        bias_dir = base_dir + arm_colour + "/" + nights['bias'][0:4] + "/" + nights['bias'][4:8]
+        master_bias = MasterBias(files['bias'], bias_dir + "/raw/", bias_dir + "/reduced/", arm_colour, nights['bias'], plot).create_masterbias()
         if master_bias is None:
             logger.error(f"No master bias for {yyyymmdd}: {arm_colour} {m} is not reduced")
             continue
@@ -382,9 +384,12 @@ def main(
             files_type[str(type)] = files[type]
             tmp_nights['bias'] = nights[type]
 
-            # Use the already-constructed master bias if the nights match.
-            if nights[type] == nights['bias']:
-                files_out[type] = SubtractBias(master_bias, files_type, base_dir, arm_colour, yyyymmdd, type).subtract()
+            # Use the already-constructed master bias if the nights match. The frames are written to the reduced folder of
+            # their own night, which is not the science night when the bias and this type both come from another night.
+            # Frames of this night when its bias frames were borrowed: this night has none, so master_bias is already
+            # the master bias from the nearest night.
+            if nights[type] == nights['bias'] or nights[type] == yyyymmdd:
+                files_out[type] = SubtractBias(master_bias, files_type, base_dir, arm_colour, nights[type], type).subtract()
             else:
                 # Otherwise create a new master bias for the relevant night.
                 input_dir_tmp = str(base_dir + arm_colour + "/" + nights[type][0:4] + "/" + nights[type][4:8] + "/raw/")

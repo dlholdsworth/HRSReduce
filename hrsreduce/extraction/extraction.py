@@ -1,7 +1,6 @@
 import logging
 import matplotlib.pyplot as plt
 
-import multiprocessing as mp
 import pandas as pd
 import numpy as np
 import os.path
@@ -246,31 +245,14 @@ class SpectralExtraction():
 
             good_result = True
 
-            #Run orders (pairs of fibres) in parallel.
-
-            # Start worker processes (as many as nr of CPUs)
-            pool = mp.Pool(mp.cpu_count())
-            # Initialise extracts list
-            extracts = []
-            # Loop for orders...
-            for i in range(n_ord):
-                # Extract spectrum for order i
-                extract = pool.apply_async(self.alg.extract_spectrum,args=(o_set[(2*i):(2*i)+2],i,{},self.input_spectrum,))
-                # Add extract to extracts list
-                extracts.append(extract)
-
-            # Prevent any more tasks from being submitted to the pool
-            pool.close()
-            # Wait for worker processes to exit
-            pool.join()
-
-            # Initialise return dictionary
-            return_dict={}
-            # Loop for extracts...
-            for extract in extracts:
-                # Unpack extraction and add to return dictionary
-                return_dict[extract.get()[0]] = extract.get()[1]
+            # Extract the orders (pairs of fibres) one after the other. Up to 1.3.7 this used a multiprocessing pool,
+            # but each task pickled the whole extraction object, so ran 4-5 times slower than this loop, and
+            # could hang for good in pool.join()
             
+            return_dict = {}
+            for i in range(n_ord):
+                _, return_dict[i], _ = self.alg.extract_spectrum(o_set[(2*i):(2*i)+2], i, {}, self.input_spectrum)
+
             data_df = pd.DataFrame.from_dict(return_dict[0]['spectral_extraction_result'],dtype=float)
             data_U = pd.DataFrame(columns=data_df.columns,dtype=float)
             data_L = pd.DataFrame(columns=data_df.columns,dtype=float)
