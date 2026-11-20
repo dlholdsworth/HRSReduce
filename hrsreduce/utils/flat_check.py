@@ -10,8 +10,11 @@ A flat is not used when it is
     2018-04-24 spread by 78 e-.
 Checking at selection lets reduce.py and FindNearestFiles go to the nearest night with usable flats.
 """
+import os
 import numpy as np
 from astropy.io import fits
+
+from hrsreduce.L0_Corrections.gain_table import gains_for
 
 SATURATION_ADU = 65000      # raw ADU; the 16-bit ADC limit is 65535
 MAX_SATURATED = 100         # pixels at the limit allowed in a usable flat
@@ -29,6 +32,17 @@ def _section(sec):
         return None
 
 
+def _gain(file, hdr):
+    """The gain L0Corrections will apply to the raw frame (gain table; first amplifier), 1 if it cannot be found."""
+    name = os.path.basename(str(file))
+    arm = name[:1] if name[:1] in ('H', 'R') else ('R' if 'HRDET' in str(hdr.get('DETNAM', '')) else 'H')
+    night = name[1:9] if name[1:9].isdigit() else str(hdr.get('DATE-OBS', '')).replace('-', '')[:8]
+    try:
+        return gains_for(hdr, arm, night, 1)[0][0]
+    except Exception:
+        return 1.
+
+
 def flat_quality(file):
     """(saturated pixels, spread in e-) of a raw flat."""
     with fits.open(file) as hdul:
@@ -36,10 +50,7 @@ def flat_quality(file):
         n_sat = int(np.count_nonzero(data >= SATURATION_ADU))
         sec = _section(hdr.get('DATASEC'))
         light = data[sec] if sec is not None else data
-        try:
-            gain = float(str(hdr.get('GAIN', '1')).split()[0])
-        except ValueError:
-            gain = 1.
+        gain = _gain(file, hdr)
         spread = float(np.nanstd(light.astype(np.float32))) * gain
     return n_sat, spread
 
@@ -48,7 +59,11 @@ def usable_flats(files, logger):
     """The flats of `files` that are neither saturated nor without light. Each one left out is named in a warning."""
     good = []
     for file in files:
-        n_sat, spread = flat_quality(file)
+        try:
+            n_sat, spread = flat_quality(file)
+        except Exception as e:                       # truncated or corrupt file: leave it out, never stop the run
+            logger.warning("Flat %s cannot be read (%s: %s); not used", file, type(e).__name__, e)
+            continue
         if n_sat > MAX_SATURATED:
             logger.warning("Flat %s is saturated (%d pixels at or above %d ADU); not used", file, n_sat, SATURATION_ADU)
         elif spread <= MIN_FLAT_SPREAD:

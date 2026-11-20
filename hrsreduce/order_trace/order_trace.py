@@ -11,6 +11,7 @@ import pandas as pd
 
 from .alg import OrderTraceAlg
 from .reference_trace import trace as reference_trace, have_reference, reference_file
+from hrsreduce.utils.provenance import stamp, is_current
 
 logger = logging.getLogger(__name__)
 
@@ -129,19 +130,40 @@ class OrderTrace():
         self.out_dir = self.base_dir+self.arm+"/"+yyyymmdd[0:4]+"/"+yyyymmdd[4:]+"/reduced/"
         out_file = self.out_dir+self.mode+"_Orders_"+self.sarm+yyyymmdd+".csv"
 
-        #Test if Order file exists
+        #Test if Order file exists, and was traced on this flat by the current recipe (key and file name on the flat)
         order_file = glob.glob(out_file)
         if len(order_file) > 0:
-            logger.info('OrderTrace: Reading predetermined orders')
-            return order_file[0]
+            hdr = fits.getheader(self.MFlat)
+            if is_current(hdr, 'trace') and str(hdr.get('TRCFILE', '')).strip() == os.path.basename(out_file):
+                logger.info('OrderTrace: Reading predetermined orders')
+                return order_file[0]
+            logger.info(f'OrderTrace: {os.path.basename(out_file)} was not traced on this flat by the current recipe; tracing again')
 
+        self._ref_failed = None
         df = self.trace_with_reference(yyyymmdd)
         if df is None:
-            df = self.trace_with_clusters(yyyymmdd)
-            self.write_cards({'TRCFLAG': ('CLUSTER', 'orders traced by the cluster tracer')})
+            try:
+                df = self.trace_with_clusters(yyyymmdd)
+                self.write_cards({'TRCFLAG': ('CLUSTER', 'orders traced by the cluster tracer')})
+            except Exception as e:
+                # Last resort: the reference traces moved by the night's measured geometry (the FAILED reference
+                # result), flagged FALLBACK. Without a reference result there is nothing to fall back to.
+                if self._ref_failed is None:
+                    raise RuntimeError(f"OrderTrace: no tracer could trace {os.path.basename(self.MFlat)} "
+                                       f"(cluster tracer: {type(e).__name__}: {e})") from e
+                table, diag, info = self._ref_failed
+                self.logger.error(f"OrderTrace: the cluster tracer failed too ({type(e).__name__}: {e}); using the "
+                                  f"reference traces moved by the night's geometry (offset {info['offset']:+.2f} px), "
+                                  f"flag FALLBACK")
+                diag.to_csv(self.out_dir+self.mode+"_Orders_"+self.sarm+yyyymmdd+"_diag.csv", index=False)
+                self.write_reference_cards(info, 'FALLBACK')
+                df = table
 
-        #Save to file
+        #Save to file, and record on the flat which table it was traced into and by which recipe
         df.to_csv(out_file)
+        hdr = fits.Header(); stamp(hdr, 'trace')
+        self.write_cards({k: (hdr[k], hdr.comments[k]) for k in hdr}
+                         | {'TRCFILE': (os.path.basename(out_file), 'order table traced on this flat')})
         self.logger.info("OrderTrace: Receipt written")
         self.logger.info("OrderTrace: Done!\n")
         return str(out_file)
@@ -167,6 +189,7 @@ class OrderTrace():
         if flag == 'FAILED':
             self.logger.error(f"OrderTrace: the reference tracer found only {info['frac_good'] * 100:.0f} % of the orderlets "
                               f"(flag FAILED); using the cluster tracer")
+            self._ref_failed = (table, diag, info)          # kept as the last resort if the cluster tracer fails too
             return None
         self.logger.info(f"OrderTrace: offset {info['offset']:+.2f} px at the chip centre; orderlets measured "
                          f"{info['n_measured']}, blended {info['n_blended']}, anchored {info['n_anchored']}, "
@@ -179,6 +202,13 @@ class OrderTrace():
             self.logger.warning(f"OrderTrace: orderlets without usable light {dark}: their traces are the reference "
                                 f"moved by the night's geometry")
         diag.to_csv(self.out_dir+self.mode+"_Orders_"+self.sarm+yyyymmdd+"_diag.csv", index=False)
+        self.write_reference_cards(info, flag)
+        if self.plot:
+            self.plot_trace(table)
+        return table
+
+    def write_reference_cards(self, info, flag):
+        """The TRC* cards of a reference trace on the master flat."""
         self.write_cards({'TRCREF': (os.path.basename(reference_file(self.sarm, self.mode)), 'order-trace reference'),
                           'TRCDY': (round(float(info['offset']), 3), '[px] trace offset from reference, chip centre'),
                           'TRCCC': (round(float(info['cc_min']), 3) if np.isfinite(info['cc_min']) else -1.,
@@ -186,9 +216,6 @@ class OrderTrace():
                           'TRCNFB': (int(info['n_reference']), 'orderlets without usable light'),
                           'TRCNANC': (int(info['n_anchored']), 'orderlets mostly on the reference shape'),
                           'TRCFLAG': (flag, 'order trace: OK, FALLBACK, AMBIGUOUS, CLUSTER')})
-        if self.plot:
-            self.plot_trace(table)
-        return table
 
     def write_cards(self, cards):
         """Write header cards {key: (value, comment)} into the primary header of the master flat."""

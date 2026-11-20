@@ -275,11 +275,21 @@ def refine(ref, C, blocks, nx, ny):
 
 
 # ------------------------------------------------------------------ 4. per orderlet
-def on_chip_range(c, bottom, top, ny, usable_x):
+def on_chip_range(c, bottom, top, ny, usable_x, frac=1.0):
+    """Columns where the orderlet is on the chip: its trace +- frac x its half-widths (bottom, top) lie inside the
+    rows. frac = 1 asks for the whole aperture (used to fit the trace), frac = 0 for the trace centre (used for the
+    span written to the table, see SPAN_FRAC)."""
     xs = np.arange(0, usable_x + 1)
     y = P(xs, c)
-    on = (y - bottom >= 0) & (y + top <= ny - 1)
+    on = (y - frac * bottom >= 0) & (y + frac * top <= ny - 1)
     return xs[on] if on.any() else xs[:0]
+
+
+# Span of an orderlet in the order table: the columns where its trace centre is on the chip. Beyond the point where
+# the whole aperture is on the chip part of the profile is cut off, but the flat is cut the same way, so flux/blaze
+# stays right (only noisier). Both orderlets of a pair then get the shorter of their two spans, so that the two
+# fibres cover the same columns (the same wavelengths). This is where the cluster tracer (1.3.5) ended the top pair.
+SPAN_FRAC = 0.0
 
 
 DEFAULT_TAU = (1.0, 0.5, 0.05, 0.05, 0.05, 0.05)   # px; used only when the reference carries no prior
@@ -400,7 +410,7 @@ def trace(img, sarm, mode, force_offset=None):
         k = ref['nom'][i]
         xr = on_chip_range(C[i], ref['bottom_edge'][i], ref['top_edge'][i], ny, usable_x)
         src, coef, rms, err, off, edf = fit_orderlet(blocks[i], half[i], C[i], xr, nx, tau)
-        xr2 = on_chip_range(coef, ref['bottom_edge'][i], ref['top_edge'][i], ny, usable_x)
+        xr2 = on_chip_range(coef, ref['bottom_edge'][i], ref['top_edge'][i], ny, usable_x, frac=SPAN_FRAC)
         x2 = int(xr2.max()) if xr2.size else 0
         gb = good_blocks(blocks[i], half[i])
         rows.append(list(coef) + [ref['bottom_edge'][i], ref['top_edge'][i], 0, x2])
@@ -408,13 +418,12 @@ def trace(img, sarm, mode, force_offset=None):
                          n_blocks=len(blocks[i]), n_good=int(gb.sum()), rms=rms, fit_err=err, offset=off, edf=edf,
                          signal=float(np.median(blocks[i][gb, 3])) if gb.any() else 0.))
     table = pd.DataFrame(rows, columns=[f'Coeff{j}' for j in range(DEG + 1)] + ['BottomEdge', 'TopEdge', 'X1', 'X2'])
-    # X2 equal within a pair, chip edge above 95 % (as OrderTrace)
+    # X2 equal within a pair: the shorter of the two spans, so both fibres cover the same columns; the chip edge
+    # when that is above 95 % of it (as OrderTrace)
     edge = nx - 1
     for n in range(0, nnom - 1, 2):
-        if table.at[n + 1, 'X2'] / edge > 0.95:
-            table.at[n, 'X2'] = table.at[n + 1, 'X2'] = edge
-        else:
-            table.at[n, 'X2'] = table.at[n + 1, 'X2']
+        x2p = min(table.at[n, 'X2'], table.at[n + 1, 'X2'])
+        table.at[n, 'X2'] = table.at[n + 1, 'X2'] = edge if x2p / edge > 0.95 else x2p
     diag = pd.DataFrame(diag)
     # FALLBACK only when an orderlet has no usable light (its trace is the prediction alone). Faint orderlets that lean
     # on the reference shape ('anchored') are normal for the faintest bluest ones and are only counted (n_anchored).

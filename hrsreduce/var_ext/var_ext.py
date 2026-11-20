@@ -1,7 +1,9 @@
+import os
 import numpy as np
 import logging
 import matplotlib.pyplot as plt
 from astropy.io import fits
+from hrsreduce.utils.provenance import stamp, is_current
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +19,13 @@ class VarExts():
 
         - detector read-noise variance
         - master-bias variance
-        - master-flat variance propagated into the science counts
         - photon-counting variance from the science image itself
+
+    The frame is never divided by the flat, so the flat's noise is not part of the
+    pixel variance (it enters through the extraction profile and the blaze).
+
+    For the master flat itself the variance is its stacking uncertainty (UNC
+    squared), which is already in the flat's units (e-/s).
 
     The resulting variance image is written to the science FITS file as a new
     `VAR` extension if one does not already exist.
@@ -89,44 +96,57 @@ class VarExts():
     
         var_hdu = fits.ImageHDU(data=img.astype(np.float32),name="VAR")
         var_hdu.header.insert(8,('COMMENT',"Variance of Frame"))
-        
+        stamp(var_hdu.header, 'var')
+
         with fits.open(self.sci_frame) as hdul:
+            while 'VAR' in hdul:              # a VAR of an older recipe is replaced
+                del hdul['VAR']
             hdul.append(var_hdu)
             hdul.writeto(self.sci_frame,overwrite=True)
 
     def run(self):
-    
-        #Test if VAR ext exists
+
+        #Test if a VAR of the current recipe exists (an older one is made again)
         with fits.open(self.sci_frame) as hdul:
-            try:
-                test = hdul['VAR'].data
-                exists = True
-            except:
-                exists = False
-    
+            exists = 'VAR' in hdul and is_current(hdul['VAR'].header, 'var')
+            if 'VAR' in hdul and not exists:
+                self.logger.info('VarExts: VAR of {} was made by an older recipe; made again'.format(os.path.basename(self.sci_frame)))
+
         if not exists:
-    
-            # Assemble master-file variance images.
+
+            # The master flat itself: its variance is the stacking uncertainty, in the flat's own units (e-/s).
+            # Read noise and photon noise in e- would not match those units.
+            if os.path.abspath(self.sci_frame) == os.path.abspath(self.flat_frame):
+                flat_varimg = self.assemble_var_image(self.flat_frame)
+                if flat_varimg is not None:
+                    self.write_to_file(flat_varimg)
+                    return
+                self.logger.warning('VarExts: no UNC in the master flat {}; its VAR is built like that of a science frame'.format(self.flat_frame))
+
+            # Assemble the master-bias variance image.
             bias_varimg = self.assemble_var_image(self.bias_frame)
-            flat_varimg = self.assemble_var_image(self.flat_frame)
-            
+            if bias_varimg is None:
+                self.logger.warning('VarExts: no UNC in the master bias {}; its variance is left out'.format(self.bias_frame))
+                bias_varimg = 0.0
+
             # Assemble Readnoise variance image.
             rn_var, ccdimg = self.assemble_read_noise_var_image(self.sci_frame)
 
-            # A master flat whose scattered light was removed (FlatBackground) keeps it in BKG.
-            # The photon noise is that of all the light that fell on the pixel, so add it back here.
+            # A frame whose scattered light was removed and kept in BKG: the photon noise is that of all the light
+            # that fell on the pixel, so add it back here.
             with fits.open(self.sci_frame) as hdul:
                 if 'BKG' in hdul and np.shape(hdul['BKG'].data) == np.shape(ccdimg):
                     ccdimg = ccdimg + np.array(hdul['BKG'].data)
 
             ccdimg = np.where(ccdimg >= 0.0, ccdimg , 0.0)
-            
-            
+
+            # Read noise, master-bias uncertainty and photon noise, all in e-^2. The frame is never divided by the
+            # flat, so the flat's uncertainty does not belong here (it was added as UNC_flat^2 x counts until 1.3.6,
+            # mixing (e-/s)^2 with e-).
             var_image = rn_var +\
                         bias_varimg +\
-                        flat_varimg * ccdimg +\
                         ccdimg
-                        
+
             self.write_to_file(var_image)
-        
+
         return

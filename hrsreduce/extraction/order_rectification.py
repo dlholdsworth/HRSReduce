@@ -59,8 +59,14 @@ import pandas as pd
 from astropy.io import fits
 
 from hrsreduce.utils.scattered_light import fit_background, header_cards
+from hrsreduce.utils.provenance import stamp, is_current
 
 logger = logging.getLogger(__name__)
+
+# Extensions derived from RECT (extraction, normalisation, wavelengths): dropped when RECT is made again, so that the
+# steps that read them rebuild them from the new RECT instead of reusing results of the old one.
+DERIVED_FROM_RECT = ("NORMALISED", "FIBRE_U", "FIBRE_L", "FIBRE_U_VAR", "FIBRE_L_VAR", "BLAZE_U", "BLAZE_L",
+                     "BLAZE_U_VAR", "BLAZE_L_VAR", "WAVE_U", "WAVE_L", "WAVE_U_PRE", "WAVE_L_PRE")
 
 
 def _lanczos(t: np.ndarray, a: int) -> np.ndarray:
@@ -242,7 +248,17 @@ class OrderRectification:
         if self.overwrite:
             return False
         with fits.open(self.input_spectrum, memmap=True) as hdul:
-            return "RECT" in hdul
+            if "RECT" not in hdul:
+                return False
+            h = hdul["RECT"].header
+            tilt = os.path.basename(self.tilt_file) if self.tilt_file else "none"
+            same = (is_current(h, 'rect') and str(h.get("RECTTILT", "")).strip() == tilt
+                    and str(h.get("RECTTRC", "")).strip() == os.path.basename(str(self.order_trace_file)))
+        if not same:
+            # made by an older recipe, or with another tilt or trace (e.g. a flat borrowed from another night)
+            self.logger.info("OrderRectification: RECT of %s was made by an older recipe or with another tilt or trace; "
+                             "made again", os.path.basename(self.input_spectrum))
+        return same
 
 
     def perform(self) -> str:
@@ -265,11 +281,16 @@ class OrderRectification:
             x, y_mid, y_center, lower, upper = self._order_geometry(int(i), previous if int(i) % 2 == 1 else None)
             previous = (y_center, upper)
             dy = np.arange(-lower, upper, dtype=float)
-            y_src = y_mid[None, :] + dy[:, None]
             if self._tilt is not None:
                 t = self._tilt[i, x]; s = self._shear[i, x]
                 x_src = x[None, :] + dy[:, None] * t[None, :] + dy[:, None] ** 2 * s[None, :]
+                # The tilt is measured on the vertically rectified frame R(x, dy) = I(x, y_trace(x) + dy), so the
+                # straightened pixel is R(x_src, dy) = I(x_src, y_trace(x_src) + dy): the trace is taken at the
+                # source column. Taking it at the output column (as until 1.3.6) shears narrow features by
+                # 1/(1 - t y'), up to ~3 % in line flux, with opposite signs at the two ends of an order.
+                y_src = np.polyval(self._coeffs[i][::-1], x_src) + dy[:, None]
             else:
+                y_src = y_mid[None, :] + dy[:, None]
                 x_src = np.broadcast_to(x[None, :].astype(float), y_src.shape)
             strip, strip_var, strip_mask = resample_strip(self._data, self._var, self._bpm, x_src, y_src, self.kernel)
             coeff0 = y_center - 20
@@ -282,16 +303,24 @@ class OrderRectification:
             if rect_var is not None:
                 rect_var[sl, x] += np.clip(strip_var, 0.0, None)
             rect_mask[sl, x] |= strip_mask.astype(np.uint8)
-            rows.append({"order": int(i), "Coeff0": coeff0, "BottomEdge": lower, "TopEdge": upper, "X1": 0, "X2": nx - 1})
+            # columns outside the traced span hold no data: bit 2 of RECT_MASK (bit 1 = bad or off-chip pixel)
+            rect_mask[sl, :x[0]] |= 2; rect_mask[sl, x[-1] + 1:] |= 2
+            rows.append({"order": int(i), "Coeff0": coeff0, "BottomEdge": lower, "TopEdge": upper,
+                         "X1": int(x[0]), "X2": int(x[-1])})
 
         with fits.open(self.input_spectrum) as hdul:
-            for name in ("RECT", "STRAIGHT", "RECT_VAR", "RECT_MASK"):
+            dropped = [n for n in DERIVED_FROM_RECT if n in hdul]
+            for name in ("RECT", "STRAIGHT", "RECT_VAR", "RECT_MASK") + DERIVED_FROM_RECT:
                 while name in hdul:
                     del hdul[name]
+            if dropped:
+                self.logger.info("OrderRectification: extensions made from the old RECT removed, to be rebuilt: %s", ", ".join(dropped))
             hdr = fits.Header()
             hdr["RECTMETH"] = (self.METHOD_NAME, "rectification: vertical, one resampling")
             hdr["RECTKERN"] = (self.kernel, "interpolation kernel")
             hdr["RECTTILT"] = (os.path.basename(self.tilt_file) if self.tilt_file else "none", "slit tilt folded into the mapping")
+            hdr["RECTTRC"] = (os.path.basename(str(self.order_trace_file)), "order trace used")
+            stamp(hdr, 'rect')
             hdul.append(fits.ImageHDU(data=rect, header=hdr, name="RECT"))
             if self._tilt is not None:
                 hdul.append(fits.ImageHDU(data=rect, header=hdr, name="STRAIGHT"))   # already straight: same image

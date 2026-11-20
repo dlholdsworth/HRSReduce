@@ -3,6 +3,7 @@ import glob
 import logging
 from astropy.io import fits
 from hrsreduce.utils.header_comments import clean_comments
+from hrsreduce.L0_Corrections.gain_table import gains_for, gains_card
 import re
 import matplotlib.pyplot as plt
 import os
@@ -410,15 +411,45 @@ class L0Corrections():
     
     
     
+    def gains(self, hdr, night, namps):
+        """Gains (e-/ADU) of the amplifiers of a frame of `night`, and their source (see gain_table.py)."""
+        try:
+            n = int(namps)
+        except (TypeError, ValueError):
+            n = 1
+        gains, source = gains_for(hdr, self.arm, night, n)
+        if not source.startswith('table ') or '(no ' in source:
+            warned = self.__dict__.setdefault('_gain_warned', set())
+            if (night, n, source) not in warned:         # once per night and readout, not for every frame
+                warned.add((night, n, source))
+                # a year without its own row carries the last measured gain on (normal until the table is updated);
+                # the header values (a readout without rows) are not measured gains
+                log = logger.info if source.startswith('table ') else logger.warning
+                log("%s %s NAMPS=%d: gain from the %s", self.arm_col, night, n, source)
+        return gains, source
+
+    def _go_is_current(self, go_file, raw_file, night):
+        """True when an existing go file was made with the gains the table gives now for its raw frame."""
+        try:
+            hgo = fits.getheader(go_file)
+            hraw = fits.getheader(raw_file)
+            gains, _ = self.gains(hraw, night, hraw.get('NAMPS', 1))
+            return str(hgo.get('GAINUSED', '')).strip() == gains_card(gains)
+        except Exception:
+            return False
+
     def gain(self, file,night):
     
         """
         Apply gain correction and standardise detector orientation.
 
-        This method converts detector counts (ADU) to electrons by applying the
-        amplifier gain values stored in the FITS header keyword `GAIN`. For
+        This method converts detector counts (ADU) to electrons. The gains come
+        from the gain table (hrsreduce/L0_Corrections/gain_table.csv, per year,
+        arm, readout and amplifier); the values of the FITS header keyword
+        `GAIN` are used only for a readout the table does not cover. For
         multi-amplifier readouts, gain corrections are applied independently to
-        the data regions corresponding to each amplifier.
+        the data regions corresponding to each amplifier. The applied gains are
+        written to GAINUSED and their source to GAINSRC.
 
         The method also updates the overscan mean values (`OS_MEAN`) to reflect
         the gain conversion and records the average gain used in the header
@@ -447,10 +478,14 @@ class L0Corrections():
         
             hdr=hdu[0].header
             namps = hdr["NAMPS"]
+            # Gains from hrsreduce/L0_Corrections/gain_table.csv; the header GAIN values only for a readout the table
+            # does not cover (the header values are not the measured gains of the detectors)
+            gains, gain_source = self.gains(hdr, night, namps)
+            hdr['GAINUSED'] = (gains_card(gains), 'Gain applied per amp (e- per ADU)')
+            hdr['GAINSRC'] = (gain_source, 'Source of GAINUSED')
             if self.arm == "H":
                 if namps == 1:
-                    gain = hdr["GAIN"]
-                    gain = float(gain.split()[0])
+                    gain = gains[0]
                     corrected = np.float32(hdu[0].data * gain)
                     hdu[0].data = corrected
                     
@@ -470,9 +505,7 @@ class L0Corrections():
                     
                 elif namps == 2:
                 
-                    gain = hdr["GAIN"]
-                    gain1 = float(gain.split()[0])
-                    gain2 = float(gain.split()[1])
+                    gain1, gain2 = gains[:2]
                     
                     #Apply the gians to the correct parts of the new image
                     datasec1 = hdr["DATASEC1"]
@@ -526,8 +559,7 @@ class L0Corrections():
             
             if self.arm == "R":
                 if namps == 1:
-                    gain = hdr["GAIN"]
-                    gain = float(gain.split()[0])
+                    gain = gains[0]
                     corrected = np.float32(hdu[0].data * gain)
                     
                     #Flip the Red frame so orders run from bottom to top, blue to red
@@ -551,11 +583,7 @@ class L0Corrections():
                     
                 elif namps == 4:
                 
-                    gain = hdr["GAIN"]
-                    gain1 = float(gain.split()[0])
-                    gain2 = float(gain.split()[1])
-                    gain3 = float(gain.split()[2])
-                    gain4 = float(gain.split()[3])
+                    gain1, gain2, gain3, gain4 = gains[:4]
                     
                     #Apply the gians to the correct parts of the new image
                     datasec1 = hdr["DATASEC1"]
@@ -638,8 +666,9 @@ class L0Corrections():
             2. Gain correction and orientation standardisation (`gain`)
 
         If a fully processed intermediate file already exists (identified by the
-        `go` filename prefix), processing for that file is skipped and the
-        existing product is used instead.
+        `go` filename prefix) and was made with the gains the gain table gives
+        now, processing for that file is skipped and the existing product is
+        used instead.
 
         Intermediate overscan-only files are removed after gain correction,
         leaving only the final Level-0 output.
@@ -654,10 +683,12 @@ class L0Corrections():
         for type in self.files.keys():
             for i,file in enumerate(self.files[type]):
                 processed_file = glob.glob(str(self.out_dir+"go"+file.removeprefix(self.in_dir)))
-                if len(processed_file) == 1:
+                if len(processed_file) == 1 and self._go_is_current(processed_file[0], file, self.nights[type]):
                     self.files[type][i]=processed_file[0]
                     continue
                 else:
+                    if len(processed_file) == 1:
+                        logger.info("%s was made with another gain; it is made again", os.path.basename(processed_file[0]))
                     file_o = self.oscan(file,self.nights[type])
                     file = self.gain(file_o,self.nights[type])
                     

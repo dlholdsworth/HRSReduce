@@ -77,7 +77,8 @@ from hrsreduce.extraction.slit_correction import SlitCorrection
 RECT_KERNEL = 'lanczos2'   # Interpolation kernel of the one-pass rectification: 'linear' (safe) or 'lanczos2'
 
 # Spectral extraction
-from hrsreduce.extraction.extraction import SpectralExtraction
+from hrsreduce.extraction.extraction import SpectralExtraction, frame_mid_jd
+from hrsreduce.utils.provenance import file_is_current, frame_gain
 
 # Wavelength calibration
 from hrsreduce.wave_cal.wave_cal import WavelengthCalibration
@@ -91,6 +92,27 @@ from hrsreduce.order_merge.order_merge import OrderMerge
 
 # Module-level logger used throughout the pipeline.
 logger = logging.getLogger(__name__)
+
+
+def nearest_master_wave(sci_file, master_waves):
+    """The Master Wave whose arc mid-exposure is nearest in time to that of the science frame (both from their
+    headers, as in the extraction). When a time is unknown the last Master Wave is used, as up to 1.3.6."""
+    from astropy.io import fits
+    waves = [w for w in master_waves if w]
+    if not waves:
+        return None
+    try:
+        t_sci = frame_mid_jd(fits.getheader(sci_file))
+        t_arc = [frame_mid_jd(fits.getheader(w)) for w in waves]
+    except Exception:
+        t_sci, t_arc = None, [None]
+    if t_sci is None or any(t is None for t in t_arc):
+        logger.warning(f"No time for {os.path.basename(sci_file)} or one of its arcs; using {os.path.basename(waves[-1])}")
+        return waves[-1]
+    k = int(np.argmin([abs(t_sci - t) for t in t_arc]))
+    logger.info(f"Wavelength scale of {os.path.basename(sci_file)}: {os.path.basename(waves[k])}, "
+                f"{(t_sci - t_arc[k]) * 24.:+.2f} h from the science frame")
+    return waves[k]
 
 
 def main(
@@ -181,7 +203,7 @@ def main(
     input_dir = arm_colour + "/" + year + "/" + mmdd + "/raw/"
     output_dir = arm_colour + "/" + year + "/" + mmdd + "/reduced/"
     
-#    base_dir = "/Volumes/SALT_DATA/"
+    base_dir = "/Volumes/SALT_DATA/"
     
     # Placeholder return container.
     output = []
@@ -407,7 +429,11 @@ def main(
         
         # Trace the echelle orders on the night's own master flat, against the stored reference of the arm and mode
         # (hrsreduce/order_trace/references; no Super Flat). OrderTrace falls back to the cluster tracer when it cannot.
-        order_file = OrderTrace(master_flat, nights, base_dir, arm_colour, m, plot).order_trace()
+        try:
+            order_file = OrderTrace(master_flat, nights, base_dir, arm_colour, m, plot).order_trace()
+        except Exception as e:
+            logger.error(f"No order trace for {os.path.basename(master_flat)} ({e.__class__.__name__}: {e}): {arm_colour} {m} is not reduced")   # not type(e): main's loops use "type" as a name
+            continue
         
         # Remove the scattered light from the master flat (needs the trace; before the flat is rectified).
         FlatBackground(master_flat, order_file, arm_colour, m).run()
@@ -452,7 +478,8 @@ def main(
         _ = OrderRectification(master_flat, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc, tilt_file=tilt_file, kernel=RECT_KERNEL).perform()
         SlitCorrection(master_flat, 'RECT', order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=False, super_arc=super_lfc).correct()
         
-        # Extract the Super Arc spectrum.
+        # Extract the Super Arc spectrum. (For arcs the 'optimal' extraction uses STRAIGHT/STRAIGHT, a flat of ones, as the
+        # profile, so it is a uniform-weight sum; summing explicitly was tested in 1.3.7 and gave no better solutions.)
         SpectralExtraction(super_lfc, master_flat, super_lfc, order_file_rect, arm_colour, m, base_dir).extraction()
         
         # Pre-process arc frames if a Master_Wave does not already exist.
@@ -464,7 +491,7 @@ def main(
             path = os.path.dirname(arc_file)
             obs_date = (os.path.basename(arc_file)[-17:-5])
             dst = (path + "/" + str(m) + "_Master_Wave_" + str(arm[0]) + str(obs_date) + ".fits")
-            master_wave = glob.glob(dst)
+            master_wave = [w for w in glob.glob(dst) if file_is_current(w, 'wave', gain=frame_gain(arc_file))]   # an older one, or one made with another gain, is made again
 
             if len(master_wave) == 0:
                 VarExts(arc_file, master_bias, master_flat).run()
@@ -489,12 +516,13 @@ def main(
             SpectralExtraction(lfc_file, master_flat, files['arc'][0], order_file_rect, arm_colour, m, base_dir).extraction()
  
         # Extract arc frames and compute wavelength solution if needed.
+        master_waves = []
         for arc_file in files['arc']:
             # Test whether Master_Wave already exists for this arc.
             path = os.path.dirname(arc_file)
             obs_date = (os.path.basename(arc_file)[-17:-5])
             dst = (path + "/" + str(m) + "_Master_Wave_" + str(arm[0]) + str(obs_date) + ".fits")
-            master_wave = glob.glob(dst)
+            master_wave = [w for w in glob.glob(dst) if file_is_current(w, 'wave', gain=frame_gain(arc_file))]   # an older one, or one made with another gain, is made again
 
             if len(master_wave) == 0:
                 SpectralExtraction(arc_file, master_flat, arc_file, order_file_rect, arm_colour, m, base_dir,extraction_method=1).extraction()
@@ -502,7 +530,8 @@ def main(
             else:
                 MasterWave = master_wave[0]
                 logger.info("Arc file already processed")
-            
+            master_waves.append(MasterWave)
+
         # Process science frames fully: variance, rectification, slit correction,
         # extraction, and order merging.
         for sci_file in files['sci']:
@@ -510,6 +539,8 @@ def main(
             VarExts(sci_file, master_bias, master_flat).run()
             _ = OrderRectification(sci_file, master_flat, order_file, arm_colour, m, base_dir, super_arc=super_lfc, tilt_file=tilt_file, kernel=RECT_KERNEL).perform()
             SlitCorrection(sci_file, header_ext, order_file_rect, arm[0], m, base_dir, yyyymmdd, plot=plot, super_arc=super_lfc).correct()
+            # the arc nearest in time (W19); ARCDT in the product gives the time between them
+            MasterWave = nearest_master_wave(sci_file, master_waves) or MasterWave
             SpectralExtraction(sci_file, master_flat, MasterWave, order_file_rect, arm_colour, m, base_dir).extraction()
             OrderMerge(sci_file, master_flat, arm, m, plot=False).execute()
         

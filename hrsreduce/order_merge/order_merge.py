@@ -46,11 +46,12 @@ def _overlap_matrix(e, E):
     return coo_matrix((w, (cols, rows_pix)), shape=(n_bin, n_pix)).tocsr()
 
 
-def _rebin_order(w, F, V, B, E):
+def _rebin_order(w, F, V, B, E, extra=None):
     """Flux-conserving rebin of one order onto the bins with edges E: every native pixel's counts are distributed over
     the bins it overlaps (variance with the squared fractions, blaze like the counts).  Pixels without a finite flux,
     variance or blaze carry nothing and invalidate the bins they touch; bins not fully inside the order are invalid.
-    Returns (counts, variance, blaze, valid) per bin, or None if the order is unusable."""
+    `extra` (same shape as F) is rebinned like the blaze and returned as a fifth element.
+    Returns (counts, variance, blaze, valid[, extra]) per bin, or None if the order is unusable."""
     okw = np.isfinite(w)
     if okw.sum() < 50:
         return None
@@ -61,7 +62,11 @@ def _rebin_order(w, F, V, B, E):
     counts = M @ np.where(valid, F, 0.0); var = M2 @ np.where(valid, V, 0.0); blaze = M @ np.where(valid, B, 0.0)
     touched_bad = (M @ (~valid).astype(float)) > 0
     inside = (E[:-1] >= w[0]) & (E[1:] <= w[-1])
-    return counts, var, blaze, inside & ~touched_bad & (blaze > 0)
+    good = inside & ~touched_bad & (blaze > 0)
+    if extra is None:
+        return counts, var, blaze, good
+    X = np.asarray(extra, float)[okw][order]
+    return counts, var, blaze, good, M @ np.where(valid & np.isfinite(X), X, 0.0)
 
 
 # order ends: pixels whose raw blaze departs from its smoothed version by more than max(BLAZE_DEV_MIN, BLAZE_DEV_NSIG x the
@@ -89,21 +94,31 @@ def _clean_blaze(B):
 
     The smoothing cannot follow the steep fall of the blaze over the last few columns at a detector edge, a truncated
     aperture or a defect column, and the counts there fall with it, so dividing those pixels by the smoothed blaze makes
-    dips at the order ends.  Pixels departing by more than max(BLAZE_DEV_MIN, BLAZE_DEV_NSIG x the order's robust scatter)
-    are flagged and the blaze is smoothed again without them (two passes); the threshold follows each order's own noise,
-    so the faint blue-end blaze is not masked for its noise.  Returns (smoothed blaze with flagged pixels set to NaN, mask).
+    dips at the order ends.  Pixels departing by more than max(BLAZE_DEV_MIN, BLAZE_DEV_NSIG x the local scatter) are
+    flagged and the blaze is smoothed again without them (two passes).  The local scatter follows the flat's photon
+    noise: the relative scatter falls as 1/sqrt(blaze), so it is a / sqrt(Bs / median(Bs)), with one robust scale a
+    per order.  The faint order ends are therefore not masked for their noise (with the order-wide scatter of 1.3.6 the
+    limit there was only 1.3-2 local sigma), and a real drop at an order end cannot inflate the scale.
+    Returns (smoothed blaze with flagged pixels set to NaN, mask).
     """
     Bs = _smooth_blaze(B)
     bad = np.zeros(B.shape, dtype=bool)
     for _ in range(2):
         with np.errstate(invalid='ignore', divide='ignore'):
             dev = B / Bs - 1.0
-        scatter = np.full(B.shape[0], np.nan)
+        thr = np.full(B.shape, BLAZE_DEV_MIN)
         for o in range(B.shape[0]):
-            d = dev[o][np.isfinite(dev[o])]
-            if d.size > 50:
-                scatter[o] = 1.4826 * np.median(np.abs(d - np.median(d)))
-        thr = np.maximum(BLAZE_DEV_MIN, BLAZE_DEV_NSIG * np.nan_to_num(scatter, nan=BLAZE_DEV_MIN))[:, None]
+            b = Bs[o]; pos = np.isfinite(b) & (b > 0)
+            if pos.sum() < 50:
+                continue
+            w = np.where(pos, np.sqrt(np.where(pos, b, 0.0) / np.median(b[pos])), 0.0)
+            z = (dev[o] * w)[pos & np.isfinite(dev[o])]
+            if z.size < 50:
+                continue
+            a = 1.4826 * np.median(np.abs(z - np.median(z)))
+            with np.errstate(divide='ignore'):
+                sig = np.where(w > 0, a / np.where(w > 0, w, 1.0), np.inf)
+            thr[o] = np.maximum(BLAZE_DEV_MIN, BLAZE_DEV_NSIG * sig)
         with np.errstate(invalid='ignore'):
             bad = ~np.isfinite(dev) | (np.abs(dev) > thr) | ~(B > 0)
         Bs = _smooth_blaze(np.where(bad, np.nan, B))
@@ -127,23 +142,157 @@ def _edge_fade(B):
     return tau
 
 
-def _merge_orders(W, F, V, B, E, have_var):
-    """Normalised merged spectrum (counts / blaze) on the bins with edges E, combining overlapping orders with the
-    blaze as weight (the photon-noise-optimal, data-independent weight), and its variance sum(w^2 v)/sum(w)^2."""
+IVAR_SMOOTH_BINS = 51     # bins over which an order's variance is smoothed before it is used as a weight
+
+
+def _smooth_var(var, good, n=IVAR_SMOOTH_BINS):
+    """Running median of an order's per-bin variance over n bins (bad bins bridged), so that the weights do not
+    follow the noise of the data."""
+    idx = np.flatnonzero(good)
+    if idx.size < 3:
+        return np.where(good, var, 0.0)
+    v = np.interp(np.arange(var.size), idx, var[idx])
+    return np.where(good, median_filter(v, min(n, max(3, idx.size // 2 * 2 - 1)), mode='nearest'), 0.0)
+
+
+def _merge_orders(W, F, V, B, E, have_var, tau=None):
+    """Normalised merged spectrum (counts / blaze) on the bins with edges E and its variance sum(w^2 v)/sum(w)^2.
+
+    Overlapping orders are combined with inverse-variance weights w = t / v_s when variances are available: v_s is
+    the variance of the order's counts/blaze, smoothed along the order (so the weights do not follow the noise of the
+    data), and t the order's end fade tau (see _edge_fade) rebinned to the bins.  Without variances the blaze is the
+    weight (t x blaze), the photon-noise limit.  Blaze weights over-weight faint pixels where the read noise
+    dominates; inverse-variance weights do not.
+    """
     nb = E.size - 1; num = np.zeros(nb); den = np.zeros(nb); vnum = np.zeros(nb)
+    B = np.asarray(B, float)
+    tau = np.ones(B.shape) if tau is None else np.asarray(tau, float)
     for o in range(W.shape[0]):
-        r = _rebin_order(np.asarray(W[o], float), np.asarray(F[o], float), np.asarray(V[o], float), np.asarray(B[o], float), E)
+        r = _rebin_order(np.asarray(W[o], float), np.asarray(F[o], float), np.asarray(V[o], float), B[o], E,
+                         extra=B[o] * tau[o])
         if r is None:
             continue
-        c, v, b, good = r
-        wgt = np.where(good, b, 0.0); bb = np.where(good, b, 1.0)
-        num += wgt * np.where(good, c / bb, 0.0); den += wgt
+        c, v, b, good, bt = r
+        bb = np.where(good, b, 1.0)
+        f = np.where(good, c / bb, 0.0)
+        var = np.where(good, v / bb ** 2, 0.0)
+        t = np.where(good, bt / bb, 0.0)                   # end fade of each bin
         if have_var:
-            vnum += wgt ** 2 * np.where(good, v / bb ** 2, 0.0)
+            vs = _smooth_var(var, good & (var > 0))
+            wgt = np.where(good & (vs > 0), t / np.where(vs > 0, vs, 1.0), 0.0)
+        else:
+            wgt = np.where(good, t * b, 0.0)
+        num += wgt * f; den += wgt
+        if have_var:
+            vnum += wgt ** 2 * var
     with np.errstate(invalid='ignore', divide='ignore'):
         S = np.where(den > 0, num / den, np.nan)
         VS = np.where(den > 0, vnum / den ** 2, np.nan) if have_var else np.full(nb, np.nan)
     return S, VS
+
+
+# ---- sky subtraction: star-to-sky fibre throughput ratio k -----------------------------------------------------------
+# The star fibre collects k times the sky counts of the sky fibre. k varies along each order like the ratio of the two
+# fibres' flat-field blazes (r_flat = blaze_star / blaze_sky, smoothed), and its scale (lamp and sky fill the fibres
+# differently) is measured on the frame's own sky emission lines (SKY_LINES_FILE, air wavelengths): k = scale x r_flat.
+# The ratio test: at least SKYK_MIN_LINES lines, a scale inside SKYK_RANGE, and a relative error below SKYK_MAX_RELERR;
+# otherwise scale = 1 (k = r_flat, flagged SKYKSRC = 'flat'). Until 1.3.7 the sky was subtracted unscaled (k = 1).
+SKY_LINES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sky_lines_air.txt')
+SKYK_HALF = {'HR': 4, 'HS': 4, 'MR': 5, 'LR': 10}      # px, half-width of a sky line
+SKYK_TOL_KMS = 15.0                                     # a listed line is looked for within this of its wavelength
+SKYK_MIN_LINES = 8
+SKYK_MAX_RELERR = 0.05
+SKYK_RANGE = (0.5, 2.0)                                 # plausible scale (k / r_flat)
+SKYK_EDGE_PX = 80                                       # columns left out at the order ends (and red columns >= 4000)
+SKYK_SNR_MIN = 5.0
+
+
+def _load_sky_lines():
+    try:
+        return np.atleast_1d(np.loadtxt(SKY_LINES_FILE, usecols=0, comments='#'))
+    except Exception:
+        return np.array([])
+
+
+def _flat_ratio(BS, BK_on):
+    """r_flat per pixel: blaze_star / blaze_sky (both smoothed), median-smoothed along the order where both blazes are
+    above 10 % of their peak, the order's median elsewhere."""
+    r = np.full(BS.shape, np.nan)
+    for o in range(BS.shape[0]):
+        bs, bk = BS[o], BK_on[o]
+        ok = np.isfinite(bs) & np.isfinite(bk) & (bs > 0.1 * np.nanmax(bs) if np.isfinite(bs).any() else False) \
+             & (bk > 0.1 * np.nanmax(bk) if np.isfinite(bk).any() else False)
+        if ok.sum() < 100:
+            continue
+        q = np.where(ok, bs / np.where(ok, bk, 1.0), np.nan)
+        idx = np.flatnonzero(ok)
+        qq = np.interp(np.arange(q.size), idx, q[idx])
+        r[o] = median_filter(qq, 101, mode='nearest')
+    return r
+
+
+def fibre_ratio(FS, VS, WS, FK_on, VK_on, r_flat, mode):
+    """k per star-fibre pixel and the measurement (dict: scale, err, n, src). See the block comment above."""
+    lines = _load_sky_lines()
+    half = SKYK_HALF.get(mode, 4); W = 3 * half
+    sc, er = [], []
+    nx = FS.shape[1]
+    hi_col = min(nx, 4000) - SKYK_EDGE_PX
+    for o in range(FS.shape[0]):
+        w = WS[o]
+        ok = (np.isfinite(FS[o]) & np.isfinite(VS[o]) & (VS[o] > 0) & np.isfinite(FK_on[o]) & np.isfinite(VK_on[o])
+              & (VK_on[o] > 0) & np.isfinite(w) & np.isfinite(r_flat[o]))
+        ok[:SKYK_EDGE_PX] = False; ok[hi_col:] = False
+        if ok.sum() < 200 or lines.size == 0:
+            continue
+        wv = w[ok]
+        sel = lines[(lines > wv.min()) & (lines < wv.max())]
+        if sel.size == 0:
+            continue
+        s0 = np.where(ok, FK_on[o], 0.0); s_hp = s0 - median_filter(s0, 61, mode='nearest')
+        snr = np.where(ok, s_hp / np.sqrt(np.where(ok, VK_on[o], 1.0)), 0.0)
+        disp = np.abs(np.gradient(np.where(np.isfinite(w), w, np.nanmedian(w))))
+        for lam in sel:
+            q0 = int(np.nanargmin(np.abs(w - lam)))
+            tol = max(1, int(round(lam * SKYK_TOL_KMS / C_KMS / max(disp[q0], 1e-6))))
+            a0, b0 = max(q0 - tol, 0), min(q0 + tol + 1, nx)
+            q = a0 + int(np.argmax(snr[a0:b0]))
+            if snr[q] < SKYK_SNR_MIN:
+                continue
+            a, b = q - W, q + W + 1
+            if a < 0 or b > nx or not ok[a:b].all():
+                continue
+            x = np.arange(a, b) - q; line = np.abs(x) <= half
+            star = FS[o][a:b]; sky = FK_on[o][a:b]; var = VS[o][a:b]
+            cf = np.polyfit(x[~line], star[~line], 1)
+            if np.std(star[~line] - np.polyval(cf, x[~line])) / np.sqrt(np.median(var[~line])) > 2.0:
+                continue                                   # stellar or telluric structure next to the line
+            skyl = sky - np.polyval(np.polyfit(x[~line], sky[~line], 1), x)
+            A = np.vstack([np.ones(x.size), x.astype(float), skyl]).T; wt = 1.0 / np.sqrt(var)
+            coef, *_ = np.linalg.lstsq(A * wt[:, None], star * wt, rcond=None)
+            cov = np.linalg.pinv((A * wt[:, None]).T @ (A * wt[:, None]))
+            rr = r_flat[o][q]
+            sc.append(coef[2] / rr); er.append(np.sqrt(cov[2, 2]) / rr)
+    info = dict(scale=1.0, err=np.nan, n=len(sc), src='flat')
+    if len(sc) >= 3:
+        s = np.array(sc); e = np.array(er); keep = np.ones(s.size, bool)
+        for _ in range(5):
+            m = np.median(s[keep]); r = 1.4826 * np.median(np.abs(s[keep] - m))
+            keep = np.abs(s - m) < 3 * np.sqrt(r ** 2 + e ** 2)
+        if keep.sum() >= 3:
+            wts = 1.0 / e[keep] ** 2
+            mean = float(np.sum(wts * s[keep]) / np.sum(wts))
+            err = float(max(1.0 / np.sqrt(np.sum(wts)), 1.4826 * np.median(np.abs(s[keep] - mean)) / np.sqrt(keep.sum())))
+            info.update(n=int(keep.sum()), err=err)
+            if keep.sum() >= SKYK_MIN_LINES and SKYK_RANGE[0] < mean < SKYK_RANGE[1] and err / mean < SKYK_MAX_RELERR:
+                info.update(scale=mean, src='sky lines')
+            else:
+                info.update(rejected=mean)
+    if not np.isfinite(r_flat).any():
+        info.update(scale=1.0, src='none')
+        return np.ones(FS.shape), info
+    k = info['scale'] * np.where(np.isfinite(r_flat), r_flat, np.nanmedian(r_flat))
+    return k, info
 
 
 class OrderMerge():
@@ -942,17 +1091,28 @@ class OrderMerge():
         self.logger.info('OrderMerge: %d (L) and %d (U) pixels left out where the blaze departs from its smooth form',
                          int(bad_L.sum()), int(bad_U.sum()))
         FS, WS, VS_, BS = (FIBRE_L, WAVE_L, VAR_L, BLAZE_L_s) if star == 'L' else (FIBRE_U, WAVE_U, VAR_U, BLAZE_U_s)
-        FK, WK, VK = (FIBRE_U, WAVE_U, VAR_U) if star == 'L' else (FIBRE_L, WAVE_L, VAR_L)
-        # star minus sky on the native pixels of the star fibre (the sky fibre interpolated to them), variances added
-        F_sub = np.full_like(FS, np.nan); V_sub = np.full_like(FS, np.nan)
+        FK, WK, VK, BK = (FIBRE_U, WAVE_U, VAR_U, BLAZE_U_s) if star == 'L' else (FIBRE_L, WAVE_L, VAR_L, BLAZE_L_s)
+        # the sky fibre (counts, variance, smoothed blaze) on the native pixels of the star fibre
+        FK_on = np.full_like(FS, np.nan); VK_on = np.full_like(FS, np.nan); BK_on = np.full_like(FS, np.nan)
         for o in range(FS.shape[0]):
             okk = np.isfinite(WK[o]) & np.isfinite(FK[o])
             if okk.sum() < 100 or not np.isfinite(WS[o]).any():
                 continue
-            sky = np.interp(WS[o], WK[o][okk], FK[o][okk], left=np.nan, right=np.nan)
-            F_sub[o] = FS[o] - sky
-            skyv = np.interp(WS[o], WK[o][okk], np.where(np.isfinite(VK[o][okk]), VK[o][okk], np.nan), left=np.nan, right=np.nan)
-            V_sub[o] = VS_[o] + skyv                        # zeros when no variance is available (keeps the pixels valid)
+            FK_on[o] = np.interp(WS[o], WK[o][okk], FK[o][okk], left=np.nan, right=np.nan)
+            VK_on[o] = np.interp(WS[o], WK[o][okk], np.where(np.isfinite(VK[o][okk]), VK[o][okk], np.nan), left=np.nan, right=np.nan)
+            okb = np.isfinite(WK[o]) & np.isfinite(BK[o])
+            if okb.sum() > 100:
+                BK_on[o] = np.interp(WS[o], WK[o][okb], BK[o][okb], left=np.nan, right=np.nan)
+        # star minus k x sky, k the fibre throughput ratio (scale from the frame's sky lines x the flat's fibre ratio)
+        r_flat = _flat_ratio(BS, BK_on)
+        k_sky, kinfo = fibre_ratio(FS, VS_, WS, FK_on, VK_on, r_flat, self.mode)
+        F_sub = FS - k_sky * FK_on
+        V_sub = VS_ + k_sky ** 2 * VK_on                    # zeros when no variance is available (keeps the pixels valid)
+        k_med = float(np.nanmedian(k_sky)) if np.isfinite(k_sky).any() else np.nan
+        self.logger.info('OrderMerge: sky scaled by the fibre ratio k (median %.3f): scale %.3f from %s (%d lines%s)',
+                         k_med, kinfo['scale'], kinfo['src'], kinfo['n'],
+                         '' if kinfo['src'] != 'flat' or 'rejected' not in kinfo else ', sky-line scale %.3f +- %.3f failed the ratio test'
+                         % (kinfo['rejected'], kinfo['err']))
         # the two grids
         vstep = VSTEP_KMS.get(self.mode, 1.0)
         wmin = float(np.nanmin([np.nanmin(WAVE_L), np.nanmin(WAVE_U)])); wmax = float(np.nanmax([np.nanmax(WAVE_L), np.nanmax(WAVE_U)]))
@@ -961,17 +1121,17 @@ class OrderMerge():
         dlam = wmin * vstep / C_KMS; nl = int(np.ceil((wmax - wmin) / dlam)) + 1
         lam_lin = wmin + dlam * np.arange(nl); E_lin = wmin + dlam * (np.arange(nl + 1) - 0.5)
         self.logger.info('OrderMerge: flux-conserving merge, %s mode, %.1f km/s bins: log grid %d bins, linear grid %d bins (%.4f A)', self.mode, vstep, nb, nl, dlam)
-        # each order's weight faded out at its ends: counts, blaze and variance scaled together (see _edge_fade)
+        # each order's weight faded out at its ends (see _edge_fade), applied to the weights in _merge_orders
         tau_L = _edge_fade(BLAZE_L_s); tau_U = _edge_fade(BLAZE_U_s)
         tau_S = tau_L if star == 'L' else tau_U
-        merge_in = {'L': (FIBRE_L * tau_L, VAR_L * tau_L ** 2, BLAZE_L_s * tau_L),
-                    'U': (FIBRE_U * tau_U, VAR_U * tau_U ** 2, BLAZE_U_s * tau_U),
-                    'Sub': (F_sub * tau_S, V_sub * tau_S ** 2, BS * tau_S)}
+        merge_in = {'L': (FIBRE_L, VAR_L, BLAZE_L_s, tau_L),
+                    'U': (FIBRE_U, VAR_U, BLAZE_U_s, tau_U),
+                    'Sub': (F_sub, V_sub, BS, tau_S)}
         tables = {}
         for grid, lam, E in (('MERGED_LOG', lam_log, E_log), ('MERGED_LIN', lam_lin, E_lin)):
-            S_L, V_L = _merge_orders(WAVE_L, *merge_in['L'], E, have_var)
-            S_U, V_U = _merge_orders(WAVE_U, *merge_in['U'], E, have_var)
-            S_s, V_s = _merge_orders(WS, *merge_in['Sub'], E, have_var)
+            S_L, V_L = _merge_orders(WAVE_L, *merge_in['L'][:3], E, have_var, tau=merge_in['L'][3])
+            S_U, V_U = _merge_orders(WAVE_U, *merge_in['U'][:3], E, have_var, tau=merge_in['U'][3])
+            S_s, V_s = _merge_orders(WS, *merge_in['Sub'][:3], E, have_var, tau=merge_in['Sub'][3])
             cols = fits.ColDefs([fits.Column(name='Wave', format='D', unit='Angstrom', array=lam),
                                  fits.Column(name='Flux_L', format='E', unit='counts/blaze', array=S_L.astype(np.float32)),
                                  fits.Column(name='Var_L', format='E', unit='(counts/blaze)^2', array=V_L.astype(np.float32)),
@@ -989,11 +1149,17 @@ class OrderMerge():
             else:
                 h['WSTEP'] = (dlam, 'step (Angstrom): Wave[i] = WAVE0 + i * WSTEP')
             h['STARFIB'] = (star, 'fibre holding the target; Sub = star - sky')
-            h['MRGMETH'] = ('flux-conserving rebin', 'orders combined with blaze weights')
+            h['MRGMETH'] = ('flux-conserving rebin', 'orders combined with weights MRGWGT')
+            h['MRGWGT'] = ('inverse variance' if have_var else 'blaze', 'order weights in overlaps (x end fade)')
             h['VARNOTE'] = ('bins < 1 pixel are correlated', 'Var columns; see VSTEP')
-            h['BLZDEVMX'] = (BLAZE_DEV_MIN, 'blaze departure limit, at least this fraction')
-            h['BLZDEVNS'] = (BLAZE_DEV_NSIG, 'blaze departure limit, sigma of the order')
+            h['BLZDEVMN'] = (BLAZE_DEV_MIN, 'blaze departure limit, at least this fraction')
+            h['BLZDEVNS'] = (BLAZE_DEV_NSIG, 'blaze departure limit, local photon sigma')
             h['EDGEFADE'] = (EDGE_FADE_FRAC, 'order weight faded over this end fraction')
+            h['SKYK'] = (round(k_med, 4) if np.isfinite(k_med) else 'nan', 'Sub: sky scaled by k (median), star/sky fibre')
+            h['SKYKSCL'] = (round(float(kinfo['scale']), 4), 'k = SKYKSCL x flat blaze ratio star/sky')
+            h['SKYKERR'] = (round(float(kinfo['err']), 4) if np.isfinite(kinfo['err']) else 'nan', 'error of SKYKSCL from the sky lines')
+            h['SKYKN'] = (int(kinfo['n']), 'sky lines used for SKYKSCL')
+            h['SKYKSRC'] = (kinfo['src'], 'SKYKSCL from: sky lines, flat (=1), none (k=1)')
             tables[grid] = (t, lam, S_L, V_L, S_U, V_U, S_s, V_s)
         # ---- write into the science file ----
         with fits.open(self.spec) as HDU:
@@ -1005,6 +1171,8 @@ class OrderMerge():
             H0['MSTRFLAT'] = (str(os.path.basename(self.flat)), "Master Flat File")
             H0['PIPEVERS'] = (str(__version__), "HRSReduce pipeline version")
             H0['VARSRC'] = ('extracted FIBRE_*_VAR' if have_var else 'none', 'variance source of the Var columns')
+            H0['SKYK'] = (round(k_med, 4) if np.isfinite(k_med) else 'nan', 'Sub: sky scaled by k (median), star/sky fibre')
+            H0['SKYKSRC'] = (kinfo['src'], 'k scale from: sky lines, flat, none')
             H0['STARFIB'] = (star, 'fibre holding the target')
             H0['ORDER0'] = (starting_ord, 'echelle order of row 0 of the per-order arrays')
             H0['ORDSTEP'] = (-1, 'echelle order changes by this per row')

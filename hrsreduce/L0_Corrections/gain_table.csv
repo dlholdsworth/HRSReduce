@@ -1,0 +1,60 @@
+# HRS detector gains (e- per ADU) applied by L0Corrections in place of the header GAIN values.
+# Read by hrsreduce/L0_Corrections/gain_table.py, which describes the columns and the lookup rules.
+#
+# Measured from the regular CAL_BIAS + CAL_FLAT calibrations (2014-2026): per-pixel mean and variance across each set
+# of >= 3 flats of one mode and exposure time, after a flux-weighted large-scale normalisation; fit v = c + m/g + a m^2
+# over 300-3000 ADU with c from the pixels between the orders; sets with a frame-to-frame illumination term >= 0.3 %
+# are not used. Per night the median over its sets (all modes), per row the median over the nights with >= 2 sets.
+# Checked with a photon-transfer sequence (ENG_HRS, 2026-11-19): blue 2.079, red 2.951, within 0.4 % of the rows.
+# gain_err is statistical (night-to-night scatter / sqrt(nights)); the method itself is good to about 0.5 %.
+#
+# Steps: blue -10 % between 2016-09-11 and 09-21 (no flats in between); red +2.7 % when the red CCD was warmed from
+# -120 to -88 C (2022-02-06); red +0.4 % after the October 2026 intervention. Rows with status "adopted" have no
+# measurement in that year and repeat the nearest measured period.
+#
+# Readouts: the 400 kHz unbinned single-amplifier readout of all the regular calibrations; the blue two-amplifier
+# readout of 2014-2015 (namps 2; HRSReduce does not reduce those frames yet, SortFiles accepts 2074-column blue frames
+# only); the red 1 MHz readout of early 2015 (rospeed 1000000; measured on 2015-03-23 and 04-23 only, so later 1 MHz
+# red frames carry that value). A readout without rows here keeps the header GAIN values, with a warning: the blue
+# 1 MHz readout (header 1.869/1.893), the red 4-amplifier readout and binned frames (header 2.282/2.342 blue,
+# 1.919-2.035 red 2x2) have not been measured.
+#
+# To change a gain: edit or add rows (a change during a year: a second row of that year with its start date).
+# Products made with another gain are made again on the next run. MasterFlat measures the gain of every master flat
+# (cards GAINMEAS, GAINDEV, GAINFLAG); GAINFLAG = DEVIATES (more than 2 % and 3 sigma off) means a new row is needed.
+# Built by make_gain_table.py from the nightly measurements (nightly_gain.py), 2026-11-20.
+year,start,arm,namps,amp,rospeed,binning,gain,gain_err,status,n_nights,n_sets,note
+2014,0101,Blu,1,1,400000,1x1,2.351,0.002,adopted,0,0,no flats measured in 2014; value of 2015
+2015,0101,Blu,1,1,400000,1x1,2.351,0.002,measured,2,8,nights 20150723-20151013
+2016,0101,Blu,1,1,400000,1x1,2.336,0.005,measured,8,21,nights 20160213-20160911
+2016,0921,Blu,1,1,400000,1x1,2.096,0.002,measured,6,23,nights 20160921-20161123
+2017,0101,Blu,1,1,400000,1x1,2.098,0.003,measured,6,22,nights 20170103-20171213
+2018,0101,Blu,1,1,400000,1x1,2.103,0.002,measured,4,15,nights 20180413-20181213
+2019,0101,Blu,1,1,400000,1x1,2.103,0.002,measured,4,13,nights 20190413-20190713
+2020,0101,Blu,1,1,400000,1x1,2.109,0.002,measured,3,12,nights 20200103-20201113
+2021,0101,Blu,1,1,400000,1x1,2.09,0.002,measured,10,38,nights 20210103-20211028
+2022,0101,Blu,1,1,400000,1x1,2.086,0.002,measured,8,30,nights 20220103-20221203
+2023,0101,Blu,1,1,400000,1x1,2.094,0.002,measured,6,23,nights 20230110-20231223
+2024,0101,Blu,1,1,400000,1x1,2.089,0.002,measured,8,31,nights 20240223-20241013
+2025,0101,Blu,1,1,400000,1x1,2.083,0.003,measured,5,20,nights 20250603-20251103
+2026,0101,Blu,1,1,400000,1x1,2.087,0.002,measured,14,50,nights 20260413-20261117
+2014,0101,Blu,2,1,400000,1x1,2.321,0.004,measured,11,36,nights 20140814-20141222
+2015,0101,Blu,2,1,400000,1x1,2.309,0.002,measured,3,7,nights 20150313-20150423
+2014,0101,Blu,2,2,400000,1x1,2.369,0.002,measured,11,36,nights 20140814-20141222
+2015,0101,Blu,2,2,400000,1x1,2.356,0.002,measured,3,7,nights 20150313-20150423
+2014,0101,Red,1,1,400000,1x1,2.887,0.002,adopted,0,0,no flats measured in 2014; value of 2015
+2015,0101,Red,1,1,400000,1x1,2.887,0.002,measured,2,7,nights 20150723-20151013
+2016,0101,Red,1,1,400000,1x1,2.879,0.002,measured,14,49,nights 20160213-20161123
+2017,0101,Red,1,1,400000,1x1,2.85,0.003,measured,6,22,nights 20170103-20171213
+2018,0101,Red,1,1,400000,1x1,2.86,0.002,measured,5,19,nights 20180413-20181213
+2019,0101,Red,1,1,400000,1x1,2.859,0.002,measured,4,14,nights 20190413-20190713
+2020,0101,Red,1,1,400000,1x1,2.854,0.002,measured,3,12,nights 20200103-20201113
+2021,0101,Red,1,1,400000,1x1,2.856,0.002,measured,10,38,nights 20210103-20211028
+2022,0101,Red,1,1,400000,1x1,2.852,0.002,measured,3,11,nights 20220103-20220129
+2022,0206,Red,1,1,400000,1x1,2.931,0.002,measured,5,19,nights 20220210-20221203
+2023,0101,Red,1,1,400000,1x1,2.931,0.002,measured,6,24,nights 20230110-20231223
+2024,0101,Red,1,1,400000,1x1,2.936,0.002,measured,8,31,nights 20240223-20241013
+2025,0101,Red,1,1,400000,1x1,2.933,0.002,measured,5,20,nights 20250603-20251103
+2026,0101,Red,1,1,400000,1x1,2.931,0.002,measured,10,42,nights 20260323-20261010
+2026,1022,Red,1,1,400000,1x1,2.943,0.002,measured,5,18,nights 20261025-20261117
+2015,0101,Red,1,1,1000000,1x1,3.715,0.015,measured,2,5,nights 20150323-20150423

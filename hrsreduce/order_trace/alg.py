@@ -14,6 +14,10 @@ FIT_G = fitting.LevMarLSQFitter()
 def is_empty_ary(ary: np.ndarray):
     return ary is None or np.size(ary) == 0
 
+
+class TraceCountError(RuntimeError):
+    """The cluster tracer found fewer orderlets than the arm has (raised instead of exit(), which ended the run)."""
+
 class OrderTraceAlg():
 
     """
@@ -3578,7 +3582,7 @@ class OrderTraceAlg():
             
         else:
             if uniq != expected_ords:
-                self.logger.warning("Not the right number of orders found. Found {}, expected {}. Exiting.".format(uniq,expected_ords))
-                exit()
+                self.logger.warning("Not the right number of orders found. Found {}, expected {}.".format(uniq,expected_ords))
+                raise TraceCountError("cluster tracer found {} orderlets, expected {}".format(uniq, expected_ords))
             
         

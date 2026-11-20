@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import logging
 
 from hrsreduce.wave_cal.alg import WaveCalAlg
+from hrsreduce.utils.provenance import stamp, file_is_current, frame_gain
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +179,9 @@ class WavelengthCalibration():
         diag_plot = (path +"/"+str(self.mode)+"_Master_Wave_Diagnostics_"+str(self.arm)+str(obs_date))
     
         master_wave = glob.glob(dst)
+        if master_wave and not file_is_current(master_wave[0], 'wave', gain=frame_gain(self.file)):
+            self.logger.info('Master Wave {} was made by an older recipe or with another gain; it is made again'.format(os.path.basename(dst)))
+            master_wave = []
         if len(master_wave) == 0:
             with fits.open(self.file) as hdul:
                 if self.arm =='R':
@@ -290,8 +294,9 @@ class WavelengthCalibration():
                     hdul.append(Ext_wave_L)
                     Ext_wave_L2 = fits.ImageHDU(name='WAVE_L_PRE', data=order_precisions_L)
                     hdul.append(Ext_wave_L2)
-                    
-                        
+                    stamp(hdul[0].header, 'wave')
+                    hdul[0].header['LINELIST'] = (os.path.basename(str(self.linelist_path_U)), 'seed line list (U; L likewise)')
+
                     hdul.writeto(self.file,overwrite='True')
                     #Copy the file and name it for mode and arm so it is kept.
                     path = os.path.dirname(self.file)

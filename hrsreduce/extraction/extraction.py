@@ -23,17 +23,27 @@ from hrsreduce.extraction.alg import SpectralExtractionAlg
 logger = logging.getLogger(__name__)
 
 
-MAX_START_OFFSET_S = 30.  # normal TIME-OBS - ENVMJD is +3 to +6 s; stale frames are off by >= 130 s
+MAX_START_OFFSET_S = 30.        # normal TIME-OBS - ENVMJD is +3 to +6 s; stale TIME-OBS is off by -130 s or more
+MAX_STALE_OFFSET_S = 12 * 3600.  # a TIME-OBS copied from the previous exposure is from the same night
 
 
-def observation_start(header, logger=None, max_offset_s=MAX_START_OFFSET_S):
+def observation_start(header, logger=None, max_offset_s=MAX_START_OFFSET_S, max_stale_s=MAX_STALE_OFFSET_S):
     """Return (start, source, offset_s): the UTC start of the exposure as an astropy Time.
 
     In some raw frames (seen in mid-2018, mostly the Blue arm) DATE-OBS/TIME-OBS, UTC-OBS, LST-OBS and JD are
-    copied from the previous exposure. ENVMJD (it holds a JD, despite the name) is written separately and stays
-    correct, normally a few seconds before TIME-OBS. When the two disagree by more than max_offset_s the start
-    is taken from ENVMJD and a warning is logged. offset_s is TIME-OBS minus ENVMJD in seconds (None if either
-    is missing).
+    copied from the previous exposure. ENVMJD (it holds a JD, despite the name) is written separately and is
+    then correct, normally a few seconds before TIME-OBS. A copied TIME-OBS is always EARLIER than ENVMJD (by one
+    exposure plus overheads: -131 to -2740 s in 2018). ENVMJD can be stale as well: on 2024-05-14 it stays at one
+    value all night, so TIME-OBS is LATER than ENVMJD by hours. Hence:
+
+        offset_s = TIME-OBS - ENVMJD
+        |offset_s| <= max_offset_s                  -> TIME-OBS (normal)
+        -max_stale_s <= offset_s < -max_offset_s    -> ENVMJD   (TIME-OBS copied from the previous exposure)
+        offset_s > max_offset_s                     -> TIME-OBS (ENVMJD stale), source 'TIME-OBS; ENVMJD stale'
+        offset_s < -max_stale_s                     -> TIME-OBS (not the same night), source 'TIME-OBS; unconfirmed'
+
+    Every departure from the normal case is logged as a warning, and the source is written to TSTARTSR with
+    the offset in TOBSOFF. offset_s is None if either time is missing. An ENVMJD of 0 or less counts as missing.
     """
     t_hdr = None
     date, ut = header.get("DATE-OBS"), header.get("TIME-OBS")
@@ -43,6 +53,8 @@ def observation_start(header, logger=None, max_offset_s=MAX_START_OFFSET_S):
     try:
         env = float(header.get("ENVMJD"))
     except (TypeError, ValueError):
+        env = None
+    if env is not None and env <= 0.:
         env = None
     if env is not None and env < 2400000.:
         env += 2400000.5  # a true MJD, in case SALT ever writes one
@@ -57,13 +69,46 @@ def observation_start(header, logger=None, max_offset_s=MAX_START_OFFSET_S):
         return t_hdr, "TIME-OBS", None
 
     offset_s = (t_hdr.jd - t_env.jd) * 86400.
-    if abs(offset_s) > max_offset_s:
+    if abs(offset_s) <= max_offset_s:
+        return t_hdr, "TIME-OBS", offset_s
+    if -max_stale_s <= offset_s < -max_offset_s:
         if logger:
-            logger.warning("observation_start: TIME-OBS %sT%s is %.1f s from ENVMJD %s; TIME-OBS looks stale "
-                           "(copied from another exposure), using ENVMJD (%s)"
-                           % (date, ut, offset_s, header.get("ENVMJD"), t_env.isot))
+            logger.warning("observation_start: TIME-OBS %sT%s is %.1f s before ENVMJD %s; TIME-OBS looks copied from "
+                           "the previous exposure, using ENVMJD (%s)" % (date, ut, offset_s, header.get("ENVMJD"), t_env.isot))
         return t_env, "ENVMJD", offset_s
-    return t_hdr, "TIME-OBS", offset_s
+    if offset_s > max_offset_s:
+        if logger:
+            logger.warning("observation_start: TIME-OBS %sT%s is %.1f s after ENVMJD %s; ENVMJD looks stale, "
+                           "keeping TIME-OBS" % (date, ut, offset_s, header.get("ENVMJD")))
+        return t_hdr, "TIME-OBS; ENVMJD stale", offset_s
+    if logger:
+        logger.warning("observation_start: TIME-OBS %sT%s is %.1f s before ENVMJD %s, more than %.0f h; keeping "
+                       "TIME-OBS, unconfirmed" % (date, ut, offset_s, header.get("ENVMJD"), max_stale_s / 3600.))
+    return t_hdr, "TIME-OBS; unconfirmed", offset_s
+
+
+def frame_mid_jd(header):
+    """Mid-exposure JD (UTC) of a frame from its header: the start of observation_start plus half of EXPTIME.
+    None when the start time is unknown."""
+    try:
+        t, _, _ = observation_start(header, None)
+    except Exception:
+        return None
+    try:
+        et = float(header.get("EXPTIME", 0.) or 0.)
+    except (TypeError, ValueError):
+        et = 0.
+    return t.jd + et / 2. / 86400.
+
+
+def arc_time_offset_h(sci_header, arc_file):
+    """Science minus arc mid-exposure time in hours (the arc file is a Master Wave, a copy of the arc frame), or None."""
+    try:
+        arc_hdr = fits.getheader(arc_file)
+    except Exception:
+        return None
+    a, s = frame_mid_jd(arc_hdr), frame_mid_jd(sci_header)
+    return None if a is None or s is None else (s - a) * 24.
 
 
 class SpectralExtraction():
@@ -320,6 +365,10 @@ class SpectralExtraction():
                         Ext_wave_L = fits.ImageHDU(data=sciwave_L, name="WAVE_L")
                         hdul.append(Ext_wave_L)
                         hdul[0].header['MSTRWAVE'] = (str(os.path.basename(self.arc_frame)),"Arc file")
+                        if hdul[0].header.get("CCDTYPE") == 'Science':
+                            dt = arc_time_offset_h(hdul[0].header, self.arc_frame)
+                            hdul[0].header['ARCDT'] = (round(dt, 4) if dt is not None else 'nan',
+                                                       "[h] science minus arc mid-exposure time")
                     
                     if blaze:
                         Ext_ords_U_BLZ = fits.ImageHDU(data=Blaze_U, name="BLAZE_U")
@@ -328,58 +377,74 @@ class SpectralExtraction():
                         hdul.append(Ext_ords_L_BLZ)
                         
                     if hdul[0].header["CCDTYPE"] == 'Science':
-                        
-                        #Calculate and add the Barycentric correction value
-                        #Start time from DATE-OBS/TIME-OBS, or from ENVMJD when TIME-OBS is stale
-                        t_start, t_src, t_off = observation_start(hdul[0].header, self.logger)
-                        fwmt = hdul[0].header["EXP-MID"]
-                        et = hdul[0].header["EXPTIME"]
-                        
-                        if fwmt > 0.:
-                            mid = float(fwmt)/86400.
-                        else:
-                            mid =  float(float(et)/2./86400.)
-        
-                        jd = t_start.jd + mid
-        
-                        lat = -32.3722685109
-                        lon = 20.806403441
-                        alt = hdul[0].header["SITEELEV"]
-                        object = hdul[0].header["OBJECT"]
-                        
-                        try:
-                            BCV =(barycorrpy.get_BC_vel(JDUTC=jd,starname = object, lat=lat, longi=lon, alt=alt, leap_update=True,ephemeris='de430'))
+                        #Calculate and add the Barycentric correction value (never stops the run; see barycentric)
+                        self.barycentric(hdul[0].header)
 
-                            BJD = barycorrpy.JDUTC_to_BJDTDB(jd, starname = object, lat=lat, longi=lon, alt=alt)
-                            Sub_ms = 'True'
-                            
-                        except:
-                            co = SkyCoord(hdul[0].header["RA"],hdul[0].header["DEC"],unit=(u.hourangle, u.deg))
-                            
-                            BCV =(barycorrpy.get_BC_vel(JDUTC=jd,ra=co.ra.degree, dec=co.dec.degree, lat=lat, longi=lon, alt=alt, leap_update=True,ephemeris='de430'))
-
-                            BJD = barycorrpy.JDUTC_to_BJDTDB(jd, ra=co.ra.degree, dec=co.dec.degree, lat=lat, longi=lon, alt=alt)
-                        
-                            Sub_ms = 'False'
-                        
-                        BARYCORR = BCV[0]/1000.
-                        BARYJD = BJD[0]
-                        
-                        hdul[0].header["BARYRV"] = (str(BARYCORR[0]),"Barycentric RV from barycorrpy")
-                        hdul[0].header["BRV_PRE"] = (str(Sub_ms),"BRV precision below 3 m s^-1")
-                        hdul[0].header["BJD"] = (str(BARYJD[0]),"BJD mid obs (using FWMT if not 0)")
-                        hdul[0].header["TSTART"] = (t_start.isot, "UTC start used for BJD and BARYRV")
-                        hdul[0].header["TSTARTSR"] = (t_src, "Source of TSTART: TIME-OBS or ENVMJD")
-                        if t_off is not None:
-                            hdul[0].header["TOBSOFF"] = (round(t_off, 1), "TIME-OBS minus ENVMJD (s)")
-                        
-                        
                     hdul.writeto(self.input_spectrum,overwrite='True')
         
         else:
             self.logger.info("SpectralExtraction: Already Extracted")
-            
-        
+
+
+    def barycentric(self, hdr):
+        """Write BARYRV, BRV_PRE, BJD, BARYSRC and the start-time cards of a science frame into hdr. Never raises.
+
+        The target is resolved by name (SIMBAD, through barycorrpy); if that fails, the header RA/DEC (J2000) are used.
+        If those are missing or unusable too, or the start time cannot be found, BARYRV and BJD are written as nan and
+        BARYSRC says why, so that the frame is still reduced. TELRA/TELDEC are deliberately not used (the telescope
+        pointing can be far from the target).
+        """
+        name = os.path.basename(self.input_spectrum)
+
+        def write(bcv, bjd, sub_ms, src):
+            hdr["BARYRV"] = (str(bcv), "Barycentric RV from barycorrpy")
+            hdr["BRV_PRE"] = (str(sub_ms), "BRV precision below 3 m s^-1")
+            hdr["BJD"] = (str(bjd), "BJD mid obs (using FWMT if not 0)")
+            hdr["BARYSRC"] = (src, "Coordinates used for BARYRV and BJD")
+
+        # Start time from DATE-OBS/TIME-OBS, or from ENVMJD when TIME-OBS is stale
+        try:
+            t_start, t_src, t_off = observation_start(hdr, self.logger)
+        except Exception as e:
+            self.logger.warning(f"SpectralExtraction: no start time for {name} ({e}); BARYRV and BJD set to nan")
+            write('nan', 'nan', 'False', 'none: no start time')
+            return
+        hdr["TSTART"] = (t_start.isot, "UTC start used for BJD and BARYRV")
+        hdr["TSTARTSR"] = (t_src, "Source of TSTART (see TOBSOFF)")
+        if t_off is not None:
+            hdr["TOBSOFF"] = (round(t_off, 1), "TIME-OBS minus ENVMJD (s)")
+
+        try:
+            fwmt = float(hdr.get("EXP-MID", 0.) or 0.)
+        except (TypeError, ValueError):
+            fwmt = 0.
+        et = float(hdr.get("EXPTIME", 0.) or 0.)
+        mid = fwmt / 86400. if fwmt > 0. else et / 2. / 86400.
+        jd = t_start.jd + mid
+
+        lat = -32.3722685109
+        lon = 20.806403441
+        alt = hdr["SITEELEV"]
+        target = hdr.get("OBJECT", "")
+
+        try:
+            BCV = barycorrpy.get_BC_vel(JDUTC=jd, starname=target, lat=lat, longi=lon, alt=alt, leap_update=True, ephemeris='de430')
+            BJD = barycorrpy.JDUTC_to_BJDTDB(jd, starname=target, lat=lat, longi=lon, alt=alt)
+            write(BCV[0][0] / 1000., BJD[0][0], 'True', 'SIMBAD')
+            return
+        except Exception:
+            pass
+        try:
+            co = SkyCoord(hdr["RA"], hdr["DEC"], unit=(u.hourangle, u.deg))
+            BCV = barycorrpy.get_BC_vel(JDUTC=jd, ra=co.ra.degree, dec=co.dec.degree, lat=lat, longi=lon, alt=alt, leap_update=True, ephemeris='de430')
+            BJD = barycorrpy.JDUTC_to_BJDTDB(jd, ra=co.ra.degree, dec=co.dec.degree, lat=lat, longi=lon, alt=alt)
+            write(BCV[0][0] / 1000., BJD[0][0], 'False', 'header RA/DEC')
+        except Exception as e:
+            self.logger.warning(f"SpectralExtraction: {target!r} not resolved and no usable RA/DEC in {name} "
+                                f"({type(e).__name__}: {e}); BARYRV and BJD set to nan")
+            write('nan', 'nan', 'False', 'none: no usable coordinates')
+
+
     def get_order_set(self, s_order):
         if self.o_set.size > 0:
             e_order = self.o_set.size

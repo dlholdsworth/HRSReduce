@@ -219,7 +219,7 @@ logger = logging.getLogger(__name__)
 
 class SlitCorrection():
 
-    CURVATURE_VERSION = 5
+    CURVATURE_VERSION = 6        # 6: 1.3.7 (top orderlet pair spans the columns where its centre is on the chip)
 
     def __init__(self, sci_frame, ext_name,order_file,arm,mode,base_dir,yyyymmdd,plot=False,super_arc=None,
                  fit_mode="2D", curv_degree=1, saturation=None, snr_min=8.0, validate_tol=0.015, fit_degree=2,

@@ -14,6 +14,7 @@ import os
 from hrsreduce.utils.frame_stacker import FrameStacker
 from hrsreduce.utils.find_nearest_files import FindNearestFiles
 from hrsreduce.L0_Corrections.level0corrections import L0Corrections
+from hrsreduce.utils.provenance import stamp, file_is_current, frame_gain
 
 logger = logging.getLogger(__name__)
 
@@ -195,6 +196,10 @@ class MasterBias():
 
         #Test if Master Bias exists
         master_file = glob.glob(self.out_dir+"Master_Bias_"+self.sarm+self.night+".fits")
+        gain_now = frame_gain(self.files[0]) if self.files else None      # the gain L0Corrections applied in this run
+        if master_file and not file_is_current(master_file[0], 'bias', gain=gain_now):
+            logger.info("Master Bias {} was made by an older recipe or with another gain; it is rebuilt".format(master_file[0]))
+            master_file = []
 
         if len(master_file) == 0:
 
@@ -388,6 +393,7 @@ class MasterBias():
             new_hdu.header['EXPTIME'] = (str(hdu[0].header['EXPTIME']),"Exposure time (s)")
             new_hdu.header['GAIN'] = (str(hdu[0].header['AVG_GAIN']),"AVG CCD gain over AMPS (photons per ADU)")
             new_hdu.header['GAINSET'] = (str(hdu[0].header['GAINSET']),"Gain Setting")
+            new_hdu.header['GAINSRC'] = (str(hdu[0].header.get('GAINSRC', 'header')), "Source of the applied gain")
             new_hdu.header['INSTRUME'] = (str('HRS'),"Instrument name: High Resolution Spectrograph")
             new_hdu.header['NCCDS'] = (str(hdu[0].header['NCCDS']),"Number of CCDs")
             new_hdu.header['NODCOUNT'] = (str(hdu[0].header['NODCOUNT']), "No. of Nod and Shuffles")
@@ -430,7 +436,8 @@ class MasterBias():
             unc_hdu.header.insert(8,('COMMENT',"Uncertainty of MasterBias"))
             
             hdul = fits.HDUList([new_hdu, var_hdu, cnt_hdu, unc_hdu])
-                    
+            stamp(hdul[0].header, 'bias')
+
             clean_comments(hdul)      # no slash in header comments (some FITS viewers cut the card there)
             hdul.writeto(str(self.out_dir)+"Master_Bias_"+str(self.sarm)+str(self.night)+".fits",overwrite=True)
             

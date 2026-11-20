@@ -11,6 +11,8 @@ import os
 
 from hrsreduce.utils.frame_stacker import FrameStacker, read_noise_from_headers
 from hrsreduce.utils.flat_check import MIN_FLAT_SPREAD
+from hrsreduce.utils.gain_check import check_gain
+from hrsreduce.utils.provenance import stamp, file_is_current, frame_gain
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +150,10 @@ class MasterFlat():
             master_file = glob.glob(self.out_dir+self.mode+"_Master_Flat_"+self.sarm+str(yyyymmdd)+".fits")
         else:
             master_file = glob.glob(self.out_dir+self.mode+"_"+self.sarm+str(yyyymmdd)+".fits")
+        gain_now = frame_gain(self.files[0]) if self.files else None      # the gain L0Corrections applied in this run
+        if master_file and not file_is_current(master_file[0], 'flat', gain=gain_now):
+            logger.info("Master Flat {} was made by an older recipe or with another gain; it is rebuilt".format(master_file[0]))
+            master_file = []
 
         if len(master_file) == 0:
             #If there is no MASTER FLAT file we need to create one.
@@ -167,6 +173,7 @@ class MasterFlat():
                 
             Flat_concat = []
             Flat_files_short = []
+            Flat_used = []             # the files of Flat_concat, in the same order
             exptime = []
             
             jd_mean = []
@@ -190,6 +197,7 @@ class MasterFlat():
                         #Subtract master bias
                         flat_data = (hdu[0].data).astype(np.float32)
                         Flat_concat.append(flat_data)#/flat_mean)
+                        Flat_used.append(file)
                         try:
                             jd_mean.append(float(hdu[0].header['JD']))
                         except:
@@ -258,6 +266,9 @@ class MasterFlat():
             
             #Stack, rejecting outliers against the expected noise (photon + read noise)
             read_noise = read_noise_from_headers(Flat_files, logger=logger)
+
+            # Measure the gain from the flats, as a check of the gain L0Corrections applied (header cards only)
+            gain_cards = check_gain(np_flat_frames, Flat_used, np_exptimes, read_noise, self.arm, logger)
             fs = FrameStacker(normalised_frames_data,2.1,logger)
             flat_avg,flat_var,cnt,flat_unc = fs.compute_noise_model(read_noise, np_exptimes)
             
@@ -391,6 +402,9 @@ class MasterFlat():
             new_hdu.header['EXPTIME'] = (str(hdu[0].header['EXPTIME']),"Exposure time (s)")
             new_hdu.header['GAIN'] = (str(hdu[0].header['AVG_GAIN']),"AVG CCD gain over AMPS (photons per ADU)")
             new_hdu.header['GAINSET'] = (str(hdu[0].header['GAINSET']),"Gain Setting")
+            new_hdu.header['GAINSRC'] = (str(hdu[0].header.get('GAINSRC', 'header')), "Source of the applied gain")
+            for key, (value, comment) in gain_cards.items():
+                new_hdu.header[key] = (value, comment)
             new_hdu.header['INSTRUME'] = (str('HRS'),"Instrument name: High Resolution Spectrograph")
             new_hdu.header['NCCDS'] = (str(hdu[0].header['NCCDS']),"Number of CCDs")
             new_hdu.header['NODCOUNT'] = (str(hdu[0].header['NODCOUNT']), "No. of Nod and Shuffles")
@@ -426,7 +440,8 @@ class MasterFlat():
             unc_hdu.header.insert(8,('COMMENT',"Uncertainty of MasterFlat"))
             
             hdul = fits.HDUList([new_hdu, cnt_hdu, unc_hdu])
-            
+            stamp(hdul[0].header, 'flat')
+
             if self.super:
                 try:
                     super_dir = self.base_dir+self.arm+"/"+str(yyyymmdd[0:4]+"/Super_Flats/")
@@ -561,5 +576,13 @@ class FlatBackground():
 
         except Exception as e:
             self.logger.warning("FlatBackground: could not remove the scattered light from {} ({}); the flat is used as stacked".format(self.master_flat, repr(e)))
+            # Flag the flat (no BKGTYPE, so the next run tries again)
+            try:
+                with fits.open(self.master_flat, mode='update') as hdul:
+                    hdul[0].header['BKGMETH'] = ('none', 'scattered light not removed')
+                    hdul[0].header['BKGFLAG'] = ('FAILED', 'scattered-light subtraction of the flat failed')
+                    hdul[0].header['BKGERR'] = (f"{type(e).__name__}: {e}"[:60], 'why the subtraction failed')
+            except Exception as e2:
+                self.logger.warning("FlatBackground: could not flag {} ({})".format(self.master_flat, repr(e2)))
 
         return self.master_flat
